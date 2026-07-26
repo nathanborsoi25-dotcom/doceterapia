@@ -71,6 +71,18 @@ export async function criarPedido(pedido: NovoPedido): Promise<{ id: string }> {
   return json<{ id: string }>(await fetch("/api/pedidos", POST_JSON(pedido)));
 }
 
+/**
+ * Cria o pedido e inicia o pagamento no Mercado Pago. Retorna a URL do
+ * checkout do MP (`url`) para onde o cliente deve ser redirecionado.
+ */
+export async function iniciarPagamento(
+  pedido: NovoPedido
+): Promise<{ pedidoId: string; url: string | null }> {
+  const res = await fetch("/api/pagamento", POST_JSON(pedido));
+  if (!res.ok) throw new Error(`Erro no pagamento (${res.status})`);
+  return res.json();
+}
+
 export async function getPedidos(): Promise<Pedido[]> {
   return json<Pedido[]>(await fetch("/api/pedidos", { cache: "no-store" }));
 }

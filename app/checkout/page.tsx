@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
-import { getCarrinho, getClienteAtual, limparCarrinho } from "@/lib/store";
-import { criarPedido, getConfiguracaoFrete } from "@/lib/api";
+import { getCarrinho, getClienteAtual } from "@/lib/store";
+import { getConfiguracaoFrete, iniciarPagamento } from "@/lib/api";
 import { calcularFretePorEndereco } from "@/lib/shipping";
 import type { ConfiguracaoFrete, FormaPagamento, TipoEntrega } from "@/lib/types";
 
 export default function CheckoutPage() {
-  const router = useRouter();
   const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>("entrega");
   const [dataAgendada, setDataAgendada] = useState("");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("pix");
@@ -49,10 +47,8 @@ export default function CheckoutPage() {
     }
     setFinalizando(true);
     try {
-      // Salva o pedido no banco (status "aguardando_pagamento").
-      // TODO (próximo passo): gerar a cobrança real no Mercado Pago
-      // (Pix / cartão sem parcelamento). Ver README > "Mercado Pago".
-      await criarPedido({
+      // Cria o pedido e inicia o pagamento no Mercado Pago.
+      const { url } = await iniciarPagamento({
         clienteId: cliente?.id ?? "",
         itens: carrinho,
         tipoEntrega,
@@ -61,13 +57,17 @@ export default function CheckoutPage() {
         valorFrete,
         formaPagamento,
       });
-      limparCarrinho();
-      alert(
-        "Pedido registrado! 🍒 Ele já aparece no painel da Camily. O pagamento online (Mercado Pago) é o próximo passo que vamos ligar."
-      );
-      router.push("/catalogo");
+      if (url) {
+        // Redireciona para o checkout seguro do Mercado Pago (Pix/cartão).
+        window.location.href = url;
+      } else {
+        alert("Não foi possível iniciar o pagamento. Tente novamente.");
+        setFinalizando(false);
+      }
     } catch {
-      alert("Não foi possível registrar o pedido. Tente novamente.");
+      alert(
+        "Não foi possível iniciar o pagamento. Verifique sua conexão e tente novamente."
+      );
       setFinalizando(false);
     }
   }
@@ -160,8 +160,12 @@ export default function CheckoutPage() {
           disabled={!dataAgendada || finalizando}
           className="mt-6 w-full bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors disabled:opacity-40"
         >
-          {finalizando ? "Registrando pedido..." : "Finalizar pedido"}
+          {finalizando ? "Redirecionando para o pagamento..." : "Ir para o pagamento"}
         </button>
+        <p className="text-xs text-ink/50 text-center mt-2 font-body">
+          Você será levado ao ambiente seguro do Mercado Pago para pagar com
+          Pix ou cartão.
+        </p>
       </main>
     </>
   );
