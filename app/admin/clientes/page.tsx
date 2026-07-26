@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAdminGuard } from "@/lib/useAdminGuard";
 import { getListaClientes } from "@/lib/api";
 import type { Cliente } from "@/lib/types";
 
 export default function AdminClientesPage() {
-  useAdminGuard();
   const [clientes, setClientes] = useState<Cliente[]>([]);
 
   useEffect(() => {

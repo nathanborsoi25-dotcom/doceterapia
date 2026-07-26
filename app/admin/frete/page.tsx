@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAdminGuard } from "@/lib/useAdminGuard";
 import { getConfiguracaoFrete, salvarConfiguracaoFrete } from "@/lib/api";
 import type { ConfiguracaoFrete, FaixaFrete } from "@/lib/types";
 
 export default function AdminFretePage() {
-  useAdminGuard();
   const [config, setConfig] = useState<ConfiguracaoFrete | null>(null);
 
   useEffect(() => {

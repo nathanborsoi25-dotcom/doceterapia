@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { configFrete } from "@/lib/db/schema";
+import { requireAdmin } from "@/lib/require-admin";
 import { configuracaoFretePadrao } from "@/lib/shipping";
 import type { ConfiguracaoFrete } from "@/lib/types";
 
@@ -19,7 +20,11 @@ export async function GET() {
   return NextResponse.json({ origem: r.origem, faixas: r.faixas });
 }
 
+// Alterar a configuração de frete: só o admin logado.
 export async function PUT(req: Request) {
+  const negado = await requireAdmin();
+  if (negado) return negado;
+
   const config = (await req.json()) as ConfiguracaoFrete;
   const db = getDb();
   await db

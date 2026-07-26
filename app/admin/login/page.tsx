@@ -2,28 +2,35 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { loginAdmin } from "@/lib/api";
 
 /**
- * Login simples só para tirar o protótipo do papel. NÃO é seguro para
- * produção — antes de lançar de verdade, troque por autenticação de
- * verdade (ex: NextAuth com email/senha, ou Clerk), pois este PIN fica
- * visível no código-fonte do site. Ver README > "Próximos passos: login
- * seguro do admin".
+ * Login do admin. A senha é conferida no SERVIDOR (rota /api/admin/login),
+ * a partir da variável de ambiente ADMIN_PASSWORD — ela nunca aparece no
+ * código da página. Ao acertar, o servidor grava um cookie de sessão seguro.
  */
-const PIN_TEMPORARIO = "doceterapia2026";
-
 export default function AdminLoginPage() {
-  const [pin, setPin] = useState("");
+  const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
+  const [entrando, setEntrando] = useState(false);
   const router = useRouter();
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (pin === PIN_TEMPORARIO) {
-      window.localStorage.setItem("dt_admin_ok", "1");
-      router.push("/admin");
-    } else {
-      setErro("PIN incorreto.");
+    setErro("");
+    setEntrando(true);
+    try {
+      const ok = await loginAdmin(senha);
+      if (ok) {
+        router.push("/admin");
+        router.refresh();
+      } else {
+        setErro("Senha incorreta.");
+        setEntrando(false);
+      }
+    } catch {
+      setErro("Não foi possível entrar. Tente novamente.");
+      setEntrando(false);
     }
   }
 
@@ -35,14 +42,17 @@ export default function AdminLoginPage() {
         </h1>
         <input
           type="password"
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          placeholder="PIN de acesso"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          placeholder="Senha de acesso"
           className="border border-cherryLight/60 rounded-xl px-4 py-2 bg-white/70"
         />
         {erro && <p className="text-cherryDark text-sm">{erro}</p>}
-        <button className="bg-cherryDark text-white rounded-full py-3 font-semibold">
-          Entrar
+        <button
+          disabled={entrando}
+          className="bg-cherryDark text-white rounded-full py-3 font-semibold disabled:opacity-50"
+        >
+          {entrando ? "Entrando..." : "Entrar"}
         </button>
       </form>
     </main>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { produtos } from "@/lib/db/schema";
+import { requireAdmin } from "@/lib/require-admin";
 import type { Produto } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,11 @@ export async function GET() {
   return NextResponse.json(rows);
 }
 
+// Criar/editar produto: só o admin logado.
 export async function POST(req: Request) {
+  const negado = await requireAdmin();
+  if (negado) return negado;
+
   const p = (await req.json()) as Produto;
   const values = {
     id: p.id,

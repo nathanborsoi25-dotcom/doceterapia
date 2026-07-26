@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useAdminGuard } from "@/lib/useAdminGuard";
+import { useRouter } from "next/navigation";
+import { logoutAdmin } from "@/lib/api";
 
 const atalhos = [
   { href: "/admin/pedidos", label: "Meus pedidos", desc: "Ver e acompanhar os pedidos recebidos" },
@@ -12,12 +13,28 @@ const atalhos = [
 ];
 
 export default function AdminHome() {
-  useAdminGuard();
+  const router = useRouter();
+
+  async function sair() {
+    await logoutAdmin();
+    router.push("/admin/login");
+    router.refresh();
+  }
 
   return (
     <main className="min-h-screen px-6 md:px-12 py-10 max-w-3xl mx-auto">
-      <h1 className="font-display text-3xl text-cherryDark">Painel Doceterapia</h1>
-      <p className="text-ink/70 font-body mt-1">Só você vê essa área.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl text-cherryDark">Painel Doceterapia</h1>
+          <p className="text-ink/70 font-body mt-1">Só você vê essa área.</p>
+        </div>
+        <button
+          onClick={sair}
+          className="text-sm font-body text-cherryDark border border-cherryLight/50 rounded-full px-4 py-1.5 hover:bg-blush transition-colors"
+        >
+          Sair
+        </button>
+      </div>
 
       <div className="grid sm:grid-cols-2 gap-4 mt-8">
         {atalhos.map((a) => (

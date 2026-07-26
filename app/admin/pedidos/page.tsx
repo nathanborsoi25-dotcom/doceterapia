@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAdminGuard } from "@/lib/useAdminGuard";
 import { atualizarStatusPedido, getPedidos } from "@/lib/api";
 import type { Pedido } from "@/lib/types";
 
@@ -21,7 +20,6 @@ const PAGAMENTO: Record<Pedido["formaPagamento"], string> = {
 };
 
 export default function AdminPedidosPage() {
-  useAdminGuard();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
 

@@ -85,3 +85,13 @@ export async function atualizarStatusPedido(
     body: JSON.stringify({ status }),
   });
 }
+
+// ---- Admin (login/logout) ----
+export async function loginAdmin(password: string): Promise<boolean> {
+  const res = await fetch("/api/admin/login", POST_JSON({ password }));
+  return res.ok;
+}
+
+export async function logoutAdmin(): Promise<void> {
+  await fetch("/api/admin/logout", { method: "POST" });
+}

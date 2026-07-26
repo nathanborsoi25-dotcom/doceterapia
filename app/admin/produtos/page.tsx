@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAdminGuard } from "@/lib/useAdminGuard";
 import { getProdutos, removerProduto, upsertProduto } from "@/lib/api";
 import type { Produto } from "@/lib/types";
 
 export default function AdminProdutosPage() {
-  useAdminGuard();
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
 

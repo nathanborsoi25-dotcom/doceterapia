@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { clientes } from "@/lib/db/schema";
+import { requireAdmin } from "@/lib/require-admin";
 import type { Cliente } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,11 @@ function toCliente(row: typeof clientes.$inferSelect): Cliente {
   };
 }
 
+// Lista de clientes = dado pessoal. Só o admin logado pode ler.
 export async function GET() {
+  const negado = await requireAdmin();
+  if (negado) return negado;
+
   const db = getDb();
   const rows = await db.select().from(clientes).orderBy(desc(clientes.criadoEm));
   return NextResponse.json(rows.map(toCliente));

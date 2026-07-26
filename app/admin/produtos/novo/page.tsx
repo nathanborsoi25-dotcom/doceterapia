@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAdminGuard } from "@/lib/useAdminGuard";
 import { upsertProduto } from "@/lib/api";
 import type { Produto, TipoDisponibilidade } from "@/lib/types";
 
 export default function NovoProdutoPage() {
-  useAdminGuard();
   const router = useRouter();
   const [form, setForm] = useState({
     nome: "",
