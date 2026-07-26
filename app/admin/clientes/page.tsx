@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAdminGuard } from "@/lib/useAdminGuard";
-import { getListaClientes } from "@/lib/store";
+import { getListaClientes } from "@/lib/api";
 import type { Cliente } from "@/lib/types";
 
 export default function AdminClientesPage() {
@@ -10,7 +10,9 @@ export default function AdminClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
 
   useEffect(() => {
-    setClientes(getListaClientes());
+    getListaClientes()
+      .then(setClientes)
+      .catch(() => setClientes([]));
   }, []);
 
   return (

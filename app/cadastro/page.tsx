@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CherryDivider from "@/components/CherryDivider";
-import { registrarClienteNaLista, salvarClienteAtual } from "@/lib/store";
+import { salvarClienteAtual } from "@/lib/store";
+import { registrarCliente } from "@/lib/api";
 import type { Cliente } from "@/lib/types";
 
 export default function CadastroPage() {
@@ -25,7 +26,9 @@ export default function CadastroPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  const [salvando, setSalvando] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.nome || !form.cpf || !form.telefone || !form.rua || !form.numero || !form.cep) {
       setErro("Preencha todos os campos obrigatórios para continuar.");
@@ -51,9 +54,16 @@ export default function CadastroPage() {
       criadoEm: new Date().toISOString(),
     };
 
+    setErro("");
+    setSalvando(true);
     salvarClienteAtual(cliente);
-    registrarClienteNaLista(cliente);
-    router.push("/catalogo");
+    try {
+      await registrarCliente(cliente);
+      router.push("/catalogo");
+    } catch {
+      setErro("Não foi possível salvar seu cadastro. Tente novamente.");
+      setSalvando(false);
+    }
   }
 
   return (
@@ -90,9 +100,10 @@ export default function CadastroPage() {
 
         <button
           type="submit"
-          className="mt-4 bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors"
+          disabled={salvando}
+          className="mt-4 bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors disabled:opacity-50"
         >
-          Continuar para o cardápio
+          {salvando ? "Salvando..." : "Continuar para o cardápio"}
         </button>
       </form>
     </main>

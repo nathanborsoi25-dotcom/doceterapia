@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAdminGuard } from "@/lib/useAdminGuard";
 
 const atalhos = [
+  { href: "/admin/pedidos", label: "Meus pedidos", desc: "Ver e acompanhar os pedidos recebidos" },
   { href: "/admin/produtos", label: "Meus produtos", desc: "Editar fotos, título, descrição e preço" },
   { href: "/admin/produtos/novo", label: "Adicionar produto", desc: "Cadastrar um novo doce no cardápio" },
   { href: "/admin/frete", label: "Configurar frete", desc: "Faixas de distância e valores" },

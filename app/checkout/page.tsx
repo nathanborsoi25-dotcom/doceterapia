@@ -1,25 +1,35 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
-import { getCarrinho, getClienteAtual, getConfiguracaoFrete } from "@/lib/store";
+import { getCarrinho, getClienteAtual, limparCarrinho } from "@/lib/store";
+import { criarPedido, getConfiguracaoFrete } from "@/lib/api";
 import { calcularFretePorEndereco } from "@/lib/shipping";
-import type { FormaPagamento, TipoEntrega } from "@/lib/types";
+import type { ConfiguracaoFrete, FormaPagamento, TipoEntrega } from "@/lib/types";
 
 export default function CheckoutPage() {
+  const router = useRouter();
   const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>("entrega");
   const [dataAgendada, setDataAgendada] = useState("");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("pix");
   const [frete, setFrete] = useState<{ distanciaKm: number; valor: number | null } | null>(null);
+  const [config, setConfig] = useState<ConfiguracaoFrete | null>(null);
+  const [finalizando, setFinalizando] = useState(false);
 
   const carrinho = useMemo(() => getCarrinho(), []);
   const cliente = useMemo(() => getClienteAtual(), []);
   const subtotal = carrinho.reduce((acc, i) => acc + i.precoUnitario * i.quantidade, 0);
 
   useEffect(() => {
-    if (tipoEntrega !== "entrega" || !cliente) return;
-    const config = getConfiguracaoFrete();
+    getConfiguracaoFrete()
+      .then(setConfig)
+      .catch(() => setConfig(null));
+  }, []);
+
+  useEffect(() => {
+    if (tipoEntrega !== "entrega" || !cliente || !config) return;
     // Se o endereço do cliente ainda não tem lat/lng (geocodificação
     // pendente — ver TODO em cadastro/page.tsx), isso cai no fallback.
     if (cliente.endereco.lat && cliente.endereco.lng) {
@@ -27,18 +37,39 @@ export default function CheckoutPage() {
     } else {
       setFrete(null);
     }
-  }, [tipoEntrega, cliente]);
+  }, [tipoEntrega, cliente, config]);
 
   const valorFrete = tipoEntrega === "retirada" ? 0 : frete?.valor ?? 0;
   const total = subtotal + valorFrete;
 
-  function handleFinalizar() {
-    // TODO: aqui entra a chamada real para criar o pedido no backend e
-    // gerar a cobrança no Mercado Pago (Pix / cartão sem parcelamento).
-    // Ver README > "Próximos passos: Mercado Pago".
-    alert(
-      "Próximo passo: conectar isso à API do Mercado Pago para gerar a cobrança real. Por enquanto este é só o fluxo visual."
-    );
+  async function handleFinalizar() {
+    if (carrinho.length === 0) {
+      alert("Seu carrinho está vazio.");
+      return;
+    }
+    setFinalizando(true);
+    try {
+      // Salva o pedido no banco (status "aguardando_pagamento").
+      // TODO (próximo passo): gerar a cobrança real no Mercado Pago
+      // (Pix / cartão sem parcelamento). Ver README > "Mercado Pago".
+      await criarPedido({
+        clienteId: cliente?.id ?? "",
+        itens: carrinho,
+        tipoEntrega,
+        dataAgendada,
+        enderecoEntrega: tipoEntrega === "entrega" ? cliente?.endereco : undefined,
+        valorFrete,
+        formaPagamento,
+      });
+      limparCarrinho();
+      alert(
+        "Pedido registrado! 🍒 Ele já aparece no painel da Camily. O pagamento online (Mercado Pago) é o próximo passo que vamos ligar."
+      );
+      router.push("/catalogo");
+    } catch {
+      alert("Não foi possível registrar o pedido. Tente novamente.");
+      setFinalizando(false);
+    }
   }
 
   return (
@@ -126,10 +157,10 @@ export default function CheckoutPage() {
 
         <button
           onClick={handleFinalizar}
-          disabled={!dataAgendada}
+          disabled={!dataAgendada || finalizando}
           className="mt-6 w-full bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors disabled:opacity-40"
         >
-          Finalizar pedido
+          {finalizando ? "Registrando pedido..." : "Finalizar pedido"}
         </button>
       </main>
     </>

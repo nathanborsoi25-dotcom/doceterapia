@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminGuard } from "@/lib/useAdminGuard";
-import { upsertProduto } from "@/lib/store";
+import { upsertProduto } from "@/lib/api";
 import type { Produto, TipoDisponibilidade } from "@/lib/types";
 
 export default function NovoProdutoPage() {
@@ -19,7 +19,9 @@ export default function NovoProdutoPage() {
     prazoDias: "",
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  const [salvando, setSalvando] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const produto: Produto = {
       id: crypto.randomUUID(),
@@ -32,8 +34,13 @@ export default function NovoProdutoPage() {
       prazoDias: form.prazoDias ? parseInt(form.prazoDias) : undefined,
       ativo: true,
     };
-    upsertProduto(produto);
-    router.push("/admin/produtos");
+    setSalvando(true);
+    try {
+      await upsertProduto(produto);
+      router.push("/admin/produtos");
+    } catch {
+      setSalvando(false);
+    }
   }
 
   return (
@@ -93,8 +100,11 @@ export default function NovoProdutoPage() {
             className="border border-cherryLight/50 rounded-lg p-2 font-body"
           />
         )}
-        <button className="bg-cherryDark text-white rounded-full py-3 font-body font-semibold mt-2">
-          Salvar produto
+        <button
+          disabled={salvando}
+          className="bg-cherryDark text-white rounded-full py-3 font-body font-semibold mt-2 disabled:opacity-50"
+        >
+          {salvando ? "Salvando..." : "Salvar produto"}
         </button>
       </form>
     </main>

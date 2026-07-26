@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAdminGuard } from "@/lib/useAdminGuard";
-import { getConfiguracaoFrete, salvarConfiguracaoFrete } from "@/lib/store";
+import { getConfiguracaoFrete, salvarConfiguracaoFrete } from "@/lib/api";
 import type { ConfiguracaoFrete, FaixaFrete } from "@/lib/types";
 
 export default function AdminFretePage() {
@@ -10,7 +10,9 @@ export default function AdminFretePage() {
   const [config, setConfig] = useState<ConfiguracaoFrete | null>(null);
 
   useEffect(() => {
-    setConfig(getConfiguracaoFrete());
+    getConfiguracaoFrete()
+      .then(setConfig)
+      .catch(() => setConfig(null));
   }, []);
 
   if (!config) return null;
@@ -39,9 +41,14 @@ export default function AdminFretePage() {
     setConfig((c) => (c ? { ...c, faixas: c.faixas.filter((f) => f.id !== id) } : c));
   }
 
-  function salvar() {
-    if (config) salvarConfiguracaoFrete(config);
-    alert("Configuração de frete salva!");
+  async function salvar() {
+    if (!config) return;
+    try {
+      await salvarConfiguracaoFrete(config);
+      alert("Configuração de frete salva!");
+    } catch {
+      alert("Não foi possível salvar. Tente novamente.");
+    }
   }
 
   return (

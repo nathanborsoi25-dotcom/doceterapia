@@ -3,27 +3,35 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAdminGuard } from "@/lib/useAdminGuard";
-import { getProdutos, removerProduto, upsertProduto } from "@/lib/store";
+import { getProdutos, removerProduto, upsertProduto } from "@/lib/api";
 import type { Produto } from "@/lib/types";
 
 export default function AdminProdutosPage() {
   useAdminGuard();
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [salvandoId, setSalvandoId] = useState<string | null>(null);
 
   useEffect(() => {
-    setProdutos(getProdutos());
+    getProdutos()
+      .then(setProdutos)
+      .catch(() => setProdutos([]));
   }, []);
 
   function handleCampo(id: string, campo: keyof Produto, valor: string | number | boolean) {
     setProdutos((prev) => prev.map((p) => (p.id === id ? { ...p, [campo]: valor } : p)));
   }
 
-  function salvar(produto: Produto) {
-    upsertProduto(produto);
+  async function salvar(produto: Produto) {
+    setSalvandoId(produto.id);
+    try {
+      await upsertProduto(produto);
+    } finally {
+      setSalvandoId(null);
+    }
   }
 
-  function remover(id: string) {
-    removerProduto(id);
+  async function remover(id: string) {
+    await removerProduto(id);
     setProdutos((prev) => prev.filter((p) => p.id !== id));
   }
 
@@ -107,9 +115,10 @@ export default function AdminProdutosPage() {
               </button>
               <button
                 onClick={() => salvar(produto)}
-                className="text-sm bg-cherryDark text-white rounded-full px-4 py-1.5 font-body"
+                disabled={salvandoId === produto.id}
+                className="text-sm bg-cherryDark text-white rounded-full px-4 py-1.5 font-body disabled:opacity-50"
               >
-                Salvar
+                {salvandoId === produto.id ? "Salvando..." : "Salvar"}
               </button>
             </div>
           </div>

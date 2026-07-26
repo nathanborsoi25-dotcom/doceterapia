@@ -5,14 +5,18 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import CherryDivider from "@/components/CherryDivider";
-import { getProdutos } from "@/lib/store";
+import { getProdutos } from "@/lib/api";
 import type { Produto } from "@/lib/types";
 
 export default function CatalogoPage() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    setProdutos(getProdutos().filter((p) => p.ativo));
+    getProdutos()
+      .then((lista) => setProdutos(lista.filter((p) => p.ativo)))
+      .catch(() => setProdutos([]))
+      .finally(() => setCarregando(false));
   }, []);
 
   return (
@@ -23,11 +27,19 @@ export default function CatalogoPage() {
           Nosso cardápio de hoje
         </h1>
         <CherryDivider />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {produtos.map((produto) => (
-            <ProductCard key={produto.id} produto={produto} />
-          ))}
-        </div>
+        {carregando ? (
+          <p className="text-center font-body text-ink/60">Carregando cardápio...</p>
+        ) : produtos.length === 0 ? (
+          <p className="text-center font-body text-ink/60">
+            Nenhum doce no cardápio ainda.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {produtos.map((produto) => (
+              <ProductCard key={produto.id} produto={produto} />
+            ))}
+          </div>
+        )}
       </main>
       <Footer />
     </>
