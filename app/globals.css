@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Fraunces", serif;
+  --font-body: "Nunito", sans-serif;
+}
+
+body {
+  background-color: #fdf0ea;
+  color: #3b1a1f;
+}
+
+/* Divisor com cerejas — o elemento de assinatura do site, ecoando a logo */
+.cherry-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #c2415a;
+}
+.cherry-divider .linha {
+  height: 1px;
+  width: 3rem;
+  background-color: #c2415a55;
+}
