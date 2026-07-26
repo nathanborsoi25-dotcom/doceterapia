@@ -74,8 +74,14 @@ export async function POST(req: Request) {
         failure: `${origin}/pedido/erro`,
       },
       auto_return: "approved",
-      // Sem parcelamento (crédito à vista / débito / Pix).
-      payment_methods: { installments: 1 },
+      payment_methods: {
+        // Crédito à vista (sem parcelamento).
+        installments: 1,
+        default_installments: 1,
+        // Remove Boleto. Mantém Pix (bank_transfer), crédito e débito
+        // (debit_card) — de qualquer banco que o Mercado Pago oferecer.
+        excluded_payment_types: [{ id: "ticket" }],
+      },
       // MP não aceita URL local para notificação; só manda em produção.
       ...(ehLocal
         ? {}
