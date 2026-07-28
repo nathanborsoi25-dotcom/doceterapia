@@ -31,6 +31,23 @@ export async function removerProduto(id: string): Promise<void> {
   await fetch(`/api/produtos/${id}`, { method: "DELETE" });
 }
 
+// ---- Geocodificação (endereço → coordenadas) ----
+export async function geocodificarEndereco(endereco: {
+  rua?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
+  cep?: string;
+}): Promise<{ lat: number | null; lng: number | null }> {
+  try {
+    const res = await fetch("/api/geocodificar", POST_JSON(endereco));
+    if (!res.ok) return { lat: null, lng: null };
+    return res.json();
+  } catch {
+    return { lat: null, lng: null };
+  }
+}
+
 // ---- Clientes ----
 export async function registrarCliente(cliente: Cliente): Promise<void> {
   await fetch("/api/clientes", POST_JSON(cliente));
@@ -47,12 +64,14 @@ export async function getConfiguracaoFrete(): Promise<ConfiguracaoFrete> {
 
 export async function salvarConfiguracaoFrete(
   config: ConfiguracaoFrete
-): Promise<void> {
-  await fetch("/api/frete", {
+): Promise<{ ok: boolean; origem?: ConfiguracaoFrete["origem"] }> {
+  const res = await fetch("/api/frete", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
   });
+  if (!res.ok) return { ok: false };
+  return res.json();
 }
 
 // ---- Pedidos ----

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CherryDivider from "@/components/CherryDivider";
 import { salvarClienteAtual } from "@/lib/store";
-import { registrarCliente } from "@/lib/api";
+import { geocodificarEndereco, registrarCliente } from "@/lib/api";
 import type { Cliente } from "@/lib/types";
 
 export default function CadastroPage() {
@@ -35,6 +35,19 @@ export default function CadastroPage() {
       return;
     }
 
+    setErro("");
+    setSalvando(true);
+
+    // Geocodifica o endereço (converte em lat/lng) pra o frete ser calculado
+    // sozinho no checkout. Se falhar, salva mesmo assim (frete cai no fallback).
+    const coords = await geocodificarEndereco({
+      rua: form.rua,
+      numero: form.numero,
+      bairro: form.bairro,
+      cidade: form.cidade,
+      cep: form.cep,
+    });
+
     const cliente: Cliente = {
       id: crypto.randomUUID(),
       nome: form.nome,
@@ -47,15 +60,12 @@ export default function CadastroPage() {
         cidade: form.cidade,
         cep: form.cep,
         complemento: form.complemento,
-        // TODO: geocodificar automaticamente (Google Geocoding / Nominatim)
-        // ao invés de deixar lat/lng em branco, para o cálculo de frete
-        // funcionar de ponta a ponta.
+        lat: coords.lat ?? undefined,
+        lng: coords.lng ?? undefined,
       },
       criadoEm: new Date().toISOString(),
     };
 
-    setErro("");
-    setSalvando(true);
     salvarClienteAtual(cliente);
     try {
       await registrarCliente(cliente);

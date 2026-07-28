@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { configFrete } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
+import { geocodificarTexto } from "@/lib/geocode";
 import { configuracaoFretePadrao } from "@/lib/shipping";
 import type { ConfiguracaoFrete } from "@/lib/types";
 
@@ -26,13 +27,21 @@ export async function PUT(req: Request) {
   if (negado) return negado;
 
   const config = (await req.json()) as ConfiguracaoFrete;
+
+  // Geocodifica o endereço da loja pra as distâncias saírem certas.
+  // Se o Nominatim não achar, mantém as coordenadas que já vieram.
+  const coords = await geocodificarTexto(config.origem.endereco);
+  const origem = coords
+    ? { ...config.origem, lat: coords.lat, lng: coords.lng }
+    : config.origem;
+
   const db = getDb();
   await db
     .insert(configFrete)
-    .values({ id: ID, origem: config.origem, faixas: config.faixas })
+    .values({ id: ID, origem, faixas: config.faixas })
     .onConflictDoUpdate({
       target: configFrete.id,
-      set: { origem: config.origem, faixas: config.faixas },
+      set: { origem, faixas: config.faixas },
     });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, origem });
 }
