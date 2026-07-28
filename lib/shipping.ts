@@ -1,28 +1,37 @@
 import type { ConfiguracaoFrete, FaixaFrete } from "./types";
 
 /**
- * Configuração inicial de frete, baseada no exemplo que a Camily passou:
- * - 0 a 500m: grátis
- * - 501m a 3km: R$ 3,00
- * - 3,01km a 10km: R$ 10,00
+ * Configuração de frete calibrada com recibos reais do Uber Envios em
+ * Arapongas (mai/jun 2026):
+ *   - 1,2 km  → R$ 7,22
+ *   - 4,3 km  → R$ 9,45
+ * Cruzando os dois pontos, o custo se comporta como uma taxa fixa de
+ * ~R$ 6,50 mais ~R$ 0,60 por km (em linha reta). Ou seja: QUALQUER entrega
+ * custa uns R$ 7, mesmo a duas quadras — por isso as faixas começam em
+ * R$ 8,00 em vez dos R$ 3,00 do protótipo, que davam prejuízo.
  *
- * IMPORTANTE: lat/lng da origem abaixo são um placeholder aproximado do
- * centro de Arapongas-PR. Antes de ir pra produção, geocodifique o
- * endereço real "Rua Ajaja, 41 - Arapongas, PR" (ex: via Google Geocoding
- * API ou Nominatim/OpenStreetMap) e atualize os valores aqui, ou faça isso
- * direto pelo painel admin > Configurar frete, que grava lat/lng ao
- * salvar o endereço de origem.
+ * A faixa de até 500 m fica grátis por escolha da Camily (cortesia para
+ * quem é bem pertinho; o custo do envio sai do bolso dela nesses casos).
+ *
+ * O Uber tem preço dinâmico (pico, chuva), então os valores abaixo são uma
+ * média com arredondamento pra cima. Tudo é ajustável no painel admin >
+ * Configurar frete, sem mexer no código.
+ *
+ * lat/lng da origem = geocodificação real da Rua Ajaja, 41.
  */
 export const configuracaoFretePadrao: ConfiguracaoFrete = {
   origem: {
     endereco: "Rua Ajaja, 41 - Arapongas, PR",
-    lat: -23.4114,
-    lng: -51.4247,
+    lat: -23.4164997,
+    lng: -51.4328836,
   },
   faixas: [
     { id: "f1", distanciaMinKm: 0, distanciaMaxKm: 0.5, valor: 0 },
-    { id: "f2", distanciaMinKm: 0.5, distanciaMaxKm: 3, valor: 3 },
-    { id: "f3", distanciaMinKm: 3, distanciaMaxKm: 10, valor: 10 },
+    { id: "f2", distanciaMinKm: 0.5, distanciaMaxKm: 2, valor: 8 },
+    { id: "f3", distanciaMinKm: 2, distanciaMaxKm: 3, valor: 9 },
+    { id: "f4", distanciaMinKm: 3, distanciaMaxKm: 5, valor: 10 },
+    { id: "f5", distanciaMinKm: 5, distanciaMaxKm: 7, valor: 12 },
+    { id: "f6", distanciaMinKm: 7, distanciaMaxKm: 10, valor: 14 },
   ],
 };
 
