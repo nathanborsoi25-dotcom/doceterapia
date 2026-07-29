@@ -6,6 +6,8 @@ import CherryDivider from "@/components/CherryDivider";
 import { getCarrinho, getClienteAtual } from "@/lib/store";
 import { getConfiguracaoFrete, iniciarPagamento } from "@/lib/api";
 import { calcularFretePorEndereco } from "@/lib/shipping";
+import { checarAreaEntrega } from "@/lib/area-entrega";
+import { linkWhatsApp } from "@/lib/contato";
 import type { ConfiguracaoFrete, FormaPagamento, TipoEntrega } from "@/lib/types";
 
 export default function CheckoutPage() {
@@ -28,14 +30,40 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (tipoEntrega !== "entrega" || !cliente || !config) return;
-    // Se o endereço do cliente ainda não tem lat/lng (geocodificação
-    // pendente — ver TODO em cadastro/page.tsx), isso cai no fallback.
     if (cliente.endereco.lat && cliente.endereco.lng) {
       setFrete(calcularFretePorEndereco(cliente.endereco.lat, cliente.endereco.lng, config));
     } else {
       setFrete(null);
     }
   }, [tipoEntrega, cliente, config]);
+
+  // A Doceterapia só atende Arapongas-PR: endereço de outra cidade trava a
+  // compra inteira (entrega e retirada) e manda pro WhatsApp da Camily.
+  const area = useMemo(
+    () =>
+      cliente
+        ? checarAreaEntrega({
+            cep: cliente.endereco.cep,
+            cidade: cliente.endereco.cidade,
+            bairro: cliente.endereco.bairro,
+            rua: cliente.endereco.rua,
+          })
+        : { atendido: true as boolean, motivo: undefined as string | undefined },
+    [cliente]
+  );
+
+  // O endereço do cliente só tem coordenadas se a geocodificação funcionou
+  // no cadastro. Sem elas não dá pra calcular distância — e sem distância
+  // não dá pra cobrar frete.
+  const semCoordenadas = !cliente?.endereco.lat || !cliente?.endereco.lng;
+  const carregandoFrete = tipoEntrega === "entrega" && !config;
+  const foraDaArea =
+    tipoEntrega === "entrega" && !semCoordenadas && frete !== null && frete.valor === null;
+  // Trava o checkout quando o frete não pôde ser determinado, pra não sair
+  // pedido de entrega com frete R$ 0,00.
+  const freteIndisponivel =
+    tipoEntrega === "entrega" && (carregandoFrete || semCoordenadas || frete?.valor == null);
+  const compraBloqueada = !area.atendido || freteIndisponivel;
 
   const valorFrete = tipoEntrega === "retirada" ? 0 : frete?.valor ?? 0;
   const total = subtotal + valorFrete;
@@ -64,9 +92,11 @@ export default function CheckoutPage() {
         alert("Não foi possível iniciar o pagamento. Tente novamente.");
         setFinalizando(false);
       }
-    } catch {
+    } catch (e) {
       alert(
-        "Não foi possível iniciar o pagamento. Verifique sua conexão e tente novamente."
+        e instanceof Error && e.message
+          ? e.message
+          : "Não foi possível iniciar o pagamento. Verifique sua conexão e tente novamente."
       );
       setFinalizando(false);
     }
@@ -80,6 +110,20 @@ export default function CheckoutPage() {
           Entrega e pagamento
         </h1>
         <CherryDivider />
+
+        {!area.atendido && (
+          <div className="bg-blush/70 border border-cherryLight/60 rounded-cherry p-5 mb-6 text-center">
+            <p className="font-display text-lg text-cherryDark">
+              Ainda não atendemos seu endereço
+            </p>
+            <p className="font-body text-sm text-ink/75 mt-2">
+              {area.motivo} Por enquanto a Doceterapia atende só Arapongas-PR,
+              mas fala com a Camily pelo WhatsApp — ela vê o que dá pra fazer
+              pelo seu pedido. 🍒
+            </p>
+            <BotaoWhatsApp mensagem="Oi, Camily! Vi o site da Doceterapia, mas meu endereço não é de Arapongas. Consigo fazer um pedido?" />
+          </div>
+        )}
 
         <section className="grid gap-3">
           <h2 className="font-display text-lg text-ink">Como você quer receber?</h2>
@@ -96,15 +140,32 @@ export default function CheckoutPage() {
             />
           </div>
 
-          {tipoEntrega === "entrega" && (
-            <p className="text-sm font-body text-ink/70">
-              {frete
-                ? frete.valor !== null
-                  ? `Distância até você: ${frete.distanciaKm} km — frete: R$ ${frete.valor.toFixed(2)}`
-                  : "Endereço fora da nossa área de entrega em Arapongas no momento."
-                : "Calculando o frete a partir do seu endereço..."}
-            </p>
-          )}
+          {tipoEntrega === "entrega" &&
+            (carregandoFrete ? (
+              <p className="text-sm font-body text-ink/70">
+                Calculando o frete a partir do seu endereço...
+              </p>
+            ) : semCoordenadas ? (
+              <AvisoFrete>
+                Não conseguimos localizar seu endereço no mapa, então o frete
+                não pôde ser calculado. Você pode escolher{" "}
+                <strong>Retirada</strong> ou combinar a entrega com a Camily
+                pelo WhatsApp.
+                <BotaoWhatsApp mensagem="Oi, Camily! Fiz um pedido no site da Doceterapia, mas o site não conseguiu calcular o frete do meu endereço. Consegue me ajudar?" />
+              </AvisoFrete>
+            ) : foraDaArea ? (
+              <AvisoFrete>
+                Seu endereço está fora da nossa área de entrega em Arapongas no
+                momento. Você pode escolher <strong>Retirada</strong> ou falar
+                com a Camily pelo WhatsApp.
+                <BotaoWhatsApp mensagem="Oi, Camily! Meu endereço aparece como fora da área de entrega no site da Doceterapia. Consigo receber mesmo assim?" />
+              </AvisoFrete>
+            ) : frete ? (
+              <p className="text-sm font-body text-ink/70">
+                Distância até você: {frete.distanciaKm} km — frete: R${" "}
+                {(frete.valor ?? 0).toFixed(2)}
+              </p>
+            ) : null)}
 
           <label className="grid gap-1 text-sm font-body text-ink/80 mt-2">
             {tipoEntrega === "entrega" ? "Data/horário agendado para entrega *" : "Data/horário agendado para retirada *"}
@@ -157,17 +218,45 @@ export default function CheckoutPage() {
 
         <button
           onClick={handleFinalizar}
-          disabled={!dataAgendada || finalizando}
+          disabled={!dataAgendada || finalizando || compraBloqueada}
           className="mt-6 w-full bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors disabled:opacity-40"
         >
           {finalizando ? "Redirecionando para o pagamento..." : "Ir para o pagamento"}
         </button>
         <p className="text-xs text-ink/50 text-center mt-2 font-body">
-          Você será levado ao ambiente seguro do Mercado Pago para pagar com
-          Pix ou cartão.
+          {!area.atendido
+            ? "Pedidos de fora de Arapongas são combinados direto com a Camily."
+            : freteIndisponivel && !carregandoFrete
+              ? "Para continuar, escolha Retirada acima."
+              : "Você será levado ao ambiente seguro do Mercado Pago para pagar com Pix ou cartão."}
         </p>
       </main>
     </>
+  );
+}
+
+function BotaoWhatsApp({ mensagem }: { mensagem: string }) {
+  return (
+    <a
+      href={linkWhatsApp(mensagem)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-3 inline-flex items-center gap-2 bg-[#25D366] text-white rounded-full px-5 py-2.5 font-body font-semibold text-sm hover:brightness-95 transition"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 fill-current">
+        <path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.76-1.66-2.06-.17-.3-.02-.46.13-.61.14-.14.3-.35.45-.53.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.38-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35z" />
+        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.02h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.19 8.19 0 0 1-1.26-4.37c0-4.54 3.7-8.23 8.25-8.23 2.2 0 4.27.86 5.83 2.41a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.22-8.24 8.22z" />
+      </svg>
+      Falar com a Camily no WhatsApp
+    </a>
+  );
+}
+
+function AvisoFrete({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-sm font-body text-cherryDark bg-blush/70 border border-cherryLight/50 rounded-xl px-4 py-3">
+      {children}
+    </p>
   );
 }
 

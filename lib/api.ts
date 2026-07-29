@@ -98,7 +98,15 @@ export async function iniciarPagamento(
   pedido: NovoPedido
 ): Promise<{ pedidoId: string; url: string | null }> {
   const res = await fetch("/api/pagamento", POST_JSON(pedido));
-  if (!res.ok) throw new Error(`Erro no pagamento (${res.status})`);
+  if (!res.ok) {
+    // O servidor manda uma mensagem amigável em `error` (ex: endereço fora
+    // da área de entrega); repassa ela pra UI mostrar.
+    const msg = await res
+      .json()
+      .then((c) => (c as { error?: string }).error)
+      .catch(() => undefined);
+    throw new Error(msg || `Erro no pagamento (${res.status})`);
+  }
   return res.json();
 }
 
