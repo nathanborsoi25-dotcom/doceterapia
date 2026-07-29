@@ -164,7 +164,7 @@ export default function CheckoutPage() {
                 não conseguimos localizar seu endereço no mapa, então o frete
                 não pôde ser calculado. Escolha <strong>Retirada</strong> ou
                 combine a entrega com a Camily pelo WhatsApp.
-                <BotaoWhatsApp mensagem="Oi, Camily! Fiz um pedido no site da Doceterapia, mas o site não conseguiu calcular o frete do meu endereço. Consegue me ajudar?" />
+                <BotaoWhatsApp mensagem="Oi, Camily! Estou tentando fazer um pedido no site da Doceterapia, mas o site não conseguiu calcular o frete do meu endereço. Consegue me ajudar?" />
               </AvisoFrete>
             ) : foraDaArea ? (
               <AvisoFrete>
