@@ -22,8 +22,8 @@ export default function CatalogoPage() {
   return (
     <>
       <Header />
-      <main className="px-6 md:px-12 pb-16">
-        <h1 className="font-display text-3xl text-center text-cherryDark">
+      <main className="px-4 sm:px-6 md:px-12 pb-16">
+        <h1 className="font-display text-2xl sm:text-3xl text-center text-cherryDark">
           Nosso cardápio de hoje
         </h1>
         <CherryDivider />

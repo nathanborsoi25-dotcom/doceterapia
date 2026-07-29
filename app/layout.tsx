@@ -1,10 +1,22 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Doceterapia | Doces artesanais em Arapongas",
   description:
     "Peça online os doces artesanais da Camily Vilasboa. Entrega e retirada agendadas em Arapongas, PR.",
+};
+
+/**
+ * O site é aberto quase sempre pelo celular (link na bio do Instagram).
+ * `viewportFit: cover` cuida da área do notch/barra inferior dos iPhones,
+ * e não travamos o zoom — quem precisa aumentar a letra consegue.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#fdf0ea",
 };
 
 export default function RootLayout({

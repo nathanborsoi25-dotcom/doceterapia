@@ -40,13 +40,13 @@ export default function ProductCard({ produto }: { produto: Produto }) {
         </div>
         <p className="text-sm text-ink/70 font-body flex-1">{produto.descricao}</p>
         <p className="text-xs text-cherryMid font-body">Sabor: {produto.sabor}</p>
-        <div className="flex items-center justify-between mt-2">
-          <span className="font-display text-lg text-ink">
+        <div className="flex items-center justify-between gap-2 mt-2">
+          <span className="font-display text-lg text-ink shrink-0">
             R$ {produto.preco.toFixed(2)}
           </span>
           <button
             onClick={handleAdicionar}
-            className="bg-cherryDark text-white text-sm rounded-full px-4 py-2 font-body hover:bg-cherryMid transition-colors"
+            className="bg-cherryDark text-white text-sm rounded-full px-5 py-3 font-body font-semibold hover:bg-cherryMid active:scale-95 transition-all"
           >
             {adicionado ? "Adicionado ✓" : "Adicionar"}
           </button>

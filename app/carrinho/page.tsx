@@ -29,14 +29,14 @@ export default function CarrinhoPage() {
   return (
     <>
       <Header />
-      <main className="px-6 md:px-12 pb-16 max-w-2xl mx-auto">
-        <h1 className="font-display text-3xl text-center text-cherryDark">Seu carrinho</h1>
+      <main className="px-4 sm:px-6 md:px-12 pb-16 max-w-2xl mx-auto">
+        <h1 className="font-display text-2xl sm:text-3xl text-center text-cherryDark">Seu carrinho</h1>
         <CherryDivider />
 
         {itens.length === 0 ? (
           <p className="text-center font-body text-ink/70">
             Seu carrinho está vazio.{" "}
-            <Link href="/catalogo" className="text-cherryDark underline">
+            <Link href="/catalogo" className="text-cherryDark underline inline-block py-3 px-1">
               Ver cardápio
             </Link>
           </p>
@@ -45,25 +45,28 @@ export default function CarrinhoPage() {
             {itens.map((item) => (
               <div
                 key={item.produtoId}
-                className="flex items-center justify-between bg-white/70 rounded-xl px-4 py-3 border border-cherryLight/30"
+                className="flex items-center justify-between gap-3 bg-white/70 rounded-xl px-3 sm:px-4 py-3 border border-cherryLight/30"
               >
-                <div>
-                  <p className="font-display text-ink">{item.nome}</p>
+                <div className="min-w-0">
+                  <p className="font-display text-ink truncate">{item.nome}</p>
                   <p className="text-sm text-ink/60 font-body">
                     R$ {item.precoUnitario.toFixed(2)} cada
                   </p>
                 </div>
-                <div className="flex items-center gap-3 font-body">
+                {/* Botões de 44px: tamanho confortável para o dedo */}
+                <div className="flex items-center gap-1 font-body shrink-0">
                   <button
                     onClick={() => atualizarQuantidade(item.produtoId, -1)}
-                    className="w-7 h-7 rounded-full bg-blush text-cherryDark"
+                    aria-label={`Tirar um ${item.nome}`}
+                    className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform"
                   >
                     −
                   </button>
-                  <span>{item.quantidade}</span>
+                  <span className="w-8 text-center tabular-nums">{item.quantidade}</span>
                   <button
                     onClick={() => atualizarQuantidade(item.produtoId, 1)}
-                    className="w-7 h-7 rounded-full bg-blush text-cherryDark"
+                    aria-label={`Adicionar um ${item.nome}`}
+                    className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform"
                   >
                     +
                   </button>

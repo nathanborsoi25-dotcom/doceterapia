@@ -103,8 +103,8 @@ export default function CadastroPage() {
     form.confirmarSenha.length > 0 && form.senha !== form.confirmarSenha;
 
   return (
-    <main className="min-h-screen px-6 md:px-12 py-10 max-w-xl mx-auto">
-      <h1 className="font-display text-3xl text-cherryDark text-center">
+    <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-xl mx-auto">
+      <h1 className="font-display text-2xl sm:text-3xl text-cherryDark text-center">
         Bem-vinda(o) à Doceterapia
       </h1>
       <p className="text-center text-ink/70 mt-2 font-body">
@@ -136,16 +136,24 @@ export default function CadastroPage() {
         />
         <Campo label="Telefone *" name="telefone" value={form.telefone} onChange={handleChange} placeholder="(43) 99999-9999" autoComplete="tel" inputMode="numeric" />
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
+        {/* Em telas estreitas cada campo ocupa a linha inteira; a partir do
+            celular deitado eles voltam a dividir a linha. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="sm:col-span-2 min-w-0">
             <Campo label="Rua *" name="rua" value={form.rua} onChange={handleChange} autoComplete="address-line1" />
           </div>
-          <Campo label="Número *" name="numero" value={form.numero} onChange={handleChange} />
+          <div className="min-w-0">
+            <Campo label="Número *" name="numero" value={form.numero} onChange={handleChange} inputMode="numeric" />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Campo label="Bairro" name="bairro" value={form.bairro} onChange={handleChange} />
-          <Campo label="CEP *" name="cep" value={form.cep} onChange={handleChange} placeholder="86700-000" autoComplete="postal-code" inputMode="numeric" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="min-w-0">
+            <Campo label="Bairro" name="bairro" value={form.bairro} onChange={handleChange} />
+          </div>
+          <div className="min-w-0">
+            <Campo label="CEP *" name="cep" value={form.cep} onChange={handleChange} placeholder="86700-000" autoComplete="postal-code" inputMode="numeric" />
+          </div>
         </div>
 
         <Campo label="Complemento" name="complemento" value={form.complemento} onChange={handleChange} />
@@ -184,7 +192,7 @@ export default function CadastroPage() {
 
       <p className="text-center font-body text-sm text-ink/70 mt-6">
         Já tem cadastro?{" "}
-        <Link href="/entrar" className="text-cherryDark underline">
+        <Link href="/entrar" className="text-cherryDark underline inline-block py-3 px-1">
           Entrar
         </Link>
       </p>
@@ -226,7 +234,7 @@ function Campo({
         placeholder={placeholder}
         autoComplete={autoComplete}
         inputMode={inputMode}
-        className={`border rounded-xl px-4 py-2 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark ${
+        className={`w-full border rounded-xl px-4 py-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark ${
           erro ? "border-cherryDark" : "border-cherryLight/60"
         }`}
       />

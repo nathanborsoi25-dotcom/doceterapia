@@ -15,9 +15,9 @@ export default function PedidoSucessoPage() {
   return (
     <>
       <Header />
-      <main className="px-6 md:px-12 pb-16 max-w-xl mx-auto text-center">
+      <main className="px-4 sm:px-6 md:px-12 pb-16 max-w-xl mx-auto text-center">
         <div className="text-5xl mt-6">🍒</div>
-        <h1 className="font-display text-3xl text-cherryDark mt-4">
+        <h1 className="font-display text-2xl sm:text-3xl text-cherryDark mt-4">
           Pedido confirmado!
         </h1>
         <CherryDivider />

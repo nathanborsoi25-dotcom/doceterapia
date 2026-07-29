@@ -42,29 +42,29 @@ export default function NovoProdutoPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 md:px-12 py-10 max-w-lg mx-auto">
-      <h1 className="font-display text-3xl text-cherryDark">Novo produto</h1>
+    <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-lg mx-auto">
+      <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Novo produto</h1>
       <form onSubmit={handleSubmit} className="grid gap-3 mt-6">
         <input
           required
           placeholder="Nome do doce"
           value={form.nome}
           onChange={(e) => setForm({ ...form, nome: e.target.value })}
-          className="border border-cherryLight/50 rounded-lg p-2 font-body"
+          className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         />
         <textarea
           required
           placeholder="Descrição"
           value={form.descricao}
           onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-          className="border border-cherryLight/50 rounded-lg p-2 font-body"
+          className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         />
         <input
           required
           placeholder="Sabor"
           value={form.sabor}
           onChange={(e) => setForm({ ...form, sabor: e.target.value })}
-          className="border border-cherryLight/50 rounded-lg p-2 font-body"
+          className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         />
         <input
           required
@@ -73,18 +73,18 @@ export default function NovoProdutoPage() {
           placeholder="Preço (R$)"
           value={form.preco}
           onChange={(e) => setForm({ ...form, preco: e.target.value })}
-          className="border border-cherryLight/50 rounded-lg p-2 font-body"
+          className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         />
         <input
           placeholder="URL da foto"
           value={form.fotoUrl}
           onChange={(e) => setForm({ ...form, fotoUrl: e.target.value })}
-          className="border border-cherryLight/50 rounded-lg p-2 font-body"
+          className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         />
         <select
           value={form.disponibilidade}
           onChange={(e) => setForm({ ...form, disponibilidade: e.target.value as TipoDisponibilidade })}
-          className="border border-cherryLight/50 rounded-lg p-2 font-body"
+          className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         >
           <option value="pronta_entrega">Pronta entrega</option>
           <option value="sob_encomenda">Sob encomenda</option>
@@ -95,7 +95,7 @@ export default function NovoProdutoPage() {
             placeholder="Prazo em dias"
             value={form.prazoDias}
             onChange={(e) => setForm({ ...form, prazoDias: e.target.value })}
-            className="border border-cherryLight/50 rounded-lg p-2 font-body"
+            className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
           />
         )}
         <button

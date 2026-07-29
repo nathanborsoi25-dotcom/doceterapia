@@ -117,8 +117,8 @@ export default function CheckoutPage() {
   return (
     <>
       <Header />
-      <main className="px-6 md:px-12 pb-16 max-w-xl mx-auto">
-        <h1 className="font-display text-3xl text-center text-cherryDark">
+      <main className="px-4 sm:px-6 md:px-12 pb-16 max-w-xl mx-auto">
+        <h1 className="font-display text-2xl sm:text-3xl text-center text-cherryDark">
           Entrega e pagamento
         </h1>
         <CherryDivider />
@@ -292,7 +292,7 @@ function OpcaoBotao({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 rounded-full text-sm font-body border transition-colors ${
+      className={`px-5 py-3 rounded-full text-sm font-body border transition-colors ${
         ativo
           ? "bg-cherryDark text-white border-cherryDark"
           : "bg-white/70 text-ink/70 border-cherryLight/50"

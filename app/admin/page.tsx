@@ -22,15 +22,15 @@ export default function AdminHome() {
   }
 
   return (
-    <main className="min-h-screen px-6 md:px-12 py-10 max-w-3xl mx-auto">
+    <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl text-cherryDark">Painel Doceterapia</h1>
+          <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Painel Doceterapia</h1>
           <p className="text-ink/70 font-body mt-1">Só você vê essa área.</p>
         </div>
         <button
           onClick={sair}
-          className="text-sm font-body text-cherryDark border border-cherryLight/50 rounded-full px-4 py-1.5 hover:bg-blush transition-colors"
+          className="text-sm font-body text-cherryDark border border-cherryLight/50 rounded-full px-4 py-2.5 hover:bg-blush transition-colors shrink-0"
         >
           Sair
         </button>

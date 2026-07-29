@@ -41,8 +41,8 @@ export default function AdminPedidosPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 md:px-12 py-10 max-w-3xl mx-auto">
-      <h1 className="font-display text-3xl text-cherryDark">Meus pedidos</h1>
+    <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
+      <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Meus pedidos</h1>
 
       <div className="grid gap-4 mt-6">
         {carregando && <p className="text-ink/60 font-body">Carregando pedidos...</p>}

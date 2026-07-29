@@ -31,7 +31,7 @@ export default function EntrarPage() {
 
   return (
     <main className="min-h-screen px-6 py-12 max-w-sm mx-auto flex flex-col justify-center">
-      <h1 className="font-display text-3xl text-cherryDark text-center">
+      <h1 className="font-display text-2xl sm:text-3xl text-cherryDark text-center">
         <span className="font-bold">doce</span>
         <span className="text-cherryLight">terapia</span>
       </h1>
@@ -84,7 +84,7 @@ export default function EntrarPage() {
 
       <Link
         href="/esqueci-senha"
-        className="text-center text-sm font-body text-cherryMid underline mt-4"
+        className="text-center text-sm font-body text-cherryMid underline mt-2 py-3"
       >
         Esqueceu a senha?
       </Link>

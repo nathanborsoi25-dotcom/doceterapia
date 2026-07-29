@@ -70,8 +70,8 @@ export default function AdminFretePage() {
   }
 
   return (
-    <main className="min-h-screen px-6 md:px-12 py-10 max-w-2xl mx-auto">
-      <h1 className="font-display text-3xl text-cherryDark">Configurar frete</h1>
+    <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-2xl mx-auto">
+      <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Configurar frete</h1>
 
       <label className="grid gap-1 text-sm font-body text-ink/80 mt-4">
         Endereço da loja (ponto de partida do frete)
@@ -89,39 +89,56 @@ export default function AdminFretePage() {
 
       <div className="grid gap-3 mt-6">
         {config.faixas.map((faixa) => (
-          <div key={faixa.id} className="flex items-center gap-2 bg-white/70 border border-cherryLight/30 rounded-xl p-3">
-            <span className="text-sm font-body text-ink/60">De</span>
-            <input
-              type="number"
-              step="0.01"
-              value={faixa.distanciaMinKm}
-              onChange={(e) => atualizarFaixa(faixa.id, "distanciaMinKm", parseFloat(e.target.value) || 0)}
-              className="w-20 border border-cherryLight/40 rounded p-1 text-sm"
-            />
-            <span className="text-sm font-body text-ink/60">km até</span>
-            <input
-              type="number"
-              step="0.01"
-              value={faixa.distanciaMaxKm}
-              onChange={(e) => atualizarFaixa(faixa.id, "distanciaMaxKm", parseFloat(e.target.value) || 0)}
-              className="w-20 border border-cherryLight/40 rounded p-1 text-sm"
-            />
-            <span className="text-sm font-body text-ink/60">km = R$</span>
-            <input
-              type="number"
-              step="0.01"
-              value={faixa.valor}
-              onChange={(e) => atualizarFaixa(faixa.id, "valor", parseFloat(e.target.value) || 0)}
-              className="w-24 border border-cherryLight/40 rounded p-1 text-sm"
-            />
-            <button onClick={() => removerFaixa(faixa.id)} className="ml-auto text-red-600 text-sm font-body">
+          <div
+            key={faixa.id}
+            className="bg-white/70 border border-cherryLight/30 rounded-xl p-3 flex flex-wrap items-end gap-3"
+          >
+            {/* Cada campo com seu rótulo em cima: no celular eles quebram
+                em linhas sem virar aquela fileira apertada de caixinhas. */}
+            <label className="grid gap-1 text-xs font-body text-ink/60">
+              De (km)
+              <input
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                value={faixa.distanciaMinKm}
+                onChange={(e) => atualizarFaixa(faixa.id, "distanciaMinKm", parseFloat(e.target.value) || 0)}
+                className="w-24 border border-cherryLight/40 rounded-lg p-2 text-sm"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-body text-ink/60">
+              Até (km)
+              <input
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                value={faixa.distanciaMaxKm}
+                onChange={(e) => atualizarFaixa(faixa.id, "distanciaMaxKm", parseFloat(e.target.value) || 0)}
+                className="w-24 border border-cherryLight/40 rounded-lg p-2 text-sm"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-body text-ink/60">
+              Frete (R$)
+              <input
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                value={faixa.valor}
+                onChange={(e) => atualizarFaixa(faixa.id, "valor", parseFloat(e.target.value) || 0)}
+                className="w-24 border border-cherryLight/40 rounded-lg p-2 text-sm"
+              />
+            </label>
+            <button
+              onClick={() => removerFaixa(faixa.id)}
+              className="ml-auto text-red-600 text-sm font-body px-3 py-3 rounded-lg hover:bg-red-50"
+            >
               Remover
             </button>
           </div>
         ))}
       </div>
 
-      <button onClick={adicionarFaixa} className="mt-4 text-sm text-cherryDark underline font-body">
+      <button onClick={adicionarFaixa} className="mt-4 text-sm text-cherryDark underline font-body py-3 px-1">
         + Adicionar faixa
       </button>
 

@@ -12,6 +12,55 @@ body {
   color: #3b1a1f;
 }
 
+/*
+ * Regras de celular. O site é divulgado no Instagram, então quase todo
+ * acesso vem do telefone — estas regras valem para todas as telas de uma
+ * vez, em vez de ficar remendando cada campo.
+ */
+
+/* Campo de formulário nunca deve "empurrar" o layout. Sem isto, um input
+   dentro de grid/flex se recusa a encolher e cria rolagem lateral.
+   Vai com !important porque precisa vencer as classes utilitárias do
+   Tailwind (uma classe tem prioridade maior que um seletor de elemento). */
+input,
+select,
+textarea {
+  min-width: 0 !important;
+  max-width: 100%;
+}
+
+/* O iPhone dá zoom sozinho ao focar um campo com fonte menor que 16px, e
+   depois deixa a página torta. Em telas pequenas todo campo vai a 16px
+   (mesmo motivo do !important acima: vencer o text-sm do Tailwind). */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Alvo de toque confortável: o dedo precisa de mais área que o cursor. */
+@media (pointer: coarse) {
+  button,
+  a[role="button"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-width: 22px;
+    min-height: 22px;
+  }
+}
+
+/* Rede de segurança: nada de rolagem lateral em nenhuma tela. */
+html,
+body {
+  overflow-x: clip;
+}
+
 /* Divisor com cerejas — o elemento de assinatura do site, ecoando a logo */
 .cherry-divider {
   display: flex;

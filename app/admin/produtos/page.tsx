@@ -34,54 +34,60 @@ export default function AdminProdutosPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 md:px-12 py-10 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl text-cherryDark">Meus produtos</h1>
-        <Link href="/admin/produtos/novo" className="text-sm text-cherryDark underline font-body">
+    <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Meus produtos</h1>
+        <Link
+          href="/admin/produtos/novo"
+          className="text-sm text-cherryDark underline font-body py-3"
+        >
           + Adicionar produto
         </Link>
       </div>
 
       <div className="grid gap-4 mt-6">
         {produtos.map((produto) => (
-          <div key={produto.id} className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4 grid gap-2">
+          <div key={produto.id} className="bg-white/70 border border-cherryLight/30 rounded-cherry p-3 sm:p-4 grid gap-2">
             <input
               value={produto.nome}
               onChange={(e) => handleCampo(produto.id, "nome", e.target.value)}
-              className="font-display text-lg bg-transparent border-b border-cherryLight/40 focus:outline-none"
+              className="w-full font-display text-lg bg-transparent border-b border-cherryLight/40 focus:outline-none py-1"
             />
             <textarea
               value={produto.descricao}
               onChange={(e) => handleCampo(produto.id, "descricao", e.target.value)}
-              className="text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
+              rows={3}
+              className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
             />
-            <div className="grid grid-cols-2 gap-2">
+            {/* Empilha no celular; volta a dividir a linha do tablet pra cima */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <input
                 value={produto.sabor}
                 onChange={(e) => handleCampo(produto.id, "sabor", e.target.value)}
                 placeholder="Sabor"
-                className="text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
+                className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
               />
               <input
                 type="number"
                 step="0.01"
+                inputMode="decimal"
                 value={produto.preco}
                 onChange={(e) => handleCampo(produto.id, "preco", parseFloat(e.target.value) || 0)}
                 placeholder="Preço"
-                className="text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
+                className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
               />
             </div>
             <input
               value={produto.fotoUrl}
               onChange={(e) => handleCampo(produto.id, "fotoUrl", e.target.value)}
               placeholder="URL da foto"
-              className="text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
+              className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
             />
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <select
                 value={produto.disponibilidade}
                 onChange={(e) => handleCampo(produto.id, "disponibilidade", e.target.value)}
-                className="text-sm font-body border border-cherryLight/30 rounded-lg p-2"
+                className="text-sm font-body border border-cherryLight/30 rounded-lg p-2 bg-white/70"
               >
                 <option value="pronta_entrega">Pronta entrega</option>
                 <option value="sob_encomenda">Sob encomenda</option>
@@ -89,32 +95,34 @@ export default function AdminProdutosPage() {
               {produto.disponibilidade === "sob_encomenda" && (
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={produto.prazoDias ?? 0}
                   onChange={(e) => handleCampo(produto.id, "prazoDias", parseInt(e.target.value) || 0)}
                   placeholder="Prazo (dias)"
-                  className="text-sm font-body border border-cherryLight/30 rounded-lg p-2 w-28"
+                  className="text-sm font-body border border-cherryLight/30 rounded-lg p-2 w-24"
                 />
               )}
-              <label className="text-sm font-body flex items-center gap-1 ml-auto">
+              <label className="text-sm font-body flex items-center gap-2 py-1 sm:ml-auto">
                 <input
                   type="checkbox"
                   checked={produto.ativo}
                   onChange={(e) => handleCampo(produto.id, "ativo", e.target.checked)}
+                  className="w-5 h-5 accent-cherryDark"
                 />
                 Ativo no cardápio
               </label>
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end items-center">
               <button
                 onClick={() => remover(produto.id)}
-                className="text-sm text-red-600 font-body"
+                className="text-sm text-red-600 font-body px-3 py-3 rounded-lg hover:bg-red-50"
               >
                 Remover
               </button>
               <button
                 onClick={() => salvar(produto)}
                 disabled={salvandoId === produto.id}
-                className="text-sm bg-cherryDark text-white rounded-full px-4 py-1.5 font-body disabled:opacity-50"
+                className="text-sm bg-cherryDark text-white rounded-full px-5 py-2.5 font-body font-semibold disabled:opacity-50"
               >
                 {salvandoId === produto.id ? "Salvando..." : "Salvar"}
               </button>
