@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { Preference } from "mercadopago";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { clientes, configFrete, pedidos } from "@/lib/db/schema";
+import { clientes, configFrete, pedidos, produtos } from "@/lib/db/schema";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
@@ -21,15 +21,57 @@ type Corpo = Pick<
   | "formaPagamento"
 >;
 
+/** Limite de segurança: ninguém pede 500 brigadeiros por engano. */
+const QUANTIDADE_MAXIMA = 200;
+
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as Partial<Corpo>;
-  const itens = (body.itens ?? []) as ItemPedido[];
-  if (!Array.isArray(itens) || itens.length === 0) {
+  const recebidos = body.itens;
+  if (!Array.isArray(recebidos) || recebidos.length === 0) {
     return NextResponse.json({ error: "Carrinho vazio." }, { status: 400 });
   }
 
   const db = getDb();
   const tipoEntrega = body.tipoEntrega ?? "entrega";
+
+  // 1) Remonta os itens A PARTIR DO BANCO. Nome e preço que vêm do navegador
+  // são descartados — só o produtoId e a quantidade são aproveitados —, senão
+  // dava pra comprar uma torta de R$ 65,00 por R$ 1,00.
+  const ids = Array.from(
+    new Set(recebidos.map((i) => i?.produtoId).filter(Boolean) as string[])
+  );
+  if (ids.length === 0) {
+    return NextResponse.json({ error: "Carrinho inválido." }, { status: 400 });
+  }
+
+  const doBanco = await db.select().from(produtos).where(inArray(produtos.id, ids));
+  const porId = new Map(doBanco.map((p) => [p.id, p]));
+
+  const itens: ItemPedido[] = [];
+  for (const recebido of recebidos) {
+    const produto = porId.get(recebido?.produtoId);
+    if (!produto || !produto.ativo) {
+      return NextResponse.json(
+        { error: "Um dos doces do seu carrinho não está mais disponível." },
+        { status: 400 }
+      );
+    }
+
+    const quantidade = Math.floor(Number(recebido?.quantidade));
+    if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > QUANTIDADE_MAXIMA) {
+      return NextResponse.json(
+        { error: "Quantidade inválida no carrinho." },
+        { status: 400 }
+      );
+    }
+
+    itens.push({
+      produtoId: produto.id,
+      nome: produto.nome,
+      precoUnitario: produto.preco,
+      quantidade,
+    });
+  }
 
   // Endereço de referência: preferimos o que está gravado no banco, porque o
   // que vem na requisição pode ter sido adulterado no navegador.
@@ -37,22 +79,26 @@ export async function POST(req: Request) {
     ? await db.select().from(clientes).where(eq(clientes.id, body.clienteId))
     : [];
 
-  // 1) A Doceterapia só atende Arapongas-PR. Mesma checagem que o checkout
-  // faz na tela, repetida aqui pra não dar pra burlar pelo navegador.
-  const area = checarAreaEntrega({
-    cep: cliente?.cep ?? body.enderecoEntrega?.cep,
-    cidade: cliente?.cidade ?? body.enderecoEntrega?.cidade,
-    bairro: cliente?.bairro ?? body.enderecoEntrega?.bairro,
-    rua: cliente?.rua ?? body.enderecoEntrega?.rua,
-  });
-  if (!area.atendido) {
-    return NextResponse.json(
-      { error: `${area.motivo} Fale com a Camily pelo WhatsApp para combinar seu pedido.` },
-      { status: 400 }
-    );
+  // 2) A entrega só vale pra Arapongas-PR. Quem é de fora ainda pode comprar
+  // escolhendo Retirada, então a checagem só vale pra entrega.
+  if (tipoEntrega === "entrega") {
+    const area = checarAreaEntrega({
+      cep: cliente?.cep ?? body.enderecoEntrega?.cep,
+      cidade: cliente?.cidade ?? body.enderecoEntrega?.cidade,
+      bairro: cliente?.bairro ?? body.enderecoEntrega?.bairro,
+      rua: cliente?.rua ?? body.enderecoEntrega?.rua,
+    });
+    if (!area.atendido) {
+      return NextResponse.json(
+        {
+          error: `Não é possível concluir a compra com entrega: ${area.motivo} Escolha Retirada ou fale com a Camily pelo WhatsApp.`,
+        },
+        { status: 400 }
+      );
+    }
   }
 
-  // 2) Recalcula o frete NO SERVIDOR. O valor que vem do navegador não é
+  // 3) Recalcula o frete NO SERVIDOR. O valor que vem do navegador não é
   // confiável (dá pra forjar), então ele é ignorado: as coordenadas saem do
   // cadastro salvo no banco e a tabela de faixas também.
   let valorFrete = 0;
@@ -78,14 +124,17 @@ export async function POST(req: Request) {
     const calculo = calcularFretePorEndereco(lat, lng, config);
     if (calculo.valor === null) {
       return NextResponse.json(
-        { error: "Endereço fora da área de entrega." },
+        {
+          error:
+            "Não é possível concluir a compra com entrega: seu endereço está distante demais. Escolha Retirada ou fale com a Camily pelo WhatsApp.",
+        },
         { status: 400 }
       );
     }
     valorFrete = calculo.valor;
   }
 
-  // 3) Só agora precisamos do Mercado Pago — as validações acima já
+  // 4) Só agora precisamos do Mercado Pago — as validações acima já
   // recusaram o que não dá pra vender, sem depender do gateway.
   const client = getMpClient();
   if (!client) {
@@ -95,7 +144,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // 4) Cria o pedido no banco (status "aguardando_pagamento").
+  // 5) Cria o pedido no banco (status "aguardando_pagamento").
   const id = crypto.randomUUID();
   await db.insert(pedidos).values({
     id,
@@ -109,7 +158,7 @@ export async function POST(req: Request) {
     status: "aguardando_pagamento",
   });
 
-  // 5) Cria a preferência de pagamento no Mercado Pago.
+  // 6) Cria a preferência de pagamento no Mercado Pago.
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
   const ehLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
 

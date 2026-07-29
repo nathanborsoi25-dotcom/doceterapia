@@ -32,20 +32,9 @@ export async function GET() {
   return NextResponse.json(rows.map(toPedido));
 }
 
-export async function POST(req: Request) {
-  const body = (await req.json()) as Partial<Pedido>;
-  const id = crypto.randomUUID();
-  const db = getDb();
-  await db.insert(pedidos).values({
-    id,
-    clienteId: body.clienteId ?? null,
-    itens: body.itens ?? [],
-    tipoEntrega: body.tipoEntrega ?? "entrega",
-    dataAgendada: body.dataAgendada ?? "",
-    enderecoEntrega: body.enderecoEntrega ?? null,
-    valorFrete: body.valorFrete ?? 0,
-    formaPagamento: body.formaPagamento ?? "pix",
-    status: "aguardando_pagamento",
-  });
-  return NextResponse.json({ id });
-}
+/*
+ * NÃO existe POST aqui de propósito. Pedido só nasce em /api/pagamento, que
+ * confere os preços no banco, valida a área de entrega e recalcula o frete.
+ * Antes havia um POST público e sem validação nenhuma aqui, que permitia
+ * criar pedidos falsos (com qualquer preço e frete) direto no painel.
+ */

@@ -32,6 +32,15 @@ export const configuracaoFretePadrao: ConfiguracaoFrete = {
     { id: "f4", distanciaMinKm: 3, distanciaMaxKm: 5, valor: 10 },
     { id: "f5", distanciaMinKm: 5, distanciaMaxKm: 7, valor: 12 },
     { id: "f6", distanciaMinKm: 7, distanciaMaxKm: 10, valor: 14 },
+    // As faixas abaixo cobrem o resto do município (bairros periféricos,
+    // distritos e zona rural). O município de Arapongas se estende até
+    // ~22 km da loja, então sem elas um morador da cidade era barrado.
+    // São extrapolações da mesma fórmula, com margem maior porque a rota
+    // real fica bem acima da linha reta nesses trechos.
+    { id: "f7", distanciaMinKm: 10, distanciaMaxKm: 13, valor: 17 },
+    { id: "f8", distanciaMinKm: 13, distanciaMaxKm: 16, valor: 20 },
+    { id: "f9", distanciaMinKm: 16, distanciaMaxKm: 20, valor: 24 },
+    { id: "f10", distanciaMinKm: 20, distanciaMaxKm: 25, valor: 28 },
   ],
 };
 

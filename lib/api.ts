@@ -86,10 +86,6 @@ export type NovoPedido = Pick<
   | "formaPagamento"
 >;
 
-export async function criarPedido(pedido: NovoPedido): Promise<{ id: string }> {
-  return json<{ id: string }>(await fetch("/api/pedidos", POST_JSON(pedido)));
-}
-
 /**
  * Cria o pedido e inicia o pagamento no Mercado Pago. Retorna a URL do
  * checkout do MP (`url`) para onde o cliente deve ser redirecionado.

@@ -63,7 +63,10 @@ export default function CheckoutPage() {
   // pedido de entrega com frete R$ 0,00.
   const freteIndisponivel =
     tipoEntrega === "entrega" && (carregandoFrete || semCoordenadas || frete?.valor == null);
-  const compraBloqueada = !area.atendido || freteIndisponivel;
+  // Só a ENTREGA depende do endereço. Quem é de fora de Arapongas (ou tem
+  // endereço que não localizamos) ainda pode comprar escolhendo Retirada,
+  // porque nesse caso vem buscar pessoalmente.
+  const compraBloqueada = tipoEntrega === "entrega" && (!area.atendido || freteIndisponivel);
 
   const valorFrete = tipoEntrega === "retirada" ? 0 : frete?.valor ?? 0;
   const total = subtotal + valorFrete;
@@ -114,12 +117,15 @@ export default function CheckoutPage() {
         {!area.atendido && (
           <div className="bg-blush/70 border border-cherryLight/60 rounded-cherry p-5 mb-6 text-center">
             <p className="font-display text-lg text-cherryDark">
-              Ainda não atendemos seu endereço
+              Não entregamos no seu endereço
             </p>
             <p className="font-body text-sm text-ink/75 mt-2">
-              {area.motivo} Por enquanto a Doceterapia atende só Arapongas-PR,
-              mas fala com a Camily pelo WhatsApp — ela vê o que dá pra fazer
-              pelo seu pedido. 🍒
+              {area.motivo} A Doceterapia entrega somente em Arapongas-PR, por
+              isso a opção <strong>Entrega</strong> fica indisponível pra você.
+            </p>
+            <p className="font-body text-sm text-ink/75 mt-2">
+              Mas você ainda pode comprar escolhendo <strong>Retirada</strong> e
+              buscar seus doces com a Camily — ou falar com ela pelo WhatsApp.
             </p>
             <BotaoWhatsApp mensagem="Oi, Camily! Vi o site da Doceterapia, mas meu endereço não é de Arapongas. Consigo fazer um pedido?" />
           </div>
@@ -145,20 +151,27 @@ export default function CheckoutPage() {
               <p className="text-sm font-body text-ink/70">
                 Calculando o frete a partir do seu endereço...
               </p>
+            ) : !area.atendido ? (
+              <AvisoFrete>
+                <strong>Não é possível concluir a compra com entrega:</strong>{" "}
+                seu endereço não é de Arapongas-PR, a única cidade que
+                atendemos. Escolha <strong>Retirada</strong> acima para
+                continuar.
+              </AvisoFrete>
             ) : semCoordenadas ? (
               <AvisoFrete>
-                Não conseguimos localizar seu endereço no mapa, então o frete
-                não pôde ser calculado. Você pode escolher{" "}
-                <strong>Retirada</strong> ou combinar a entrega com a Camily
-                pelo WhatsApp.
+                <strong>Não é possível concluir a compra com entrega:</strong>{" "}
+                não conseguimos localizar seu endereço no mapa, então o frete
+                não pôde ser calculado. Escolha <strong>Retirada</strong> ou
+                combine a entrega com a Camily pelo WhatsApp.
                 <BotaoWhatsApp mensagem="Oi, Camily! Fiz um pedido no site da Doceterapia, mas o site não conseguiu calcular o frete do meu endereço. Consegue me ajudar?" />
               </AvisoFrete>
             ) : foraDaArea ? (
               <AvisoFrete>
-                Seu endereço está fora da nossa área de entrega em Arapongas no
-                momento. Você pode escolher <strong>Retirada</strong> ou falar
-                com a Camily pelo WhatsApp.
-                <BotaoWhatsApp mensagem="Oi, Camily! Meu endereço aparece como fora da área de entrega no site da Doceterapia. Consigo receber mesmo assim?" />
+                <strong>Não é possível concluir a compra com entrega:</strong>{" "}
+                seu endereço está distante demais da Camily (mais de 25 km).
+                Escolha <strong>Retirada</strong> ou fale com ela pelo WhatsApp.
+                <BotaoWhatsApp mensagem="Oi, Camily! Meu endereço aparece como distante demais no site da Doceterapia. Consigo receber mesmo assim?" />
               </AvisoFrete>
             ) : frete ? (
               <p className="text-sm font-body text-ink/70">
@@ -224,11 +237,9 @@ export default function CheckoutPage() {
           {finalizando ? "Redirecionando para o pagamento..." : "Ir para o pagamento"}
         </button>
         <p className="text-xs text-ink/50 text-center mt-2 font-body">
-          {!area.atendido
-            ? "Pedidos de fora de Arapongas são combinados direto com a Camily."
-            : freteIndisponivel && !carregandoFrete
-              ? "Para continuar, escolha Retirada acima."
-              : "Você será levado ao ambiente seguro do Mercado Pago para pagar com Pix ou cartão."}
+          {compraBloqueada && !carregandoFrete
+            ? "Para continuar, escolha Retirada acima."
+            : "Você será levado ao ambiente seguro do Mercado Pago para pagar com Pix ou cartão."}
         </p>
       </main>
     </>
