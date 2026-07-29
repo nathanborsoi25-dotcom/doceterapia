@@ -27,6 +27,12 @@ export const clientes = pgTable("clientes", {
   id: text("id").primaryKey(),
   nome: text("nome").notNull(),
   cpf: text("cpf").notNull().unique(),
+  // E-mail é para onde vai o código de "esqueci minha senha", então é ele
+  // que protege a conta (o CPF não serve: circula em nota fiscal e vazamentos).
+  email: text("email").notNull().default(""),
+  // Senha do cliente, guardada como hash scrypt (nunca em texto puro).
+  // Aceita nulo por causa de quem se cadastrou antes de existir login.
+  senhaHash: text("senha_hash"),
   telefone: text("telefone").notNull().default(""),
   rua: text("rua").notNull().default(""),
   numero: text("numero").notNull().default(""),
@@ -50,6 +56,18 @@ export const pedidos = pgTable("pedidos", {
   valorFrete: doublePrecision("valor_frete").notNull().default(0),
   formaPagamento: text("forma_pagamento").notNull(),
   status: text("status").notNull().default("aguardando_pagamento"),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Códigos de uso único para redefinir a senha ("esqueci minha senha").
+// O código também fica como hash: se alguém vazar a tabela, não dá pra usar.
+export const codigosSenha = pgTable("codigos_senha", {
+  id: text("id").primaryKey(),
+  clienteId: text("cliente_id").notNull(),
+  codigoHash: text("codigo_hash").notNull(),
+  expiraEm: timestamp("expira_em", { withTimezone: true }).notNull(),
+  usadoEm: timestamp("usado_em", { withTimezone: true }),
+  tentativas: integer("tentativas").notNull().default(0),
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 

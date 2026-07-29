@@ -1,19 +1,17 @@
 "use client";
 
-import type { Cliente, ItemPedido, Produto } from "./types";
+import type { ItemPedido, Produto } from "./types";
 
 /**
- * Dados que vivem SÓ no navegador de cada pessoa (por sessão):
- *  - o carrinho de compras
- *  - o cliente atualmente "logado" (o último cadastro feito neste navegador)
+ * O carrinho é a única coisa que ainda vive só no navegador — é rascunho de
+ * compra, não faz falta em outro aparelho.
  *
- * Tudo o que precisa ser compartilhado e salvo de verdade (produtos,
- * clientes, pedidos, frete) agora fica no banco de dados, acessado via
- * lib/api.ts (rotas /api/*). Ver README.
+ * Quem é o cliente NÃO fica mais aqui: agora vem da sessão de login no
+ * servidor (lib/cliente-logado.ts), pra ninguém conseguir se passar por
+ * outra pessoa mexendo no navegador.
  */
 
 const KEYS = {
-  cliente: "dt_cliente_atual",
   carrinho: "dt_carrinho",
 };
 
@@ -31,15 +29,6 @@ function ler<T>(chave: string, padrao: T): T {
 function salvar<T>(chave: string, valor: T) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(chave, JSON.stringify(valor));
-}
-
-// ---- Cliente logado (cadastro obrigatório) ----
-export function getClienteAtual(): Cliente | null {
-  return ler<Cliente | null>(KEYS.cliente, null);
-}
-
-export function salvarClienteAtual(cliente: Cliente) {
-  salvar(KEYS.cliente, cliente);
 }
 
 // ---- Carrinho ----

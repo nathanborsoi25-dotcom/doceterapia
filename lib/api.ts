@@ -121,6 +121,48 @@ export async function atualizarStatusPedido(
   });
 }
 
+// ---- Cliente (cadastro, login, sessão) ----
+
+/** Lê a mensagem de erro que o servidor mandou, pra mostrar na tela. */
+async function erroDoServidor(res: Response, padrao: string): Promise<string> {
+  const msg = await res
+    .json()
+    .then((c) => (c as { error?: string }).error)
+    .catch(() => undefined);
+  return msg || padrao;
+}
+
+export type DadosCadastro = {
+  nome: string;
+  cpf: string;
+  email: string;
+  telefone: string;
+  senha: string;
+  confirmarSenha: string;
+  endereco: Cliente["endereco"];
+};
+
+export async function cadastrarCliente(dados: DadosCadastro): Promise<void> {
+  const res = await fetch("/api/cliente/cadastro", POST_JSON(dados));
+  if (!res.ok) throw new Error(await erroDoServidor(res, "Não foi possível cadastrar."));
+}
+
+export async function entrarCliente(cpf: string, senha: string): Promise<void> {
+  const res = await fetch("/api/cliente/login", POST_JSON({ cpf, senha }));
+  if (!res.ok) throw new Error(await erroDoServidor(res, "CPF ou senha incorretos."));
+}
+
+export async function sairCliente(): Promise<void> {
+  await fetch("/api/cliente/logout", { method: "POST" });
+}
+
+/** Cliente logado, ou null se a sessão não existir mais. */
+export async function getClienteLogado(): Promise<(Cliente & { email?: string }) | null> {
+  const res = await fetch("/api/cliente/eu", { cache: "no-store" });
+  if (!res.ok) return null;
+  return res.json();
+}
+
 // ---- Admin (login/logout) ----
 export async function loginAdmin(password: string): Promise<boolean> {
   const res = await fetch("/api/admin/login", POST_JSON({ password }));

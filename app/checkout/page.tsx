@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
-import { getCarrinho, getClienteAtual } from "@/lib/store";
-import { getConfiguracaoFrete, iniciarPagamento } from "@/lib/api";
+import { getCarrinho } from "@/lib/store";
+import { getClienteLogado, getConfiguracaoFrete, iniciarPagamento } from "@/lib/api";
+import type { Cliente } from "@/lib/types";
 import { calcularFretePorEndereco } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
 import { linkWhatsApp } from "@/lib/contato";
@@ -19,13 +20,20 @@ export default function CheckoutPage() {
   const [finalizando, setFinalizando] = useState(false);
 
   const carrinho = useMemo(() => getCarrinho(), []);
-  const cliente = useMemo(() => getClienteAtual(), []);
+  // O cliente vem da sessão no servidor, não do navegador: assim o endereço
+  // usado no frete é o que está de fato cadastrado na conta.
+  const [cliente, setCliente] = useState<Cliente | null>(null);
+  const [carregandoCliente, setCarregandoCliente] = useState(true);
   const subtotal = carrinho.reduce((acc, i) => acc + i.precoUnitario * i.quantidade, 0);
 
   useEffect(() => {
     getConfiguracaoFrete()
       .then(setConfig)
       .catch(() => setConfig(null));
+    getClienteLogado()
+      .then(setCliente)
+      .catch(() => setCliente(null))
+      .finally(() => setCarregandoCliente(false));
   }, []);
 
   useEffect(() => {
@@ -56,7 +64,8 @@ export default function CheckoutPage() {
   // no cadastro. Sem elas não dá pra calcular distância — e sem distância
   // não dá pra cobrar frete.
   const semCoordenadas = !cliente?.endereco.lat || !cliente?.endereco.lng;
-  const carregandoFrete = tipoEntrega === "entrega" && !config;
+  const carregandoFrete =
+    tipoEntrega === "entrega" && (!config || carregandoCliente);
   const foraDaArea =
     tipoEntrega === "entrega" && !semCoordenadas && frete !== null && frete.valor === null;
   // Trava o checkout quando o frete não pôde ser determinado, pra não sair

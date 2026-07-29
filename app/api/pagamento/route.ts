@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { Preference } from "mercadopago";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { clientes, configFrete, pedidos, produtos } from "@/lib/db/schema";
+import { configFrete, pedidos, produtos } from "@/lib/db/schema";
+import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
@@ -23,6 +24,10 @@ type Corpo = Pick<
 
 /** Limite de segurança: ninguém pede 500 brigadeiros por engano. */
 const QUANTIDADE_MAXIMA = 200;
+
+function texto(valor: unknown, limite: number): string {
+  return typeof valor === "string" ? valor.trim().slice(0, limite) : "";
+}
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as Partial<Corpo>;
@@ -73,20 +78,25 @@ export async function POST(req: Request) {
     });
   }
 
-  // Endereço de referência: preferimos o que está gravado no banco, porque o
-  // que vem na requisição pode ter sido adulterado no navegador.
-  const [cliente] = body.clienteId
-    ? await db.select().from(clientes).where(eq(clientes.id, body.clienteId))
-    : [];
+  // 2) Quem está comprando sai da SESSÃO, não do que o navegador mandou —
+  // assim ninguém faz pedido em nome de outra pessoa, e o endereço usado no
+  // frete é sempre o que está cadastrado na conta.
+  const cliente = await getClienteLogado();
+  if (!cliente) {
+    return NextResponse.json(
+      { error: "Faça login para finalizar o pedido." },
+      { status: 401 }
+    );
+  }
 
-  // 2) A entrega só vale pra Arapongas-PR. Quem é de fora ainda pode comprar
+  // A entrega só vale pra Arapongas-PR. Quem é de fora ainda pode comprar
   // escolhendo Retirada, então a checagem só vale pra entrega.
   if (tipoEntrega === "entrega") {
     const area = checarAreaEntrega({
-      cep: cliente?.cep ?? body.enderecoEntrega?.cep,
-      cidade: cliente?.cidade ?? body.enderecoEntrega?.cidade,
-      bairro: cliente?.bairro ?? body.enderecoEntrega?.bairro,
-      rua: cliente?.rua ?? body.enderecoEntrega?.rua,
+      cep: cliente.cep,
+      cidade: cliente.cidade,
+      bairro: cliente.bairro,
+      rua: cliente.rua,
     });
     if (!area.atendido) {
       return NextResponse.json(
@@ -111,8 +121,7 @@ export async function POST(req: Request) {
       ? { origem: linhaCfg.origem, faixas: linhaCfg.faixas }
       : configuracaoFretePadrao;
 
-    const lat = cliente?.lat ?? body.enderecoEntrega?.lat;
-    const lng = cliente?.lng ?? body.enderecoEntrega?.lng;
+    const { lat, lng } = cliente;
 
     if (lat == null || lng == null) {
       return NextResponse.json(
@@ -148,11 +157,25 @@ export async function POST(req: Request) {
   const id = crypto.randomUUID();
   await db.insert(pedidos).values({
     id,
-    clienteId: body.clienteId || null,
+    clienteId: cliente.id,
     itens,
     tipoEntrega,
-    dataAgendada: body.dataAgendada ?? "",
-    enderecoEntrega: body.enderecoEntrega ?? null,
+    dataAgendada: texto(body.dataAgendada, 40),
+    // Endereço congelado no momento da compra, tirado do cadastro — se o
+    // cliente mudar de casa depois, o pedido antigo mantém o endereço certo.
+    enderecoEntrega:
+      tipoEntrega === "entrega"
+        ? {
+            rua: cliente.rua,
+            numero: cliente.numero,
+            bairro: cliente.bairro,
+            cidade: cliente.cidade,
+            cep: cliente.cep,
+            complemento: cliente.complemento ?? undefined,
+            lat: cliente.lat ?? undefined,
+            lng: cliente.lng ?? undefined,
+          }
+        : null,
     valorFrete,
     formaPagamento: body.formaPagamento ?? "pix",
     status: "aguardando_pagamento",

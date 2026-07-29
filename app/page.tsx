@@ -1,20 +1,14 @@
-"use client";
+import { redirect } from "next/navigation";
+import { getClienteLogado } from "@/lib/cliente-logado";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { getClienteAtual } from "@/lib/store";
+export const dynamic = "force-dynamic";
 
-export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const cliente = getClienteAtual();
-    router.replace(cliente ? "/catalogo" : "/cadastro");
-  }, [router]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center font-display text-cherryDark">
-      Carregando a Doceterapia...
-    </div>
-  );
+/**
+ * Porta de entrada do site: quem já está logado vai direto pro cardápio,
+ * quem não está cai na tela de login. A decisão é tomada no servidor, então
+ * não pisca uma tela antes da outra.
+ */
+export default async function Home() {
+  const cliente = await getClienteLogado();
+  redirect(cliente ? "/catalogo" : "/entrar");
 }
