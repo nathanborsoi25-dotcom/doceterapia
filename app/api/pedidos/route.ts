@@ -1,26 +1,11 @@
 import { NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { pedidos } from "@/lib/db/schema";
+import { clientes, pedidos } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
-import type { FormaPagamento, Pedido, TipoEntrega } from "@/lib/types";
+import type { FormaPagamento, PedidoDoPainel, TipoEntrega } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-function toPedido(row: typeof pedidos.$inferSelect): Pedido {
-  return {
-    id: row.id,
-    clienteId: row.clienteId ?? "",
-    itens: row.itens,
-    tipoEntrega: row.tipoEntrega as TipoEntrega,
-    dataAgendada: row.dataAgendada,
-    enderecoEntrega: row.enderecoEntrega ?? undefined,
-    valorFrete: row.valorFrete,
-    formaPagamento: row.formaPagamento as FormaPagamento,
-    status: row.status as Pedido["status"],
-    criadoEm: row.criadoEm.toISOString(),
-  };
-}
 
 // Lista de pedidos = dado sensível. Só o admin logado pode ler.
 export async function GET() {
@@ -28,8 +13,32 @@ export async function GET() {
   if (negado) return negado;
 
   const db = getDb();
-  const rows = await db.select().from(pedidos).orderBy(desc(pedidos.criadoEm));
-  return NextResponse.json(rows.map(toPedido));
+  // Traz o cliente junto: a Camily precisa do nome e do telefone dele na
+  // mesma tela, pra chamar no WhatsApp sem procurar em outro lugar.
+  // Ordena pelo prazo, então o que está mais apertado aparece primeiro.
+  const linhas = await db
+    .select({ pedido: pedidos, cliente: clientes })
+    .from(pedidos)
+    .leftJoin(clientes, eq(pedidos.clienteId, clientes.id))
+    .orderBy(asc(pedidos.prazoEm), asc(pedidos.criadoEm));
+
+  const resultado: PedidoDoPainel[] = linhas.map(({ pedido: p, cliente: c }) => ({
+    id: p.id,
+    clienteId: p.clienteId ?? "",
+    itens: p.itens,
+    tipoEntrega: p.tipoEntrega as TipoEntrega,
+    dataAgendada: p.dataAgendada,
+    enderecoEntrega: p.enderecoEntrega ?? undefined,
+    valorFrete: p.valorFrete,
+    formaPagamento: p.formaPagamento as FormaPagamento,
+    status: p.status as PedidoDoPainel["status"],
+    criadoEm: p.criadoEm.toISOString(),
+    prazoEm: p.prazoEm ? p.prazoEm.toISOString() : null,
+    clienteNome: c?.nome ?? null,
+    clienteTelefone: c?.telefone ?? null,
+  }));
+
+  return NextResponse.json(resultado);
 }
 
 /*

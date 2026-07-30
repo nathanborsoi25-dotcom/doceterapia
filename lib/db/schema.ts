@@ -56,6 +56,12 @@ export const pedidos = pgTable("pedidos", {
   valorFrete: doublePrecision("valor_frete").notNull().default(0),
   formaPagamento: text("forma_pagamento").notNull(),
   status: text("status").notNull().default("aguardando_pagamento"),
+  // Quando este pedido precisa estar pronto. Calculado no servidor na hora
+  // da compra: na retirada é a data agendada; na entrega é a data do pedido
+  // mais o maior prazo de encomenda entre os doces do carrinho. Guardar o
+  // resultado (em vez de recalcular) mantém o prazo estável mesmo que a
+  // Camily mude o prazo do produto depois.
+  prazoEm: timestamp("prazo_em", { withTimezone: true }),
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 

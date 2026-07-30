@@ -41,17 +41,37 @@ export interface ItemPedido {
   quantidade: number;
 }
 
+export type StatusPedido =
+  | "aguardando_pagamento"
+  | "pago"
+  | "em_preparo"
+  | "a_caminho"
+  | "concluido"
+  | "cancelado";
+
 export interface Pedido {
   id: string;
   clienteId: string;
   itens: ItemPedido[];
   tipoEntrega: TipoEntrega;
-  dataAgendada: string; // ISO date - data/horário agendado para entrega OU retirada
+  /** Data/hora escolhida pelo cliente — só existe na RETIRADA. */
+  dataAgendada: string;
   enderecoEntrega?: Cliente["endereco"];
   valorFrete: number;
   formaPagamento: FormaPagamento;
-  status: "aguardando_pagamento" | "pago" | "em_preparo" | "a_caminho" | "concluido" | "cancelado";
+  status: StatusPedido;
   criadoEm: string;
+}
+
+/**
+ * O pedido como o painel da Camily precisa ver: com o prazo calculado e os
+ * dados do cliente já resolvidos, pra ela chamar no WhatsApp na hora.
+ */
+export interface PedidoDoPainel extends Pedido {
+  /** Quando precisa estar pronto (ISO), ou null em pedidos antigos. */
+  prazoEm: string | null;
+  clienteNome: string | null;
+  clienteTelefone: string | null;
 }
 
 // Faixa de frete configurável pelo admin, por distância (em km) a partir

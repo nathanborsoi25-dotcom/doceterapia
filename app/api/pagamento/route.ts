@@ -7,6 +7,7 @@ import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
+import { dataMinimaRetirada, prazoMaximoEmDias } from "@/lib/prazo";
 import type { ItemPedido, Pedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,11 @@ export async function POST(req: Request) {
     });
   }
 
+  // Prazo de encomenda: o maior entre os doces escolhidos.
+  const prazoDias = prazoMaximoEmDias(
+    itens.map((i) => porId.get(i.produtoId)?.prazoDias)
+  );
+
   // 2) Quem está comprando sai da SESSÃO, não do que o navegador mandou —
   // assim ninguém faz pedido em nome de outra pessoa, e o endereço usado no
   // frete é sempre o que está cadastrado na conta.
@@ -143,7 +149,41 @@ export async function POST(req: Request) {
     valorFrete = calculo.valor;
   }
 
-  // 4) Só agora precisamos do Mercado Pago — as validações acima já
+  // 4) Prazo do pedido. Na retirada vale a data que o cliente escolheu, que
+  // precisa respeitar o tempo de encomenda; na entrega quem marca a data é a
+  // Camily, então o prazo é a data da compra mais o tempo de encomenda.
+  const agora = new Date();
+  let prazoEm: Date;
+
+  if (tipoEntrega === "retirada") {
+    const escolhida = new Date(texto(body.dataAgendada, 40));
+    if (Number.isNaN(escolhida.getTime())) {
+      return NextResponse.json(
+        { error: "Escolha a data e a hora da retirada." },
+        { status: 400 }
+      );
+    }
+    // Compara por dia (o cliente pode escolher qualquer hora do dia liberado).
+    const minimo = dataMinimaRetirada(prazoDias, agora);
+    const escolhidaNoDia = new Date(escolhida);
+    escolhidaNoDia.setHours(0, 0, 0, 0);
+    if (escolhidaNoDia < minimo) {
+      return NextResponse.json(
+        {
+          error:
+            prazoDias > 0
+              ? `Um dos doces do seu carrinho é feito sob encomenda e precisa de ${prazoDias} ${prazoDias === 1 ? "dia" : "dias"}. Escolha uma data a partir de ${minimo.toLocaleDateString("pt-BR")}.`
+              : "Escolha uma data a partir de hoje.",
+        },
+        { status: 400 }
+      );
+    }
+    prazoEm = escolhida;
+  } else {
+    prazoEm = dataMinimaRetirada(prazoDias, agora);
+  }
+
+  // 5) Só agora precisamos do Mercado Pago — as validações acima já
   // recusaram o que não dá pra vender, sem depender do gateway.
   const client = getMpClient();
   if (!client) {
@@ -153,14 +193,16 @@ export async function POST(req: Request) {
     );
   }
 
-  // 5) Cria o pedido no banco (status "aguardando_pagamento").
+  // 6) Cria o pedido no banco (status "aguardando_pagamento").
   const id = crypto.randomUUID();
   await db.insert(pedidos).values({
     id,
     clienteId: cliente.id,
     itens,
     tipoEntrega,
-    dataAgendada: texto(body.dataAgendada, 40),
+    // Na entrega o cliente nao agenda: quem marca a data e a Camily.
+    dataAgendada: tipoEntrega === "retirada" ? texto(body.dataAgendada, 40) : "",
+    prazoEm,
     // Endereço congelado no momento da compra, tirado do cadastro — se o
     // cliente mudar de casa depois, o pedido antigo mantém o endereço certo.
     enderecoEntrega:
@@ -181,7 +223,7 @@ export async function POST(req: Request) {
     status: "aguardando_pagamento",
   });
 
-  // 6) Cria a preferência de pagamento no Mercado Pago.
+  // 7) Cria a preferência de pagamento no Mercado Pago.
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
   const ehLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
 

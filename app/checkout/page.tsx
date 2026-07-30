@@ -4,7 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import { getCarrinho } from "@/lib/store";
-import { getClienteLogado, getConfiguracaoFrete, iniciarPagamento } from "@/lib/api";
+import {
+  getClienteLogado,
+  getConfiguracaoFrete,
+  getProdutos,
+  iniciarPagamento,
+} from "@/lib/api";
+import {
+  dataMinimaRetirada,
+  paraInputDataHora,
+  prazoMaximoEmDias,
+} from "@/lib/prazo";
 import type { Cliente } from "@/lib/types";
 import { calcularFretePorEndereco } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
@@ -26,6 +36,10 @@ export default function CheckoutPage() {
   const [carregandoCliente, setCarregandoCliente] = useState(true);
   const subtotal = carrinho.reduce((acc, i) => acc + i.precoUnitario * i.quantidade, 0);
 
+  // Dias de encomenda do carrinho: o prazo vem do produto no banco, não do
+  // carrinho salvo no navegador (que pode estar desatualizado).
+  const [prazoDias, setPrazoDias] = useState(0);
+
   useEffect(() => {
     getConfiguracaoFrete()
       .then(setConfig)
@@ -34,7 +48,22 @@ export default function CheckoutPage() {
       .then(setCliente)
       .catch(() => setCliente(null))
       .finally(() => setCarregandoCliente(false));
-  }, []);
+    getProdutos()
+      .then((lista) => {
+        const noCarrinho = new Set(carrinho.map((i) => i.produtoId));
+        setPrazoDias(
+          prazoMaximoEmDias(
+            lista.filter((p) => noCarrinho.has(p.id)).map((p) => p.prazoDias)
+          )
+        );
+      })
+      .catch(() => setPrazoDias(0));
+  }, [carrinho]);
+
+  const minimoRetirada = useMemo(
+    () => paraInputDataHora(dataMinimaRetirada(prazoDias)),
+    [prazoDias]
+  );
 
   useEffect(() => {
     if (tipoEntrega !== "entrega" || !cliente || !config) return;
@@ -189,19 +218,33 @@ export default function CheckoutPage() {
               </p>
             ) : null)}
 
-          <label className="grid gap-1 text-sm font-body text-ink/80 mt-2">
-            {tipoEntrega === "entrega" ? "Data/horário agendado para entrega *" : "Data/horário agendado para retirada *"}
-            <input
-              type="datetime-local"
-              value={dataAgendada}
-              onChange={(e) => setDataAgendada(e.target.value)}
-              className="border border-cherryLight/60 rounded-xl px-4 py-2 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
-            />
-          </label>
-          <p className="text-xs text-ink/50 -mt-1">
-            Se algum item do carrinho é sob encomenda, combine um prazo que
-            respeite os dias indicados no cardápio.
-          </p>
+          {/* Só a RETIRADA é agendada pelo cliente. Na entrega quem marca a
+              data é a Camily, então aqui a gente só avisa o prazo. */}
+          {tipoEntrega === "retirada" ? (
+            <>
+              <label className="grid gap-1 text-sm font-body text-ink/80 mt-2">
+                Quando você vem buscar? *
+                <input
+                  type="datetime-local"
+                  value={dataAgendada}
+                  min={minimoRetirada}
+                  onChange={(e) => setDataAgendada(e.target.value)}
+                  className="w-full border border-cherryLight/60 rounded-xl px-4 py-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
+                />
+              </label>
+              <p className="text-xs text-ink/50 -mt-1">
+                {prazoDias > 0
+                  ? `Um dos doces do seu carrinho é feito sob encomenda e precisa de ${prazoDias} ${prazoDias === 1 ? "dia" : "dias"} de preparo, então a retirada começa em ${new Date(minimoRetirada).toLocaleDateString("pt-BR")}.`
+                  : "Tudo do seu carrinho é pronta entrega — você já pode buscar hoje."}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm font-body text-ink/70 bg-white/60 border border-cherryLight/30 rounded-xl px-4 py-3 mt-2">
+              {prazoDias > 0
+                ? `Um dos doces do seu carrinho é feito sob encomenda e precisa de ${prazoDias} ${prazoDias === 1 ? "dia" : "dias"} de preparo. A Camily combina o dia e o horário da entrega com você pelo WhatsApp.`
+                : "A Camily combina o dia e o horário da entrega com você pelo WhatsApp, assim que o pagamento for confirmado."}
+            </p>
+          )}
         </section>
 
         <CherryDivider />
@@ -240,7 +283,11 @@ export default function CheckoutPage() {
 
         <button
           onClick={handleFinalizar}
-          disabled={!dataAgendada || finalizando || compraBloqueada}
+          disabled={
+            (tipoEntrega === "retirada" && !dataAgendada) ||
+            finalizando ||
+            compraBloqueada
+          }
           className="mt-6 w-full bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors disabled:opacity-40"
         >
           {finalizando ? "Redirecionando para o pagamento..." : "Ir para o pagamento"}

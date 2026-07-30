@@ -1,4 +1,11 @@
-import type { Cliente, ConfiguracaoFrete, Pedido, Produto } from "./types";
+import type {
+  Cliente,
+  ConfiguracaoFrete,
+  Pedido,
+  PedidoDoPainel,
+  Produto,
+  StatusPedido,
+} from "./types";
 
 /**
  * Funções que conversam com o backend (rotas /api/*), que por sua vez
@@ -106,13 +113,13 @@ export async function iniciarPagamento(
   return res.json();
 }
 
-export async function getPedidos(): Promise<Pedido[]> {
-  return json<Pedido[]>(await fetch("/api/pedidos", { cache: "no-store" }));
+export async function getPedidos(): Promise<PedidoDoPainel[]> {
+  return json<PedidoDoPainel[]>(await fetch("/api/pedidos", { cache: "no-store" }));
 }
 
 export async function atualizarStatusPedido(
   id: string,
-  status: Pedido["status"]
+  status: StatusPedido
 ): Promise<void> {
   await fetch(`/api/pedidos/${id}`, {
     method: "PATCH",
