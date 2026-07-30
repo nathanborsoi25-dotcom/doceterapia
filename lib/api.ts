@@ -156,6 +156,27 @@ export async function sairCliente(): Promise<void> {
   await fetch("/api/cliente/logout", { method: "POST" });
 }
 
+/** Pede o código de redefinição; devolve o e-mail mascarado quando dá certo. */
+export async function pedirCodigoSenha(cpf: string): Promise<{ email?: string }> {
+  const res = await fetch("/api/cliente/recuperar", POST_JSON({ cpf }));
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível enviar o código."));
+  }
+  return res.json();
+}
+
+export async function redefinirSenha(dados: {
+  cpf: string;
+  codigo: string;
+  senha: string;
+  confirmarSenha: string;
+}): Promise<void> {
+  const res = await fetch("/api/cliente/redefinir", POST_JSON(dados));
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível redefinir a senha."));
+  }
+}
+
 /** Cliente logado, ou null se a sessão não existir mais. */
 export async function getClienteLogado(): Promise<(Cliente & { email?: string }) | null> {
   const res = await fetch("/api/cliente/eu", { cache: "no-store" });
