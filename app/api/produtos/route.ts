@@ -24,6 +24,7 @@ export async function POST(req: Request) {
     descricao: p.descricao ?? "",
     sabor: p.sabor ?? "",
     preco: p.preco ?? 0,
+    custo: Math.max(0, Number(p.custo) || 0),
     fotoUrl: p.fotoUrl ?? "",
     disponibilidade: p.disponibilidade,
     prazoDias: p.prazoDias ?? null,

@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { Preference } from "mercadopago";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { carrinhos, configFrete, pedidos, produtos } from "@/lib/db/schema";
+import { carrinhos, configFrete, cupons, pedidos, produtos } from "@/lib/db/schema";
 import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
 import { dataMinimaRetirada, prazoMaximoEmDias } from "@/lib/prazo";
+import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
+import { sql } from "drizzle-orm";
 import type { ItemPedido, Pedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +33,9 @@ function texto(valor: unknown, limite: number): string {
 }
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => ({}))) as Partial<Corpo>;
+  const body = (await req.json().catch(() => ({}))) as Partial<Corpo> & {
+    cupom?: string;
+  };
   const recebidos = body.itens;
   if (!Array.isArray(recebidos) || recebidos.length === 0) {
     return NextResponse.json({ error: "Carrinho vazio." }, { status: 400 });
@@ -183,7 +187,27 @@ export async function POST(req: Request) {
     prazoEm = dataMinimaRetirada(prazoDias, agora);
   }
 
-  // 5) Só agora precisamos do Mercado Pago — as validações acima já
+  // 5) Cupom de desconto, se o cliente informou. A regra e o valor saem do
+  // banco: o desconto que vier do navegador é ignorado.
+  const subtotal = itens.reduce((a, i) => a + i.precoUnitario * i.quantidade, 0);
+  let desconto = 0;
+  let cupomCodigo: string | null = null;
+
+  const codigoInformado = normalizarCodigo(body.cupom ?? "");
+  if (codigoInformado) {
+    const [cupom] = await db
+      .select()
+      .from(cupons)
+      .where(eq(cupons.codigo, codigoInformado));
+    const r = avaliarCupom(cupom, subtotal, cliente.id);
+    if (!r.valido) {
+      return NextResponse.json({ error: r.motivo }, { status: 400 });
+    }
+    desconto = r.desconto;
+    cupomCodigo = r.cupom.codigo;
+  }
+
+  // 6) Só agora precisamos do Mercado Pago — as validações acima já
   // recusaram o que não dá pra vender, sem depender do gateway.
   const client = getMpClient();
   if (!client) {
@@ -193,7 +217,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // 6) Cria o pedido no banco (status "aguardando_pagamento").
+  // 7) Cria o pedido no banco (status "aguardando_pagamento").
   const id = crypto.randomUUID();
   await db.insert(pedidos).values({
     id,
@@ -219,14 +243,24 @@ export async function POST(req: Request) {
           }
         : null,
     valorFrete,
+    cupomCodigo,
+    desconto,
     formaPagamento: body.formaPagamento ?? "pix",
     status: "aguardando_pagamento",
   });
 
+  // Marca o uso do cupom, pra respeitar o limite que a Camily definiu.
+  if (cupomCodigo) {
+    await db
+      .update(cupons)
+      .set({ usos: sql`${cupons.usos} + 1` })
+      .where(eq(cupons.codigo, cupomCodigo));
+  }
+
   // O carrinho virou pedido: sai da lista de "abandonados" da Camily.
   await db.delete(carrinhos).where(eq(carrinhos.clienteId, cliente.id));
 
-  // 7) Cria a preferência de pagamento no Mercado Pago.
+  // 8) Cria a preferência de pagamento no Mercado Pago.
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
   const ehLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
 
@@ -243,6 +277,28 @@ export async function POST(req: Request) {
       // Frete entra como custo de envio (quando houver).
       shipments:
         valorFrete > 0 ? { cost: valorFrete, mode: "not_specified" } : undefined,
+      // O desconto do cupom vai como item negativo, que é como o Mercado
+      // Pago aceita abatimento: o total cobrado já sai certo na tela dele.
+      ...(desconto > 0
+        ? {
+            items: [
+              ...itens.map((i) => ({
+                id: i.produtoId,
+                title: i.nome,
+                quantity: i.quantidade,
+                unit_price: i.precoUnitario,
+                currency_id: "BRL",
+              })),
+              {
+                id: "desconto",
+                title: `Desconto (cupom ${cupomCodigo})`,
+                quantity: 1,
+                unit_price: -desconto,
+                currency_id: "BRL",
+              },
+            ],
+          }
+        : {}),
       external_reference: id,
       back_urls: {
         success: `${origin}/pedido/sucesso`,

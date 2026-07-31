@@ -61,22 +61,40 @@ export default function AdminProdutosPage() {
               className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
             />
             {/* Empilha no celular; volta a dividir a linha do tablet pra cima */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <input
                 value={produto.sabor}
                 onChange={(e) => handleCampo(produto.id, "sabor", e.target.value)}
                 placeholder="Sabor"
                 className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
               />
-              <input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                value={produto.preco}
-                onChange={(e) => handleCampo(produto.id, "preco", parseFloat(e.target.value) || 0)}
-                placeholder="Preço"
-                className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
-              />
+              <label className="grid gap-0.5">
+                <span className="text-xs text-ink/50">Preço de venda</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={produto.preco}
+                  onChange={(e) => handleCampo(produto.id, "preco", parseFloat(e.target.value) || 0)}
+                  className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
+                />
+              </label>
+              {/* Sem o custo não dá pra calcular lucro nas métricas. */}
+              <label className="grid gap-0.5">
+                <span className="text-xs text-ink/50">Custo de produção</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={produto.custo ?? 0}
+                  onChange={(e) => handleCampo(produto.id, "custo", parseFloat(e.target.value) || 0)}
+                  className={`w-full text-sm font-body bg-transparent border rounded-lg p-2 ${
+                    (produto.custo ?? 0) <= 0
+                      ? "border-amber-300 bg-amber-50/50"
+                      : "border-cherryLight/30"
+                  }`}
+                />
+              </label>
             </div>
             <EscolherFoto
               valor={produto.fotoUrl}

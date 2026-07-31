@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
+import BannerPromocao from "@/components/BannerPromocao";
 import CherryDivider from "@/components/CherryDivider";
 import { getProdutos } from "@/lib/api";
 import type { Produto } from "@/lib/types";
@@ -27,6 +28,7 @@ export default function CatalogoPage() {
           Nosso cardápio de hoje
         </h1>
         <CherryDivider />
+        <BannerPromocao />
         {carregando ? (
           <p className="text-center font-body text-ink/60">Carregando cardápio...</p>
         ) : produtos.length === 0 ? (

@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { pedidos } from "@/lib/db/schema";
 import { getMpClient } from "@/lib/mercadopago";
 import { avisarMudancaDeStatus } from "@/lib/avisar-cliente";
+import { creditarPontosDoPedido } from "@/lib/fidelidade";
 import type { Pedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +83,26 @@ export async function POST(req: Request) {
           .set({ status: novoStatus })
           .where(eq(pedidos.id, pedidoId));
         await avisarMudancaDeStatus(pedidoId, novoStatus);
+
+        // Pagamento confirmado: agora sim o cliente ganha os pontos. Fazer
+        // isso na criação do pedido daria pontos por compra nunca paga.
+        if (novoStatus === "pago") {
+          const [p] = await db
+            .select()
+            .from(pedidos)
+            .where(eq(pedidos.id, pedidoId));
+          if (p?.clienteId) {
+            const subtotal = p.itens.reduce(
+              (a, i) => a + i.precoUnitario * i.quantidade,
+              0
+            );
+            await creditarPontosDoPedido(
+              p.clienteId,
+              p.id,
+              Math.max(0, subtotal - p.desconto)
+            );
+          }
+        }
       }
     }
   } catch {

@@ -16,6 +16,10 @@ export const produtos = pgTable("produtos", {
   descricao: text("descricao").notNull().default(""),
   sabor: text("sabor").notNull().default(""),
   preco: doublePrecision("preco").notNull().default(0),
+  // Quanto custa PRODUZIR este doce (ingredientes + embalagem). É o que
+  // permite calcular lucro de verdade nas métricas — sem isso só dá pra
+  // mostrar faturamento. Zero significa "ainda não informado".
+  custo: doublePrecision("custo").notNull().default(0),
   fotoUrl: text("foto_url").notNull().default(""),
   disponibilidade: text("disponibilidade").notNull().default("pronta_entrega"),
   prazoDias: integer("prazo_dias"),
@@ -54,6 +58,9 @@ export const pedidos = pgTable("pedidos", {
   dataAgendada: text("data_agendada").notNull().default(""),
   enderecoEntrega: jsonb("endereco_entrega").$type<Cliente["endereco"] | null>(),
   valorFrete: doublePrecision("valor_frete").notNull().default(0),
+  /** Cupom aplicado na compra, se houve. */
+  cupomCodigo: text("cupom_codigo"),
+  desconto: doublePrecision("desconto").notNull().default(0),
   formaPagamento: text("forma_pagamento").notNull(),
   status: text("status").notNull().default("aguardando_pagamento"),
   // Quando este pedido precisa estar pronto. Calculado no servidor na hora
@@ -92,6 +99,80 @@ export const codigosSenha = pgTable("codigos_senha", {
   usadoEm: timestamp("usado_em", { withTimezone: true }),
   tentativas: integer("tentativas").notNull().default(0),
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Cupons de desconto criados pela Camily. Um cupom pode valer para a loja
+ * toda (clienteId nulo) ou ser exclusivo de uma pessoa — inclusive como
+ * isca para trazer de volta quem abandonou o carrinho.
+ */
+export const cupons = pgTable("cupons", {
+  id: text("id").primaryKey(),
+  /** O que o cliente digita. Guardado em MAIÚSCULAS para não haver dúvida. */
+  codigo: text("codigo").notNull().unique(),
+  descricao: text("descricao").notNull().default(""),
+  /** "percentual" (10% off) ou "valor" (R$ 10 off). */
+  tipo: text("tipo").notNull().default("percentual"),
+  valor: doublePrecision("valor").notNull().default(0),
+  /** Só vale a partir deste subtotal. Zero = sem mínimo. */
+  pedidoMinimo: doublePrecision("pedido_minimo").notNull().default(0),
+  /** Nulo = qualquer cliente pode usar. */
+  clienteId: text("cliente_id"),
+  /** Nulo = sem prazo. */
+  expiraEm: timestamp("expira_em", { withTimezone: true }),
+  /** Zero = uso ilimitado. */
+  limiteUsos: integer("limite_usos").notNull().default(0),
+  usos: integer("usos").notNull().default(0),
+  ativo: boolean("ativo").notNull().default(true),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Extrato de pontos de fidelidade. Em vez de guardar só um saldo, guardamos
+ * cada movimento: assim dá pra mostrar ao cliente de onde vieram os pontos e
+ * o saldo é sempre a soma — nunca "desafina".
+ */
+export const pontos = pgTable("pontos", {
+  id: text("id").primaryKey(),
+  clienteId: text("cliente_id").notNull(),
+  /** Positivo quando ganha, negativo quando resgata. */
+  quantidade: integer("quantidade").notNull(),
+  /** "pedido", "avaliacao" ou "resgate". */
+  motivo: text("motivo").notNull(),
+  descricao: text("descricao").notNull().default(""),
+  /** Pedido que gerou os pontos, quando houver. */
+  pedidoId: text("pedido_id"),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** O que o cliente pode trocar pelos pontos. */
+export const recompensas = pgTable("recompensas", {
+  id: text("id").primaryKey(),
+  nome: text("nome").notNull(),
+  descricao: text("descricao").notNull().default(""),
+  pontos: integer("pontos").notNull().default(0),
+  ativo: boolean("ativo").notNull().default(true),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Ajustes gerais da loja — uma única linha (id "default"). Guarda as regras
+ * de pontuação e o banner de promoção da página inicial, pra Camily mudar
+ * tudo pelo painel sem precisar de programador.
+ */
+export const configLoja = pgTable("config_loja", {
+  id: text("id").primaryKey(),
+  /** Pontos ganhos por real gasto (ex: 1 ponto por R$ 1,00). */
+  pontosPorReal: doublePrecision("pontos_por_real").notNull().default(1),
+  /** Pontos ganhos ao avaliar um doce. */
+  pontosPorAvaliacao: integer("pontos_por_avaliacao").notNull().default(10),
+  bannerAtivo: boolean("banner_ativo").notNull().default(false),
+  bannerTitulo: text("banner_titulo").notNull().default(""),
+  bannerDescricao: text("banner_descricao").notNull().default(""),
+  bannerSelo: text("banner_selo").notNull().default(""),
+  bannerImagem: text("banner_imagem").notNull().default(""),
+  /** Para onde o banner leva (ex: /catalogo). */
+  bannerLink: text("banner_link").notNull().default("/catalogo"),
 });
 
 // Configuração de frete — sempre uma única linha (id fixo "default").

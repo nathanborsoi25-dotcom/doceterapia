@@ -468,7 +468,7 @@ function CopiarEndereco({ texto }: { texto: string }) {
   return (
     <button
       onClick={copiar}
-      className={`shrink-0 text-xs font-semibold rounded-full px-3 py-2 border transition-colors ${
+      className={`shrink-0 text-xs font-semibold rounded-full px-3 py-3 border transition-colors ${
         copiado
           ? "bg-green-100 text-green-800 border-green-200"
           : "text-cherryDark border-cherryLight/50 hover:bg-blush"

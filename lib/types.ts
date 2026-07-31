@@ -6,6 +6,8 @@ export interface Produto {
   descricao: string;
   sabor: string;
   preco: number; // em reais
+  /** Quanto custa produzir (ingredientes + embalagem). Alimenta o lucro. */
+  custo?: number;
   fotoUrl: string;
   disponibilidade: TipoDisponibilidade;
   prazoDias?: number; // usado quando "sob_encomenda"
