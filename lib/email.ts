@@ -65,6 +65,19 @@ export function mascararEmail(email: string): string {
   return `${visivel}${"*".repeat(3)}@${dominio}`;
 }
 
+/** Moldura comum dos e-mails, pra todos saírem com a cara da loja. */
+function moldura(conteudo: string): string {
+  return `<div style="font-family:Nunito,Segoe UI,Arial,sans-serif;background:#fdf0ea;padding:32px 16px">
+  <div style="max-width:480px;margin:0 auto;background:#fffaf7;border:1px solid #f0c9d3;border-radius:20px;padding:32px;text-align:center">
+    <p style="font-size:26px;margin:0 0 4px;color:#a3243c;font-weight:700">doce<span style="color:#e2879b;font-weight:400">terapia</span></p>
+    ${conteudo}
+    <p style="color:#3b1a1f;opacity:.45;font-size:12px;margin:28px 0 0;border-top:1px solid #f0c9d3;padding-top:16px">
+      Doceterapia — doces artesanais da Camily Vilasboa, em Arapongas-PR.<br>Este e-mail é automático, não precisa responder.
+    </p>
+  </div>
+</div>`;
+}
+
 /** Modelo do e-mail com o código de redefinição, na identidade da loja. */
 export function emailCodigoSenha(nome: string, codigo: string) {
   const texto = `Oi, ${nome}!
@@ -77,22 +90,95 @@ Ele vale por 15 minutos. Se não foi você que pediu, ignore esta mensagem — s
 
 Doceterapia — doces artesanais da Camily Vilasboa`;
 
-  const html = `<div style="font-family:Nunito,Segoe UI,Arial,sans-serif;background:#fdf0ea;padding:32px 16px">
-  <div style="max-width:480px;margin:0 auto;background:#fffaf7;border:1px solid #f0c9d3;border-radius:20px;padding:32px;text-align:center">
-    <p style="font-size:26px;margin:0 0 4px;color:#a3243c;font-weight:700">doce<span style="color:#e2879b;font-weight:400">terapia</span></p>
+  const html = moldura(`
     <p style="color:#3b1a1f;font-size:15px;margin:20px 0 8px">Oi, ${nome}! 🍒</p>
     <p style="color:#3b1a1f;opacity:.75;font-size:14px;margin:0 0 24px">
       Recebemos um pedido para redefinir a senha da sua conta.<br>Use o código abaixo:
     </p>
     <p style="font-size:34px;letter-spacing:8px;font-weight:700;color:#a3243c;background:#fdf0ea;border-radius:14px;padding:16px 8px;margin:0">${codigo}</p>
-    <p style="color:#3b1a1f;opacity:.6;font-size:13px;margin:24px 0 0">
-      O código vale por 15 minutos.
-    </p>
+    <p style="color:#3b1a1f;opacity:.6;font-size:13px;margin:24px 0 0">O código vale por 15 minutos.</p>
     <p style="color:#3b1a1f;opacity:.6;font-size:13px;margin:12px 0 0">
       Se não foi você que pediu, pode ignorar este e-mail — sua senha continua a mesma.
-    </p>
-  </div>
-</div>`;
+    </p>`);
 
   return { assunto: "Seu código para redefinir a senha - Doceterapia", html, texto };
+}
+
+/**
+ * Aviso de mudança de situação do pedido. Cada situação tem um texto próprio,
+ * escrito como a Camily falaria com a cliente.
+ */
+export function emailStatusPedido(dados: {
+  nome: string;
+  status: string;
+  tipoEntrega: string;
+  itens: Array<{ nome: string; quantidade: number }>;
+  total: number;
+  prazoEm?: string | null;
+}) {
+  const primeiroNome = dados.nome.split(" ")[0];
+  const ehEntrega = dados.tipoEntrega === "entrega";
+  const receber = ehEntrega ? "entrega" : "retirada";
+
+  const textos: Record<string, { assunto: string; titulo: string; corpo: string }> = {
+    pago: {
+      assunto: "Pagamento confirmado! Seu pedido está garantido 🍒",
+      titulo: "Pagamento confirmado!",
+      corpo: `Recebemos seu pagamento e seu pedido já está na fila. A Camily vai preparar tudo com carinho e combina os detalhes da ${receber} com você pelo WhatsApp.`,
+    },
+    em_preparo: {
+      assunto: "Seus doces já estão sendo preparados 🍰",
+      titulo: "Estamos preparando seus doces",
+      corpo: "A Camily começou a preparar seu pedido agorinha. Em breve avisamos quando estiver pronto.",
+    },
+    a_caminho: {
+      assunto: ehEntrega ? "Seu pedido saiu para entrega! 🛵" : "Seu pedido está pronto para retirada! 🍒",
+      titulo: ehEntrega ? "Saiu para entrega!" : "Pronto para retirada!",
+      corpo: ehEntrega
+        ? "Seu pedido acabou de sair e está a caminho do seu endereço. Fique de olho!"
+        : "Seus doces estão prontinhos esperando por você. É só vir buscar no horário combinado.",
+    },
+    concluido: {
+      assunto: "Obrigada pelo seu pedido! 💗",
+      titulo: "Pedido entregue!",
+      corpo: "Esperamos que você adore cada pedacinho. Se gostar, conta pra gente — e volte sempre!",
+    },
+    cancelado: {
+      assunto: "Seu pedido foi cancelado",
+      titulo: "Pedido cancelado",
+      corpo: "Seu pedido foi cancelado. Se o pagamento já tinha sido feito, o reembolso é processado automaticamente — no Pix costuma voltar rápido, e no cartão pode aparecer só na próxima fatura. Qualquer dúvida, fale com a Camily pelo WhatsApp.",
+    },
+  };
+
+  const t = textos[dados.status];
+  if (!t) return null; // situação sem aviso (ex: aguardando pagamento)
+
+  const listaTexto = dados.itens
+    .map((i) => `- ${i.quantidade}x ${i.nome}`)
+    .join("\n");
+  const listaHtml = dados.itens
+    .map((i) => `<li style="margin:2px 0">${i.quantidade}× ${i.nome}</li>`)
+    .join("");
+
+  const texto = `Oi, ${primeiroNome}!
+
+${t.corpo}
+
+Seu pedido:
+${listaTexto}
+Total: R$ ${dados.total.toFixed(2)}
+
+Doceterapia — doces artesanais da Camily Vilasboa`;
+
+  const html = moldura(`
+    <p style="color:#3b1a1f;font-size:19px;margin:20px 0 6px;font-weight:700">${t.titulo}</p>
+    <p style="color:#3b1a1f;font-size:15px;margin:0 0 4px">Oi, ${primeiroNome}!</p>
+    <p style="color:#3b1a1f;opacity:.75;font-size:14px;margin:12px 0 20px">${t.corpo}</p>
+    <div style="background:#fdf0ea;border-radius:14px;padding:16px;text-align:left">
+      <p style="margin:0 0 8px;font-size:13px;color:#a3243c;font-weight:700">Seu pedido</p>
+      <ul style="margin:0;padding-left:18px;color:#3b1a1f;font-size:14px">${listaHtml}</ul>
+      <p style="margin:10px 0 0;font-size:15px;color:#3b1a1f;font-weight:700">Total: R$ ${dados.total.toFixed(2)}</p>
+    </div>`);
+
+  return { assunto: t.assunto, html, texto };
 }

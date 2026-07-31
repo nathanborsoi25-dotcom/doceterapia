@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { pedidos } from "@/lib/db/schema";
 import { getMpClient } from "@/lib/mercadopago";
+import { avisarMudancaDeStatus } from "@/lib/avisar-cliente";
 import type { Pedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -64,12 +65,24 @@ export async function POST(req: Request) {
     const info = await payment.get({ id: String(paymentId) });
     const pedidoId = info.external_reference;
     const novoStatus = mapearStatus(info.status);
+
     if (pedidoId && novoStatus) {
       const db = getDb();
-      await db
-        .update(pedidos)
-        .set({ status: novoStatus })
+      // Só avisa se a situação realmente mudou: o Mercado Pago manda a
+      // mesma notificação mais de uma vez, e o cliente não pode receber
+      // três e-mails iguais dizendo que o pagamento foi confirmado.
+      const [antes] = await db
+        .select({ status: pedidos.status })
+        .from(pedidos)
         .where(eq(pedidos.id, pedidoId));
+
+      if (antes && antes.status !== novoStatus) {
+        await db
+          .update(pedidos)
+          .set({ status: novoStatus })
+          .where(eq(pedidos.id, pedidoId));
+        await avisarMudancaDeStatus(pedidoId, novoStatus);
+      }
     }
   } catch {
     // Não falha o webhook — o MP re-tenta a notificação.
