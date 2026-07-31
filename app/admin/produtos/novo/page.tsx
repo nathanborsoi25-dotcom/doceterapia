@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import EscolherFoto from "@/components/EscolherFoto";
 import { upsertProduto } from "@/lib/api";
 import type { Produto, TipoDisponibilidade } from "@/lib/types";
 
@@ -75,11 +76,9 @@ export default function NovoProdutoPage() {
           onChange={(e) => setForm({ ...form, preco: e.target.value })}
           className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         />
-        <input
-          placeholder="URL da foto"
-          value={form.fotoUrl}
-          onChange={(e) => setForm({ ...form, fotoUrl: e.target.value })}
-          className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
+        <EscolherFoto
+          valor={form.fotoUrl}
+          onChange={(url) => setForm({ ...form, fotoUrl: url })}
         />
         <select
           value={form.disponibilidade}

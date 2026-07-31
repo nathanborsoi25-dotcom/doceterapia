@@ -38,6 +38,21 @@ export async function removerProduto(id: string): Promise<void> {
   await fetch(`/api/produtos/${id}`, { method: "DELETE" });
 }
 
+/**
+ * Envia a foto escolhida no aparelho e devolve o endereço público dela.
+ * Vai como FormData (e não JSON) porque é arquivo.
+ */
+export async function enviarFotoProduto(arquivo: File): Promise<string> {
+  const dados = new FormData();
+  dados.append("foto", arquivo);
+  const res = await fetch("/api/admin/foto", { method: "POST", body: dados });
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível enviar a foto."));
+  }
+  const { url } = (await res.json()) as { url: string };
+  return url;
+}
+
 // ---- Geocodificação (endereço → coordenadas) ----
 export async function geocodificarEndereco(endereco: {
   rua?: string;

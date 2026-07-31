@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import EscolherFoto from "@/components/EscolherFoto";
 import { getProdutos, removerProduto, upsertProduto } from "@/lib/api";
 import type { Produto } from "@/lib/types";
 
@@ -77,11 +78,9 @@ export default function AdminProdutosPage() {
                 className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
               />
             </div>
-            <input
-              value={produto.fotoUrl}
-              onChange={(e) => handleCampo(produto.id, "fotoUrl", e.target.value)}
-              placeholder="URL da foto"
-              className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
+            <EscolherFoto
+              valor={produto.fotoUrl}
+              onChange={(url) => handleCampo(produto.id, "fotoUrl", url)}
             />
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <select
