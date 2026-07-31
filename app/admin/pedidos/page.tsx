@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { atualizarPedido, getPedidos } from "@/lib/api";
+import {
+  atualizarPedido,
+  getCarrinhosAbandonados,
+  getPedidos,
+  type CarrinhoAbandonado,
+} from "@/lib/api";
 import { linkWhatsAppNumero } from "@/lib/contato";
+import { mensagemCarrinhoAbandonado, mensagemDeStatus } from "@/lib/mensagens-whatsapp";
 import { situacaoPrazo } from "@/lib/prazo";
 import type { PedidoDoPainel, StatusPedido } from "@/lib/types";
 
@@ -24,15 +30,31 @@ const PAGAMENTO: Record<PedidoDoPainel["formaPagamento"], string> = {
 /** Pedido nestes estados não corre mais contra o prazo. */
 const ENCERRADOS: StatusPedido[] = ["concluido", "cancelado"];
 
+/** O que a próxima etapa do pedido significa, pro botão de um clique só. */
+const PROXIMA_ETAPA: Partial<Record<StatusPedido, { proximo: StatusPedido; rotulo: string }>> = {
+  pago: { proximo: "em_preparo", rotulo: "Avisar que comecei a preparar" },
+  em_preparo: { proximo: "a_caminho", rotulo: "Avisar que saiu para entrega" },
+  a_caminho: { proximo: "concluido", rotulo: "Avisar que foi entregue" },
+};
+
+type Filtro = StatusPedido | "todos" | "abandonados";
+
 export default function AdminPedidosPage() {
   const [pedidos, setPedidos] = useState<PedidoDoPainel[]>([]);
+  const [abandonados, setAbandonados] = useState<CarrinhoAbandonado[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvandoLink, setSalvandoLink] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<Filtro>("todos");
 
   useEffect(() => {
-    getPedidos()
-      .then(setPedidos)
-      .catch(() => setPedidos([]))
+    Promise.all([
+      getPedidos().catch(() => []),
+      getCarrinhosAbandonados().catch(() => []),
+    ])
+      .then(([p, c]) => {
+        setPedidos(p);
+        setAbandonados(c);
+      })
       .finally(() => setCarregando(false));
   }, []);
 
@@ -77,10 +99,30 @@ export default function AdminPedidosPage() {
     });
   }, [pedidos]);
 
+  const visiveis = useMemo(
+    () =>
+      filtro === "todos" || filtro === "abandonados"
+        ? ordenados
+        : ordenados.filter((p) => p.status === filtro),
+    [ordenados, filtro]
+  );
+
   const vencidos = ordenados.filter(
-    (p) =>
-      situacaoPrazo(p.prazoEm, { encerrado: ENCERRADOS.includes(p.status) })?.vencido
+    (p) => situacaoPrazo(p.prazoEm, { encerrado: ENCERRADOS.includes(p.status) })?.vencido
   ).length;
+
+  /** Quantos pedidos há em cada situação, pro número aparecer no filtro. */
+  const contagem = useMemo(() => {
+    const c: Record<string, number> = { todos: pedidos.length, abandonados: abandonados.length };
+    for (const s of STATUS) c[s.valor] = pedidos.filter((p) => p.status === s.valor).length;
+    return c;
+  }, [pedidos, abandonados]);
+
+  const filtros: { valor: Filtro; label: string }[] = [
+    { valor: "todos", label: "Todos" },
+    ...STATUS.map((s) => ({ valor: s.valor as Filtro, label: s.label })),
+    { valor: "abandonados", label: "Carrinho abandonado" },
+  ];
 
   return (
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
@@ -95,136 +137,253 @@ export default function AdminPedidosPage() {
         )}
       </p>
 
-      <div className="grid gap-4 mt-6">
-        {carregando && <p className="text-ink/60 font-body">Carregando pedidos...</p>}
-        {!carregando && ordenados.length === 0 && (
-          <p className="text-ink/60 font-body">Ainda não há pedidos.</p>
-        )}
+      {/* Filtros: rolam na horizontal no celular, sem espremer os botões */}
+      <div className="flex gap-2 mt-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+        {filtros.map((f) => (
+          <button
+            key={f.valor}
+            onClick={() => setFiltro(f.valor)}
+            className={`shrink-0 px-4 py-2.5 rounded-full text-sm font-body border transition-colors ${
+              filtro === f.valor
+                ? "bg-cherryDark text-white border-cherryDark"
+                : "bg-white/70 text-ink/70 border-cherryLight/50 hover:border-cherryDark"
+            }`}
+          >
+            {f.label}
+            {contagem[f.valor] > 0 && (
+              <span className={filtro === f.valor ? "opacity-80" : "text-ink/40"}>
+                {" "}
+                ({contagem[f.valor]})
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
-        {ordenados.map((p) => {
-          const encerrado = ENCERRADOS.includes(p.status);
-          const prazo = situacaoPrazo(p.prazoEm, { encerrado });
-          const telefone = p.clienteTelefone ?? "";
+      {carregando && <p className="text-ink/60 font-body mt-6">Carregando...</p>}
 
-          return (
+      {/* Carrinhos que não viraram pedido */}
+      {!carregando && filtro === "abandonados" && (
+        <div className="grid gap-4 mt-2">
+          <p className="text-sm font-body text-ink/60">
+            Pessoas que escolheram doces e não finalizaram. Um toque no WhatsApp
+            costuma resgatar a venda.
+          </p>
+          {abandonados.length === 0 && (
+            <p className="text-ink/60 font-body">Nenhum carrinho parado no momento. 🍒</p>
+          )}
+          {abandonados.map((c) => (
             <div
-              key={p.id}
-              className={`bg-white/70 border rounded-cherry p-3 sm:p-4 grid gap-2 font-body text-sm ${
-                prazo?.vencido ? "border-cherryDark border-2" : "border-cherryLight/30"
-              }`}
+              key={c.clienteId}
+              className="bg-white/70 border border-cherryLight/30 rounded-cherry p-3 sm:p-4 grid gap-2 font-body text-sm"
             >
-              {/* Prazo em destaque: é a informação que ela olha primeiro */}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                {prazo ? (
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      prazo.vencido
-                        ? "bg-cherryDark text-white" // vermelho: passou do prazo
-                        : encerrado
-                          ? "bg-ink/10 text-ink/60" // cinza: pedido já resolvido
-                          : prazo.diasRestantes <= 1
-                            ? "bg-amber-100 text-amber-800" // amarelo: é hoje/amanhã
-                            : "bg-green-100 text-green-800" // verde: tem folga
-                    }`}
-                  >
-                    {prazo.vencido ? `VENCIDO — ${prazo.rotulo}` : `Prazo: ${prazo.rotulo}`}
-                  </span>
-                ) : (
-                  <span className="text-xs text-ink/40">sem prazo definido</span>
-                )}
-                <span className="font-display text-base text-cherryDark">
-                  R$ {total(p).toFixed(2)}
-                </span>
-              </div>
-
-              {/* Cliente + atalho direto pro WhatsApp dele */}
-              <div className="flex flex-wrap items-center gap-2 border-t border-cherryLight/20 pt-2">
                 <span className="text-ink/80">
-                  {p.clienteNome ?? "Cliente"}
-                  {telefone && <span className="text-ink/50"> · {telefone}</span>}
+                  {c.clienteNome ?? "Cliente"}
+                  {c.clienteTelefone && (
+                    <span className="text-ink/50"> · {c.clienteTelefone}</span>
+                  )}
                 </span>
-                {telefone && (
-                  <a
-                    href={linkWhatsAppNumero(
-                      telefone,
-                      `Oi, ${(p.clienteNome ?? "").split(" ")[0]}! Aqui é a Camily, da Doceterapia 🍒`
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 bg-[#25D366] text-white rounded-full px-4 py-2.5 text-xs font-semibold hover:brightness-95 transition"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="w-3.5 h-3.5 fill-current">
-                      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.02a8.2 8.2 0 0 1-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.19 8.19 0 0 1-1.26-4.37c0-4.54 3.7-8.23 8.25-8.23 2.2 0 4.27.86 5.83 2.41a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.22-8.24 8.22z" />
-                      <path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.76-1.66-2.06-.17-.3-.02-.46.13-.61.14-.14.3-.35.45-.53.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.38-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35z" />
-                    </svg>
-                    WhatsApp
-                  </a>
-                )}
+                <span className="font-display text-base text-cherryDark">
+                  R$ {c.total.toFixed(2)}
+                </span>
               </div>
-
               <ul className="text-ink/80">
-                {p.itens.map((i) => (
+                {c.itens.map((i) => (
                   <li key={i.produtoId}>
-                    {i.quantidade}× {i.nome} — R$ {i.precoUnitario.toFixed(2)}
+                    {i.quantidade}× {i.nome}
                   </li>
                 ))}
               </ul>
-
-              <p className="text-ink/70">
-                {p.tipoEntrega === "entrega" ? "Entrega" : "Retirada"}
-                {p.dataAgendada
-                  ? ` · ${new Date(p.dataAgendada).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`
-                  : ""}{" "}
-                · {PAGAMENTO[p.formaPagamento]}
-                {p.valorFrete > 0 && ` · Frete R$ ${p.valorFrete.toFixed(2)}`}
+              <p className="text-xs text-ink/45">
+                parado desde {new Date(c.atualizadoEm).toLocaleString("pt-BR", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
               </p>
-
-              {p.tipoEntrega === "entrega" && p.enderecoEntrega && (
-                <p className="text-ink/60">
-                  {p.enderecoEntrega.rua}, {p.enderecoEntrega.numero} —{" "}
-                  {p.enderecoEntrega.bairro}, {p.enderecoEntrega.cidade}
-                </p>
-              )}
-
-              {/* Link do Uber: colado antes de marcar "A caminho", pra ele
-                  já sair dentro do e-mail que o cliente recebe. */}
-              {p.tipoEntrega === "entrega" && !encerrado && (
-                <LinkRastreio
-                  valorInicial={p.linkRastreio ?? ""}
-                  salvando={salvandoLink === p.id}
-                  onSalvar={(link) => salvarRastreio(p.id, link)}
+              {c.clienteTelefone && (
+                <BotaoWhats
+                  telefone={c.clienteTelefone}
+                  mensagem={mensagemCarrinhoAbandonado(c.clienteNome)}
+                  rotulo="Chamar no WhatsApp"
                 />
               )}
-
-              <label className="flex flex-wrap items-center gap-2 mt-1">
-                <span className="text-ink/60">Situação:</span>
-                <select
-                  value={p.status}
-                  onChange={(e) => mudarStatus(p.id, e.target.value as StatusPedido)}
-                  className="border border-cherryLight/40 rounded-lg p-2 bg-white/70"
-                >
-                  {STATUS.map((s) => (
-                    <option key={s.valor} value={s.valor}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-xs text-ink/40">
-                  pedido feito em {new Date(p.criadoEm).toLocaleDateString("pt-BR")}
-                </span>
-              </label>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lista de pedidos */}
+      {!carregando && filtro !== "abandonados" && (
+        <div className="grid gap-4 mt-2">
+          {visiveis.length === 0 && (
+            <p className="text-ink/60 font-body">Nenhum pedido nesta situação.</p>
+          )}
+
+          {visiveis.map((p) => {
+            const encerrado = ENCERRADOS.includes(p.status);
+            const prazo = situacaoPrazo(p.prazoEm, { encerrado });
+            const telefone = p.clienteTelefone ?? "";
+            const etapa = PROXIMA_ETAPA[p.status];
+            const mensagem = etapa
+              ? mensagemDeStatus(etapa.proximo, {
+                  nome: p.clienteNome,
+                  tipoEntrega: p.tipoEntrega,
+                  linkRastreio: p.linkRastreio,
+                })
+              : null;
+
+            return (
+              <div
+                key={p.id}
+                className={`bg-white/70 border rounded-cherry p-3 sm:p-4 grid gap-2 font-body text-sm ${
+                  prazo?.vencido ? "border-cherryDark border-2" : "border-cherryLight/30"
+                }`}
+              >
+                {/* Prazo em destaque: é a informação que ela olha primeiro */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {prazo ? (
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        prazo.vencido
+                          ? "bg-cherryDark text-white"
+                          : encerrado
+                            ? "bg-ink/10 text-ink/60"
+                            : prazo.diasRestantes <= 1
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-green-100 text-green-800"
+                      }`}
+                    >
+                      {prazo.vencido ? `VENCIDO — ${prazo.rotulo}` : `Prazo: ${prazo.rotulo}`}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-ink/40">sem prazo definido</span>
+                  )}
+                  <span className="font-display text-base text-cherryDark">
+                    R$ {total(p).toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 border-t border-cherryLight/20 pt-2">
+                  <span className="text-ink/80">
+                    {p.clienteNome ?? "Cliente"}
+                    {telefone && <span className="text-ink/50"> · {telefone}</span>}
+                  </span>
+                  {telefone && (
+                    <BotaoWhats
+                      telefone={telefone}
+                      mensagem={`Oi, ${(p.clienteNome ?? "").split(" ")[0]}! Aqui é a Camily, da Doceterapia 🍒`}
+                      rotulo="WhatsApp"
+                      pequeno
+                    />
+                  )}
+                </div>
+
+                <ul className="text-ink/80">
+                  {p.itens.map((i) => (
+                    <li key={i.produtoId}>
+                      {i.quantidade}× {i.nome} — R$ {i.precoUnitario.toFixed(2)}
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="text-ink/70">
+                  {p.tipoEntrega === "entrega" ? "Entrega" : "Retirada"}
+                  {p.dataAgendada
+                    ? ` · ${new Date(p.dataAgendada).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`
+                    : ""}{" "}
+                  · {PAGAMENTO[p.formaPagamento]}
+                  {p.valorFrete > 0 && ` · Frete R$ ${p.valorFrete.toFixed(2)}`}
+                </p>
+
+                {p.tipoEntrega === "entrega" && p.enderecoEntrega && (
+                  <p className="text-ink/60">
+                    {p.enderecoEntrega.rua}, {p.enderecoEntrega.numero} —{" "}
+                    {p.enderecoEntrega.bairro}, {p.enderecoEntrega.cidade}
+                  </p>
+                )}
+
+                {p.tipoEntrega === "entrega" && !encerrado && (
+                  <LinkRastreio
+                    valorInicial={p.linkRastreio ?? ""}
+                    salvando={salvandoLink === p.id}
+                    onSalvar={(link) => salvarRastreio(p.id, link)}
+                  />
+                )}
+
+                {/* Um clique: avisa no WhatsApp E adianta a situação */}
+                {etapa && mensagem && telefone && (
+                  <a
+                    href={linkWhatsAppNumero(telefone, mensagem)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => mudarStatus(p.id, etapa.proximo)}
+                    className="mt-1 inline-flex items-center justify-center gap-2 bg-[#25D366] text-white rounded-full px-4 py-3 text-sm font-semibold hover:brightness-95 transition text-center"
+                  >
+                    {etapa.rotulo}
+                  </a>
+                )}
+
+                <label className="flex flex-wrap items-center gap-2 mt-1">
+                  <span className="text-ink/60">Situação:</span>
+                  <select
+                    value={p.status}
+                    onChange={(e) => mudarStatus(p.id, e.target.value as StatusPedido)}
+                    className="border border-cherryLight/40 rounded-lg p-2 bg-white/70"
+                  >
+                    {STATUS.map((s) => (
+                      <option key={s.valor} value={s.valor}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-ink/40">
+                    feito em {new Date(p.criadoEm).toLocaleDateString("pt-BR")}
+                  </span>
+                </label>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </main>
+  );
+}
+
+/** Botão verde que abre a conversa do cliente com a mensagem já escrita. */
+function BotaoWhats({
+  telefone,
+  mensagem,
+  rotulo,
+  pequeno,
+}: {
+  telefone: string;
+  mensagem: string;
+  rotulo: string;
+  pequeno?: boolean;
+}) {
+  return (
+    <a
+      href={linkWhatsAppNumero(telefone, mensagem)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1.5 bg-[#25D366] text-white rounded-full font-semibold hover:brightness-95 transition ${
+        pequeno ? "px-4 py-3 text-xs" : "px-4 py-3 text-sm justify-center"
+      }`}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="w-3.5 h-3.5 fill-current">
+        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.02a8.2 8.2 0 0 1-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.19 8.19 0 0 1-1.26-4.37c0-4.54 3.7-8.23 8.25-8.23 2.2 0 4.27.86 5.83 2.41a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.22-8.24 8.22z" />
+        <path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.76-1.66-2.06-.17-.3-.02-.46.13-.61.14-.14.3-.35.45-.53.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.38-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35z" />
+      </svg>
+      {rotulo}
+    </a>
   );
 }
 
 /**
  * Campo do link de acompanhamento da entrega. A Camily copia o link do app
  * do Uber Envios e cola aqui; ao marcar o pedido como "A caminho", esse link
- * vai dentro do e-mail, num botão "Acompanhar entrega".
+ * vai dentro do e-mail e da mensagem de WhatsApp.
  */
 function LinkRastreio({
   valorInicial,
@@ -262,8 +421,8 @@ function LinkRastreio({
       </div>
       <span className="text-xs text-ink/45">
         {valorInicial
-          ? "O cliente vai receber este link quando você marcar como A caminho."
-          : "Opcional. Se preencher, o cliente acompanha a entrega pelo e-mail."}
+          ? "O cliente recebe este link quando você avisar que saiu para entrega."
+          : "Opcional. Se preencher, o cliente acompanha a entrega."}
       </span>
     </div>
   );

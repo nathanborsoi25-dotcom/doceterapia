@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Preference } from "mercadopago";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { configFrete, pedidos, produtos } from "@/lib/db/schema";
+import { carrinhos, configFrete, pedidos, produtos } from "@/lib/db/schema";
 import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
@@ -222,6 +222,9 @@ export async function POST(req: Request) {
     formaPagamento: body.formaPagamento ?? "pix",
     status: "aguardando_pagamento",
   });
+
+  // O carrinho virou pedido: sai da lista de "abandonados" da Camily.
+  await db.delete(carrinhos).where(eq(carrinhos.clienteId, cliente.id));
 
   // 7) Cria a preferência de pagamento no Mercado Pago.
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;

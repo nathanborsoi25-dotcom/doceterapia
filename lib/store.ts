@@ -38,6 +38,24 @@ export function getCarrinho(): ItemPedido[] {
 
 export function salvarCarrinho(itens: ItemPedido[]) {
   salvar(KEYS.carrinho, itens);
+  sincronizarComBanco(itens);
+}
+
+/**
+ * Manda o carrinho pro servidor sem travar a tela: a pessoa continua
+ * clicando normalmente, e se a rede falhar não acontece nada de ruim —
+ * o carrinho do navegador continua valendo.
+ */
+function sincronizarComBanco(itens: ItemPedido[]) {
+  if (typeof window === "undefined") return;
+  fetch("/api/carrinho", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ itens }),
+    keepalive: true,
+  }).catch(() => {
+    // Sem drama: é só o espelho do carrinho no banco.
+  });
 }
 
 export function adicionarAoCarrinho(produto: Produto) {
@@ -58,4 +76,5 @@ export function adicionarAoCarrinho(produto: Produto) {
 
 export function limparCarrinho() {
   salvar(KEYS.carrinho, []);
+  sincronizarComBanco([]);
 }

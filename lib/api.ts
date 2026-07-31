@@ -132,6 +132,22 @@ export async function getPedidos(): Promise<PedidoDoPainel[]> {
   return json<PedidoDoPainel[]>(await fetch("/api/pedidos", { cache: "no-store" }));
 }
 
+export type CarrinhoAbandonado = {
+  clienteId: string;
+  itens: Pedido["itens"];
+  total: number;
+  atualizadoEm: string;
+  clienteNome: string | null;
+  clienteTelefone: string | null;
+};
+
+/** Carrinhos montados que não viraram pedido. */
+export async function getCarrinhosAbandonados(): Promise<CarrinhoAbandonado[]> {
+  return json<CarrinhoAbandonado[]>(
+    await fetch("/api/carrinhos-abandonados", { cache: "no-store" })
+  );
+}
+
 export async function atualizarPedido(
   id: string,
   mudancas: { status?: StatusPedido; linkRastreio?: string }

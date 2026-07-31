@@ -68,6 +68,20 @@ export const pedidos = pgTable("pedidos", {
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Carrinho de cada cliente, guardado no banco além do navegador. Serve pra
+ * duas coisas: o carrinho seguir a pessoa entre o celular e o computador, e
+ * a Camily enxergar quem encheu o carrinho e não finalizou a compra.
+ * Uma linha por cliente — o carrinho é sempre "o atual".
+ */
+export const carrinhos = pgTable("carrinhos", {
+  clienteId: text("cliente_id").primaryKey(),
+  itens: jsonb("itens").$type<ItemPedido[]>().notNull(),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // Códigos de uso único para redefinir a senha ("esqueci minha senha").
 // O código também fica como hash: se alguém vazar a tabela, não dá pra usar.
 export const codigosSenha = pgTable("codigos_senha", {
