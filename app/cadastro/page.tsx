@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import CherryDivider from "@/components/CherryDivider";
-import { cadastrarCliente, geocodificarEndereco } from "@/lib/api";
+import { buscarEnderecoPorCep, cadastrarCliente, geocodificarEndereco } from "@/lib/api";
 import { formatarCep, formatarCpf, formatarTelefone } from "@/lib/formato";
-import { cpfValido, emailValido, telefoneValido } from "@/lib/validacoes";
+import { apenasDigitos, cpfValido, emailValido, telefoneValido } from "@/lib/validacoes";
 import { SENHA_MINIMA } from "@/lib/senha-regras";
 
 export default function CadastroPage() {
@@ -26,6 +26,10 @@ export default function CadastroPage() {
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
 
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [avisoCep, setAvisoCep] = useState("");
+  const numeroRef = useRef<HTMLInputElement>(null);
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
     const mascaras: Record<string, (v: string) => string> = {
@@ -33,7 +37,40 @@ export default function CadastroPage() {
       telefone: formatarTelefone,
       cep: formatarCep,
     };
-    setForm((f) => ({ ...f, [name]: mascaras[name] ? mascaras[name](value) : value }));
+    const novo = mascaras[name] ? mascaras[name](value) : value;
+    setForm((f) => ({ ...f, [name]: novo }));
+
+    // CEP completo: busca o endereço e preenche sozinho.
+    if (name === "cep" && apenasDigitos(novo).length === 8) {
+      preencherPeloCep(novo);
+    }
+  }
+
+  /**
+   * Preenche rua, bairro e cidade a partir do CEP, deixando pro cliente só o
+   * número e o complemento. Se o CEP não for encontrado, não trava nada — os
+   * campos continuam editáveis pra ele digitar à mão.
+   */
+  async function preencherPeloCep(cep: string) {
+    setBuscandoCep(true);
+    setAvisoCep("");
+    try {
+      const e = await buscarEnderecoPorCep(cep);
+      if (!e) {
+        setAvisoCep("Não encontramos esse CEP. Você pode preencher o endereço à mão.");
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        rua: e.rua || f.rua,
+        bairro: e.bairro || f.bairro,
+        cidade: e.cidade || f.cidade,
+      }));
+      // Leva o cliente direto pro que falta preencher.
+      numeroRef.current?.focus();
+    } finally {
+      setBuscandoCep(false);
+    }
   }
 
   /** Devolve a primeira mensagem de erro do formulário, ou null se está tudo certo. */
@@ -136,14 +173,37 @@ export default function CadastroPage() {
         />
         <Campo label="Telefone *" name="telefone" value={form.telefone} onChange={handleChange} placeholder="(43) 99999-9999" autoComplete="tel" inputMode="numeric" />
 
-        {/* Em telas estreitas cada campo ocupa a linha inteira; a partir do
-            celular deitado eles voltam a dividir a linha. */}
+        {/* O CEP vem primeiro de propósito: ele preenche rua, bairro e cidade,
+            e aí só sobra o número (e o complemento, se tiver). */}
+        <Campo
+          label="CEP *"
+          name="cep"
+          value={form.cep}
+          onChange={handleChange}
+          placeholder="86700-000"
+          autoComplete="postal-code"
+          inputMode="numeric"
+          dica={
+            buscandoCep
+              ? "Buscando seu endereço..."
+              : "Digite o CEP que preenchemos o endereço pra você."
+          }
+          erro={avisoCep || undefined}
+        />
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2 min-w-0">
             <Campo label="Rua *" name="rua" value={form.rua} onChange={handleChange} autoComplete="address-line1" />
           </div>
           <div className="min-w-0">
-            <Campo label="Número *" name="numero" value={form.numero} onChange={handleChange} inputMode="numeric" />
+            <Campo
+              label="Número *"
+              name="numero"
+              value={form.numero}
+              onChange={handleChange}
+              inputMode="numeric"
+              inputRef={numeroRef}
+            />
           </div>
         </div>
 
@@ -152,11 +212,9 @@ export default function CadastroPage() {
             <Campo label="Bairro" name="bairro" value={form.bairro} onChange={handleChange} />
           </div>
           <div className="min-w-0">
-            <Campo label="CEP *" name="cep" value={form.cep} onChange={handleChange} placeholder="86700-000" autoComplete="postal-code" inputMode="numeric" />
+            <Campo label="Complemento" name="complemento" value={form.complemento} onChange={handleChange} placeholder="Apto, bloco, casa..." />
           </div>
         </div>
-
-        <Campo label="Complemento" name="complemento" value={form.complemento} onChange={handleChange} />
 
         <CherryDivider />
 
@@ -211,6 +269,7 @@ function Campo({
   inputMode,
   dica,
   erro,
+  inputRef,
 }: {
   label: string;
   name: string;
@@ -222,11 +281,13 @@ function Campo({
   inputMode?: "numeric" | "text";
   dica?: string;
   erro?: string;
+  inputRef?: React.Ref<HTMLInputElement>;
 }) {
   return (
     <label className="grid gap-1 text-sm font-body text-ink/80">
       {label}
       <input
+        ref={inputRef}
         name={name}
         type={type}
         value={value}

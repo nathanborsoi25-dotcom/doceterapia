@@ -70,6 +70,27 @@ export async function geocodificarEndereco(endereco: {
   }
 }
 
+// ---- CEP (preenche o endereço sozinho) ----
+export type EnderecoDoCep = {
+  rua: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+};
+
+/** Busca o endereço do CEP. Devolve null quando não achou — sem quebrar a tela. */
+export async function buscarEnderecoPorCep(
+  cep: string
+): Promise<EnderecoDoCep | null> {
+  try {
+    const res = await fetch(`/api/cep?cep=${encodeURIComponent(cep)}`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 // ---- Clientes ----
 export async function registrarCliente(cliente: Cliente): Promise<void> {
   await fetch("/api/clientes", POST_JSON(cliente));

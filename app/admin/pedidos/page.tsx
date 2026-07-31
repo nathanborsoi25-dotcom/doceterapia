@@ -297,10 +297,21 @@ export default function AdminPedidosPage() {
                 </p>
 
                 {p.tipoEntrega === "entrega" && p.enderecoEntrega && (
-                  <p className="text-ink/60">
-                    {p.enderecoEntrega.rua}, {p.enderecoEntrega.numero} —{" "}
-                    {p.enderecoEntrega.bairro}, {p.enderecoEntrega.cidade}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-ink/60">
+                      {p.enderecoEntrega.rua}, {p.enderecoEntrega.numero} —{" "}
+                      {p.enderecoEntrega.bairro}, {p.enderecoEntrega.cidade}
+                      {p.enderecoEntrega.complemento && (
+                        <span className="text-ink/45">
+                          {" "}
+                          ({p.enderecoEntrega.complemento})
+                        </span>
+                      )}
+                    </p>
+                    <CopiarEndereco
+                      texto={`${p.enderecoEntrega.rua}, ${p.enderecoEntrega.numero}`}
+                    />
+                  </div>
                 )}
 
                 {p.tipoEntrega === "entrega" && !encerrado && (
@@ -425,5 +436,45 @@ function LinkRastreio({
           : "Opcional. Se preencher, o cliente acompanha a entrega."}
       </span>
     </div>
+  );
+}
+
+/**
+ * Copia só "Rua, número" — que é o formato que o Uber Envios entende no
+ * campo de endereço. Evita a Camily ter que selecionar o texto na mão no
+ * celular, que é justamente onde isso é chato de fazer.
+ */
+function CopiarEndereco({ texto }: { texto: string }) {
+  const [copiado, setCopiado] = useState(false);
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch {
+      // Navegador antigo ou sem permissão: usa o jeito tradicional.
+      const campo = document.createElement("textarea");
+      campo.value = texto;
+      campo.style.position = "fixed";
+      campo.style.opacity = "0";
+      document.body.appendChild(campo);
+      campo.select();
+      document.execCommand("copy");
+      campo.remove();
+    }
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  }
+
+  return (
+    <button
+      onClick={copiar}
+      className={`shrink-0 text-xs font-semibold rounded-full px-3 py-2 border transition-colors ${
+        copiado
+          ? "bg-green-100 text-green-800 border-green-200"
+          : "text-cherryDark border-cherryLight/50 hover:bg-blush"
+      }`}
+    >
+      {copiado ? "Copiado!" : "Copiar endereço"}
+    </button>
   );
 }
