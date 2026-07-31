@@ -70,6 +70,8 @@ export interface Pedido {
 export interface PedidoDoPainel extends Pedido {
   /** Quando precisa estar pronto (ISO), ou null em pedidos antigos. */
   prazoEm: string | null;
+  /** Link de acompanhamento da entrega, quando informado. */
+  linkRastreio: string | null;
   clienteNome: string | null;
   clienteTelefone: string | null;
 }

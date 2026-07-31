@@ -62,6 +62,9 @@ export const pedidos = pgTable("pedidos", {
   // resultado (em vez de recalcular) mantém o prazo estável mesmo que a
   // Camily mude o prazo do produto depois.
   prazoEm: timestamp("prazo_em", { withTimezone: true }),
+  // Link de acompanhamento da entrega (o que o Uber Envios gera). A Camily
+  // cola aqui ao despachar, e ele vai junto no e-mail de "saiu para entrega".
+  linkRastreio: text("link_rastreio"),
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 

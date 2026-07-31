@@ -37,6 +37,7 @@ export async function avisarMudancaDeStatus(
       itens: linha.pedido.itens,
       total,
       prazoEm: linha.pedido.prazoEm?.toISOString() ?? null,
+      linkRastreio: linha.pedido.linkRastreio,
     });
     if (!modelo) return; // situação que não rende aviso
 

@@ -115,6 +115,8 @@ export function emailStatusPedido(dados: {
   itens: Array<{ nome: string; quantidade: number }>;
   total: number;
   prazoEm?: string | null;
+  /** Link de acompanhamento da entrega, quando a Camily informou. */
+  linkRastreio?: string | null;
 }) {
   const primeiroNome = dados.nome.split(" ")[0];
   const ehEntrega = dados.tipoEntrega === "entrega";
@@ -160,10 +162,16 @@ export function emailStatusPedido(dados: {
     .map((i) => `<li style="margin:2px 0">${i.quantidade}× ${i.nome}</li>`)
     .join("");
 
+  // Só faz sentido acompanhar quando o pedido saiu de fato para a entrega.
+  const rastreio =
+    dados.status === "a_caminho" && ehEntrega && dados.linkRastreio
+      ? dados.linkRastreio
+      : null;
+
   const texto = `Oi, ${primeiroNome}!
 
 ${t.corpo}
-
+${rastreio ? `\nAcompanhe a entrega em tempo real:\n${rastreio}\n` : ""}
 Seu pedido:
 ${listaTexto}
 Total: R$ ${dados.total.toFixed(2)}
@@ -174,6 +182,12 @@ Doceterapia — doces artesanais da Camily Vilasboa`;
     <p style="color:#3b1a1f;font-size:19px;margin:20px 0 6px;font-weight:700">${t.titulo}</p>
     <p style="color:#3b1a1f;font-size:15px;margin:0 0 4px">Oi, ${primeiroNome}!</p>
     <p style="color:#3b1a1f;opacity:.75;font-size:14px;margin:12px 0 20px">${t.corpo}</p>
+    ${
+      rastreio
+        ? `<a href="${rastreio}" style="display:inline-block;background:#a3243c;color:#fff;text-decoration:none;font-weight:700;font-size:15px;border-radius:999px;padding:14px 28px;margin:0 0 20px">Acompanhar entrega</a>
+    <p style="color:#3b1a1f;opacity:.55;font-size:12px;margin:0 0 20px">Toque no botão para ver onde seu pedido está.</p>`
+        : ""
+    }
     <div style="background:#fdf0ea;border-radius:14px;padding:16px;text-align:left">
       <p style="margin:0 0 8px;font-size:13px;color:#a3243c;font-weight:700">Seu pedido</p>
       <ul style="margin:0;padding-left:18px;color:#3b1a1f;font-size:14px">${listaHtml}</ul>

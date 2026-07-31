@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { atualizarStatusPedido, getPedidos } from "@/lib/api";
+import { atualizarPedido, getPedidos } from "@/lib/api";
 import { linkWhatsAppNumero } from "@/lib/contato";
 import { situacaoPrazo } from "@/lib/prazo";
 import type { PedidoDoPainel, StatusPedido } from "@/lib/types";
@@ -27,6 +27,7 @@ const ENCERRADOS: StatusPedido[] = ["concluido", "cancelado"];
 export default function AdminPedidosPage() {
   const [pedidos, setPedidos] = useState<PedidoDoPainel[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [salvandoLink, setSalvandoLink] = useState<string | null>(null);
 
   useEffect(() => {
     getPedidos()
@@ -37,7 +38,23 @@ export default function AdminPedidosPage() {
 
   async function mudarStatus(id: string, status: StatusPedido) {
     setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
-    await atualizarStatusPedido(id, status);
+    await atualizarPedido(id, { status });
+  }
+
+  /**
+   * Guarda o link de acompanhamento do Uber. Salvar aqui NÃO dispara e-mail;
+   * o link entra no aviso quando ela marcar o pedido como "A caminho".
+   */
+  async function salvarRastreio(id: string, linkRastreio: string) {
+    setSalvandoLink(id);
+    try {
+      await atualizarPedido(id, { linkRastreio });
+      setPedidos((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, linkRastreio } : p))
+      );
+    } finally {
+      setSalvandoLink(null);
+    }
   }
 
   function total(p: PedidoDoPainel) {
@@ -169,6 +186,16 @@ export default function AdminPedidosPage() {
                 </p>
               )}
 
+              {/* Link do Uber: colado antes de marcar "A caminho", pra ele
+                  já sair dentro do e-mail que o cliente recebe. */}
+              {p.tipoEntrega === "entrega" && !encerrado && (
+                <LinkRastreio
+                  valorInicial={p.linkRastreio ?? ""}
+                  salvando={salvandoLink === p.id}
+                  onSalvar={(link) => salvarRastreio(p.id, link)}
+                />
+              )}
+
               <label className="flex flex-wrap items-center gap-2 mt-1">
                 <span className="text-ink/60">Situação:</span>
                 <select
@@ -191,5 +218,53 @@ export default function AdminPedidosPage() {
         })}
       </div>
     </main>
+  );
+}
+
+/**
+ * Campo do link de acompanhamento da entrega. A Camily copia o link do app
+ * do Uber Envios e cola aqui; ao marcar o pedido como "A caminho", esse link
+ * vai dentro do e-mail, num botão "Acompanhar entrega".
+ */
+function LinkRastreio({
+  valorInicial,
+  salvando,
+  onSalvar,
+}: {
+  valorInicial: string;
+  salvando: boolean;
+  onSalvar: (link: string) => void;
+}) {
+  const [valor, setValor] = useState(valorInicial);
+  const mudou = valor.trim() !== valorInicial.trim();
+
+  return (
+    <div className="border-t border-cherryLight/20 pt-2 grid gap-1.5">
+      <label className="text-xs text-ink/60">
+        Link de acompanhamento da entrega (Uber)
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <input
+          type="url"
+          inputMode="url"
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          placeholder="Cole aqui o link do Uber Envios"
+          className="flex-1 min-w-0 border border-cherryLight/40 rounded-lg p-2 text-sm bg-white/70"
+        />
+        <button
+          onClick={() => onSalvar(valor.trim())}
+          disabled={!mudou || salvando}
+          className="text-sm bg-cherryDark text-white rounded-full px-4 py-2.5 font-semibold disabled:opacity-40"
+        >
+          {salvando ? "Salvando..." : "Salvar link"}
+        </button>
+      </div>
+      <span className="text-xs text-ink/45">
+        {valorInicial
+          ? "O cliente vai receber este link quando você marcar como A caminho."
+          : "Opcional. Se preencher, o cliente acompanha a entrega pelo e-mail."}
+      </span>
+    </div>
   );
 }

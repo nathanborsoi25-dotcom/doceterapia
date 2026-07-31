@@ -132,14 +132,14 @@ export async function getPedidos(): Promise<PedidoDoPainel[]> {
   return json<PedidoDoPainel[]>(await fetch("/api/pedidos", { cache: "no-store" }));
 }
 
-export async function atualizarStatusPedido(
+export async function atualizarPedido(
   id: string,
-  status: StatusPedido
+  mudancas: { status?: StatusPedido; linkRastreio?: string }
 ): Promise<void> {
   await fetch(`/api/pedidos/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(mudancas),
   });
 }
 

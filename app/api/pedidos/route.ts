@@ -34,6 +34,7 @@ export async function GET() {
     status: p.status as PedidoDoPainel["status"],
     criadoEm: p.criadoEm.toISOString(),
     prazoEm: p.prazoEm ? p.prazoEm.toISOString() : null,
+    linkRastreio: p.linkRastreio,
     clienteNome: c?.nome ?? null,
     clienteTelefone: c?.telefone ?? null,
   }));
