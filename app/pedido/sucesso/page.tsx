@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
+import RodapeLinks from "@/components/RodapeLinks";
 import { limparCarrinho } from "@/lib/store";
 
 export default function PedidoSucessoPage() {
@@ -36,6 +37,7 @@ export default function PedidoSucessoPage() {
           Voltar ao cardápio
         </Link>
       </main>
+      <RodapeLinks />
     </>
   );
 }

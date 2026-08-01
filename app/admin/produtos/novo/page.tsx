@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import CampoNumero from "@/components/CampoNumero";
 import EscolherFoto from "@/components/EscolherFoto";
 import { upsertProduto } from "@/lib/api";
 import type { Produto, TipoDisponibilidade } from "@/lib/types";
@@ -12,11 +13,14 @@ export default function NovoProdutoPage() {
     nome: "",
     descricao: "",
     sabor: "",
-    preco: "",
     fotoUrl: "",
     disponibilidade: "pronta_entrega" as TipoDisponibilidade,
-    prazoDias: "",
   });
+  // Números ficam separados do resto do formulário porque podem estar
+  // "vazios" (null) enquanto ela ainda não digitou.
+  const [preco, setPreco] = useState<number | null>(null);
+  const [custo, setCusto] = useState<number | null>(null);
+  const [prazoDias, setPrazoDias] = useState<number | null>(null);
 
   const [salvando, setSalvando] = useState(false);
 
@@ -27,10 +31,11 @@ export default function NovoProdutoPage() {
       nome: form.nome,
       descricao: form.descricao,
       sabor: form.sabor,
-      preco: parseFloat(form.preco) || 0,
+      preco: preco ?? 0,
+      custo: custo ?? 0,
       fotoUrl: form.fotoUrl,
       disponibilidade: form.disponibilidade,
-      prazoDias: form.prazoDias ? parseInt(form.prazoDias) : undefined,
+      prazoDias: prazoDias ? Math.round(prazoDias) : undefined,
       ativo: true,
     };
     setSalvando(true);
@@ -67,15 +72,30 @@ export default function NovoProdutoPage() {
           onChange={(e) => setForm({ ...form, sabor: e.target.value })}
           className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         />
-        <input
-          required
-          type="number"
-          step="0.01"
-          placeholder="Preço (R$)"
-          value={form.preco}
-          onChange={(e) => setForm({ ...form, preco: e.target.value })}
-          className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
-        />
+        <label className="grid gap-1 text-sm font-body text-ink/80">
+          Preço de venda (R$) *
+          <CampoNumero
+            required
+            valor={preco}
+            onChange={setPreco}
+            placeholder="35,00"
+            className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
+          />
+        </label>
+        {/* Sem o custo as métricas só mostram faturamento, nunca lucro. */}
+        <label className="grid gap-1 text-sm font-body text-ink/80">
+          Custo de produção (R$)
+          <CampoNumero
+            valor={custo}
+            onChange={setCusto}
+            placeholder="12,50"
+            className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
+          />
+          <span className="text-xs text-ink/50">
+            Quanto você gasta pra fazer um. É o que permite ver o lucro nas
+            métricas — dá pra preencher depois.
+          </span>
+        </label>
         <EscolherFoto
           valor={form.fotoUrl}
           onChange={(url) => setForm({ ...form, fotoUrl: url })}
@@ -89,11 +109,12 @@ export default function NovoProdutoPage() {
           <option value="sob_encomenda">Sob encomenda</option>
         </select>
         {form.disponibilidade === "sob_encomenda" && (
-          <input
-            type="number"
+          <CampoNumero
+            valor={prazoDias}
+            onChange={setPrazoDias}
+            casas={0}
             placeholder="Prazo em dias"
-            value={form.prazoDias}
-            onChange={(e) => setForm({ ...form, prazoDias: e.target.value })}
+            aria-label="Prazo em dias"
             className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
           />
         )}

@@ -5,9 +5,11 @@ import {
   atualizarPedido,
   getCarrinhosAbandonados,
   getPedidos,
+  tentarEstorno,
   type CarrinhoAbandonado,
 } from "@/lib/api";
 import { linkWhatsAppNumero } from "@/lib/contato";
+import { reais } from "@/lib/formato";
 import { mensagemCarrinhoAbandonado, mensagemDeStatus } from "@/lib/mensagens-whatsapp";
 import { situacaoPrazo } from "@/lib/prazo";
 import type { PedidoDoPainel, StatusPedido } from "@/lib/types";
@@ -44,6 +46,8 @@ export default function AdminPedidosPage() {
   const [abandonados, setAbandonados] = useState<CarrinhoAbandonado[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvandoLink, setSalvandoLink] = useState<string | null>(null);
+  const [estornando, setEstornando] = useState<string | null>(null);
+  const [aviso, setAviso] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
   useEffect(() => {
@@ -58,9 +62,49 @@ export default function AdminPedidosPage() {
       .finally(() => setCarregando(false));
   }, []);
 
+  async function recarregar() {
+    const novos = await getPedidos().catch(() => null);
+    if (novos) setPedidos(novos);
+  }
+
   async function mudarStatus(id: string, status: StatusPedido) {
+    // Cancelar é a única mudança que mexe com dinheiro: ela pede confirmação,
+    // porque o estorno vai pro Mercado Pago na hora e não tem "desfazer".
+    if (status === "cancelado") {
+      const p = pedidos.find((x) => x.id === id);
+      const jaPago = p ? p.status !== "aguardando_pagamento" : false;
+      const ok = window.confirm(
+        jaPago
+          ? "Cancelar este pedido e devolver o valor para o cliente pelo Mercado Pago?\n\nIsso não tem como desfazer."
+          : "Cancelar este pedido? Ninguém chegou a pagar, então não há valor a devolver."
+      );
+      if (!ok) return;
+    }
+
+    const anterior = pedidos;
     setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
-    await atualizarPedido(id, { status });
+    setAviso("");
+    try {
+      await atualizarPedido(id, { status });
+      // Depois de cancelar, recarrega pra saber se o estorno saiu ou falhou.
+      if (status === "cancelado") await recarregar();
+    } catch (e) {
+      setPedidos(anterior);
+      setAviso(e instanceof Error ? e.message : "Não foi possível atualizar o pedido.");
+    }
+  }
+
+  async function estornarDeNovo(id: string) {
+    setEstornando(id);
+    setAviso("");
+    try {
+      await tentarEstorno(id);
+      await recarregar();
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : "Não foi possível estornar.");
+    } finally {
+      setEstornando(null);
+    }
   }
 
   /**
@@ -160,6 +204,12 @@ export default function AdminPedidosPage() {
         ))}
       </div>
 
+      {aviso && (
+        <p className="mt-4 text-sm font-body text-cherryDark bg-blush/70 border border-cherryLight/50 rounded-xl px-4 py-3">
+          {aviso}
+        </p>
+      )}
+
       {carregando && <p className="text-ink/60 font-body mt-6">Carregando...</p>}
 
       {/* Carrinhos que não viraram pedido */}
@@ -185,7 +235,7 @@ export default function AdminPedidosPage() {
                   )}
                 </span>
                 <span className="font-display text-base text-cherryDark">
-                  R$ {c.total.toFixed(2)}
+                  {reais(c.total)}
                 </span>
               </div>
               <ul className="text-ink/80">
@@ -260,7 +310,7 @@ export default function AdminPedidosPage() {
                     <span className="text-xs text-ink/40">sem prazo definido</span>
                   )}
                   <span className="font-display text-base text-cherryDark">
-                    R$ {total(p).toFixed(2)}
+                    {reais(total(p))}
                   </span>
                 </div>
 
@@ -282,7 +332,7 @@ export default function AdminPedidosPage() {
                 <ul className="text-ink/80">
                   {p.itens.map((i) => (
                     <li key={i.produtoId}>
-                      {i.quantidade}× {i.nome} — R$ {i.precoUnitario.toFixed(2)}
+                      {i.quantidade}× {i.nome} — {reais(i.precoUnitario)}
                     </li>
                   ))}
                 </ul>
@@ -293,7 +343,7 @@ export default function AdminPedidosPage() {
                     ? ` · ${new Date(p.dataAgendada).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`
                     : ""}{" "}
                   · {PAGAMENTO[p.formaPagamento]}
-                  {p.valorFrete > 0 && ` · Frete R$ ${p.valorFrete.toFixed(2)}`}
+                  {p.valorFrete > 0 && ` · Frete ${reais(p.valorFrete)}`}
                 </p>
 
                 {p.tipoEntrega === "entrega" && p.enderecoEntrega && (
@@ -311,6 +361,41 @@ export default function AdminPedidosPage() {
                     <CopiarEndereco
                       texto={`${p.enderecoEntrega.rua}, ${p.enderecoEntrega.numero}`}
                     />
+                  </div>
+                )}
+
+                {/* Cancelado: o que aconteceu com o dinheiro. O "falhou"
+                    aparece em vermelho porque exige ação dela. */}
+                {p.status === "cancelado" && p.statusReembolso && (
+                  <div
+                    className={`rounded-xl px-3 py-2.5 text-xs grid gap-2 ${
+                      p.statusReembolso === "falhou"
+                        ? "bg-cherryDark/10 border border-cherryDark/40 text-cherryDark"
+                        : "bg-blush/60 border border-cherryLight/30 text-ink/70"
+                    }`}
+                  >
+                    <span>
+                      {p.statusReembolso === "concluido" &&
+                        `Dinheiro devolvido pelo Mercado Pago${p.valorReembolsado ? ` (${reais(p.valorReembolsado)})` : ""}.`}
+                      {p.statusReembolso === "nao_precisa" &&
+                        "Ninguém tinha pago — não havia valor a devolver."}
+                      {p.statusReembolso === "falhou" && (
+                        <strong>
+                          O estorno NÃO saiu. Tente de novo ou devolva pelo site
+                          do Mercado Pago e avise a cliente.
+                        </strong>
+                      )}
+                      {p.canceladoPor === "cliente" && " Cancelado pela cliente."}
+                    </span>
+                    {p.statusReembolso === "falhou" && (
+                      <button
+                        onClick={() => estornarDeNovo(p.id)}
+                        disabled={estornando === p.id}
+                        className="justify-self-start bg-cherryDark text-white rounded-full px-4 py-2.5 font-semibold disabled:opacity-50"
+                      >
+                        {estornando === p.id ? "Tentando..." : "Tentar estorno de novo"}
+                      </button>
+                    )}
                   </div>
                 )}
 

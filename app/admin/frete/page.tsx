@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import CampoNumero from "@/components/CampoNumero";
 import { getConfiguracaoFrete, salvarConfiguracaoFrete } from "@/lib/api";
 import type { ConfiguracaoFrete, FaixaFrete } from "@/lib/types";
 
@@ -97,34 +98,25 @@ export default function AdminFretePage() {
                 em linhas sem virar aquela fileira apertada de caixinhas. */}
             <label className="grid gap-1 text-xs font-body text-ink/60">
               De (km)
-              <input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                value={faixa.distanciaMinKm}
-                onChange={(e) => atualizarFaixa(faixa.id, "distanciaMinKm", parseFloat(e.target.value) || 0)}
+              <CampoNumero
+                valor={faixa.distanciaMinKm}
+                onChange={(v) => atualizarFaixa(faixa.id, "distanciaMinKm", v ?? 0)}
                 className="w-24 border border-cherryLight/40 rounded-lg p-2 text-sm"
               />
             </label>
             <label className="grid gap-1 text-xs font-body text-ink/60">
               Até (km)
-              <input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                value={faixa.distanciaMaxKm}
-                onChange={(e) => atualizarFaixa(faixa.id, "distanciaMaxKm", parseFloat(e.target.value) || 0)}
+              <CampoNumero
+                valor={faixa.distanciaMaxKm}
+                onChange={(v) => atualizarFaixa(faixa.id, "distanciaMaxKm", v ?? 0)}
                 className="w-24 border border-cherryLight/40 rounded-lg p-2 text-sm"
               />
             </label>
             <label className="grid gap-1 text-xs font-body text-ink/60">
               Frete (R$)
-              <input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
-                value={faixa.valor}
-                onChange={(e) => atualizarFaixa(faixa.id, "valor", parseFloat(e.target.value) || 0)}
+              <CampoNumero
+                valor={faixa.valor}
+                onChange={(v) => atualizarFaixa(faixa.id, "valor", v ?? 0)}
                 className="w-24 border border-cherryLight/40 rounded-lg p-2 text-sm"
               />
             </label>

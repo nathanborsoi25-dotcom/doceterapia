@@ -36,6 +36,14 @@ export default function Header() {
         >
           Carrinho
         </Link>
+        <Link
+          href="/conta"
+          className="px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
+        >
+          {/* Em tela estreita só o rótulo curto cabe ao lado do carrinho. */}
+          <span className="hidden min-[420px]:inline">Minha conta</span>
+          <span className="min-[420px]:hidden">Conta</span>
+        </Link>
         <button
           onClick={sair}
           className="px-2 py-3 rounded-lg text-ink/50 hover:text-cherryDark hover:bg-blush/60 transition-colors"

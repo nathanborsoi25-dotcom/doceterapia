@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { produtos } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
+import { mediasPorProduto } from "@/lib/avaliacoes";
 import type { Produto } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,18 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const db = getDb();
   const rows = await db.select().from(produtos);
-  return NextResponse.json(rows);
+
+  // A nota dos clientes vem junto: o cardápio mostra as estrelas embaixo de
+  // cada doce sem precisar de uma segunda ida ao servidor por card.
+  const medias = await mediasPorProduto();
+
+  return NextResponse.json(
+    rows.map((p) => ({
+      ...p,
+      notaMedia: medias.get(p.id)?.media ?? 0,
+      totalAvaliacoes: medias.get(p.id)?.total ?? 0,
+    }))
+  );
 }
 
 // Criar/editar produto: só o admin logado.

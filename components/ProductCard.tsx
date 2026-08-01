@@ -3,6 +3,9 @@
 import type { Produto } from "@/lib/types";
 import { adicionarAoCarrinho } from "@/lib/store";
 import { useState } from "react";
+import Estrelas from "./Estrelas";
+import AvaliacoesDoProduto from "./AvaliacoesDoProduto";
+import { reais } from "@/lib/formato";
 
 export default function ProductCard({ produto }: { produto: Produto }) {
   const [adicionado, setAdicionado] = useState(false);
@@ -38,11 +41,26 @@ export default function ProductCard({ produto }: { produto: Produto }) {
               : `Sob encomenda${produto.prazoDias ? ` · ${produto.prazoDias}d` : ""}`}
           </span>
         </div>
+        {/* Nota dos clientes logo abaixo do nome: é o que mais pesa na hora
+            de escolher um doce que a pessoa nunca provou. */}
+        {(produto.totalAvaliacoes ?? 0) > 0 && (
+          <div className="flex items-center gap-1.5">
+            <Estrelas nota={produto.notaMedia ?? 0} tamanho="sm" />
+            <span className="text-xs text-ink/60 font-body">
+              {(produto.notaMedia ?? 0).toFixed(1).replace(".", ",")} (
+              {produto.totalAvaliacoes})
+            </span>
+          </div>
+        )}
         <p className="text-sm text-ink/70 font-body flex-1">{produto.descricao}</p>
         <p className="text-xs text-cherryMid font-body">Sabor: {produto.sabor}</p>
+        <AvaliacoesDoProduto
+          produtoId={produto.id}
+          total={produto.totalAvaliacoes ?? 0}
+        />
         <div className="flex items-center justify-between gap-2 mt-2">
           <span className="font-display text-lg text-ink shrink-0">
-            R$ {produto.preco.toFixed(2)}
+            {reais(produto.preco)}
           </span>
           <button
             onClick={handleAdicionar}

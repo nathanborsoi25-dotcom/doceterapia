@@ -12,6 +12,9 @@ export interface Produto {
   disponibilidade: TipoDisponibilidade;
   prazoDias?: number; // usado quando "sob_encomenda"
   ativo: boolean;
+  /** Média das notas dos clientes (0 quando ninguém avaliou ainda). */
+  notaMedia?: number;
+  totalAvaliacoes?: number;
 }
 
 export interface Cliente {
@@ -76,6 +79,44 @@ export interface PedidoDoPainel extends Pedido {
   linkRastreio: string | null;
   clienteNome: string | null;
   clienteTelefone: string | null;
+  /** Devolução do dinheiro: "nao_precisa" | "concluido" | "falhou" | null. */
+  statusReembolso: string | null;
+  valorReembolsado: number | null;
+  /** Quem cancelou: "cliente" | "loja" | null. */
+  canceladoPor: string | null;
+  motivoCancelamento: string | null;
+}
+
+/**
+ * O pedido como o próprio cliente vê na conta dele: sem os dados internos da
+ * loja, e já com as respostas de "posso cancelar?" e "posso avaliar?"
+ * decididas no servidor — a tela não precisa (nem deve) refazer essa conta.
+ */
+export interface PedidoDoCliente extends Pedido {
+  prazoEm: string | null;
+  linkRastreio: string | null;
+  cupomCodigo: string | null;
+  desconto: number;
+  podeCancelar: boolean;
+  statusReembolso: string | null;
+  podeAvaliar: boolean;
+  /** Ids dos doces deste pedido que ele já avaliou. */
+  avaliados: string[];
+}
+
+/** Nota que um cliente deu para um doce. */
+export interface Avaliacao {
+  id: string;
+  produtoId: string;
+  pedidoId: string;
+  nota: number;
+  comentario: string;
+  criadoEm: string;
+  /** Primeiro nome de quem avaliou — o resto não aparece pra ninguém. */
+  clienteNome: string;
+  /** Só o painel recebe este campo. */
+  visivel?: boolean;
+  produtoNome?: string;
 }
 
 // Faixa de frete configurável pelo admin, por distância (em km) a partir

@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { pedidos } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { avisarMudancaDeStatus } from "@/lib/avisar-cliente";
+import { cancelarPedido } from "@/lib/cancelamento";
 import type { StatusPedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -31,9 +32,27 @@ export async function PATCH(
   const body = (await req.json().catch(() => ({}))) as {
     status?: StatusPedido;
     linkRastreio?: string;
+    motivo?: string;
   };
 
   const db = getDb();
+
+  // Cancelar não é "só" mudar a situação: tem dinheiro pra devolver, pontos
+  // pra tirar e cupom pra liberar. Por isso passa pelo mesmo caminho que o
+  // cliente usa quando cancela sozinho.
+  if (body.status === "cancelado") {
+    const r = await cancelarPedido(params.id, {
+      por: "loja",
+      motivo: body.motivo,
+    });
+    if (!r.ok) return NextResponse.json({ error: r.erro }, { status: 400 });
+    return NextResponse.json({
+      ok: true,
+      reembolso: r.reembolso,
+      valorReembolsado: r.valorReembolsado,
+    });
+  }
+
   const mudancas: { status?: StatusPedido; linkRastreio?: string | null } = {};
 
   if (body.status) mudancas.status = body.status;

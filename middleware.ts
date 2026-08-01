@@ -11,7 +11,7 @@ import { COOKIE_CLIENTE, lerSessaoCliente } from "./lib/sessao-cliente";
  */
 
 /** Telas que exigem cliente logado. */
-const TELAS_DO_CLIENTE = ["/catalogo", "/carrinho", "/checkout", "/pedido"];
+const TELAS_DO_CLIENTE = ["/catalogo", "/carrinho", "/checkout", "/pedido", "/conta"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -49,5 +49,6 @@ export const config = {
     "/carrinho",
     "/checkout",
     "/pedido/:path*",
+    "/conta",
   ],
 };

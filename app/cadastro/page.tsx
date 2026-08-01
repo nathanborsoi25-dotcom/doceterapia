@@ -254,6 +254,15 @@ export default function CadastroPage() {
           Entrar
         </Link>
       </p>
+
+      {/* Quem está criando conta merece ver as regras antes de comprar. */}
+      <p className="text-center font-body text-xs text-ink/50 mt-4">
+        Ao criar sua conta você concorda com a{" "}
+        <Link href="/politica" className="underline hover:text-cherryDark">
+          política de cancelamento e reembolso
+        </Link>
+        .
+      </p>
     </main>
   );
 }

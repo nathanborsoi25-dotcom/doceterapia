@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import CherryDivider from "@/components/CherryDivider";
+import RodapeLinks from "@/components/RodapeLinks";
 import { entrarCliente } from "@/lib/api";
 import { formatarCpf } from "@/lib/formato";
 
@@ -100,6 +101,8 @@ export default function EntrarPage() {
       >
         Fazer cadastro
       </Link>
+
+      <RodapeLinks />
     </main>
   );
 }

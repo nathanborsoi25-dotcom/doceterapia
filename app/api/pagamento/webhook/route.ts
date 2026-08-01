@@ -5,6 +5,10 @@ import { getDb } from "@/lib/db";
 import { pedidos } from "@/lib/db/schema";
 import { getMpClient } from "@/lib/mercadopago";
 import { avisarMudancaDeStatus } from "@/lib/avisar-cliente";
+import {
+  devolverPagamentoDePedidoCancelado,
+  registrarCancelamentoDoMercadoPago,
+} from "@/lib/cancelamento";
 import { creditarPontosDoPedido } from "@/lib/fidelidade";
 import type { Pedido } from "@/lib/types";
 
@@ -73,11 +77,38 @@ export async function POST(req: Request) {
       // mesma notificação mais de uma vez, e o cliente não pode receber
       // três e-mails iguais dizendo que o pagamento foi confirmado.
       const [antes] = await db
-        .select({ status: pedidos.status })
+        .select({ status: pedidos.status, pagamentoId: pedidos.pagamentoId })
         .from(pedidos)
         .where(eq(pedidos.id, pedidoId));
 
+      // Guarda o número do pagamento: é com ele que se pede o estorno depois.
+      // O pagamento APROVADO manda no registro — um pedido pode ter tentativas
+      // recusadas antes, e estornar a recusada não devolveria nada.
+      if (antes && (info.status === "approved" || !antes.pagamentoId)) {
+        await db
+          .update(pedidos)
+          .set({ pagamentoId: String(paymentId) })
+          .where(eq(pedidos.id, pedidoId));
+      }
+
+      // Pagamento que caiu depois do cancelamento: o link do Mercado Pago
+      // continua funcionando, então dá pra cancelar e pagar em seguida sem
+      // perceber. O dinheiro entrou por engano — devolve na hora.
+      if (antes?.status === "cancelado" && info.status === "approved") {
+        await devolverPagamentoDePedidoCancelado(pedidoId, String(paymentId));
+        return NextResponse.json({ ok: true });
+      }
+
       if (antes && antes.status !== novoStatus) {
+        // Estorno feito pela Camily direto no site do Mercado Pago: o
+        // cancelamento tem que desfazer pontos e cupom aqui também.
+        if (novoStatus === "cancelado") {
+          await registrarCancelamentoDoMercadoPago(pedidoId, {
+            reembolsado: info.status === "refunded" || info.status === "charged_back",
+          });
+          return NextResponse.json({ ok: true });
+        }
+
         await db
           .update(pedidos)
           .set({ status: novoStatus })

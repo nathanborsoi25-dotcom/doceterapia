@@ -117,10 +117,30 @@ export function emailStatusPedido(dados: {
   prazoEm?: string | null;
   /** Link de acompanhamento da entrega, quando a Camily informou. */
   linkRastreio?: string | null;
+  /** Como ficou a devolução do dinheiro, quando o pedido foi cancelado. */
+  reembolso?: "nao_precisa" | "concluido" | "falhou" | null;
+  formaPagamento?: string;
 }) {
   const primeiroNome = dados.nome.split(" ")[0];
   const ehEntrega = dados.tipoEntrega === "entrega";
   const receber = ehEntrega ? "entrega" : "retirada";
+
+  // No cancelamento, o que o cliente mais quer saber é do dinheiro. Cada
+  // caso merece um texto diferente — prometer estorno pra quem nunca chegou
+  // a pagar confunde, e falar "já foi devolvido" quando o estorno falhou é pior.
+  const prazoDoEstorno =
+    dados.formaPagamento === "pix"
+      ? "No Pix o valor costuma cair na conta em alguns minutos."
+      : "No cartão o estorno pode aparecer só na próxima fatura, dependendo do banco.";
+
+  const sobreODinheiro =
+    dados.reembolso === "concluido"
+      ? ` Já pedimos a devolução do valor no Mercado Pago. ${prazoDoEstorno}`
+      : dados.reembolso === "falhou"
+        ? " A devolução do valor não saiu automaticamente — a Camily já foi avisada e vai resolver isso com você pelo WhatsApp."
+        : dados.reembolso === "nao_precisa"
+          ? " Como o pagamento ainda não tinha sido concluído, não há nada a devolver."
+          : "";
 
   const textos: Record<string, { assunto: string; titulo: string; corpo: string }> = {
     pago: {
@@ -148,7 +168,7 @@ export function emailStatusPedido(dados: {
     cancelado: {
       assunto: "Seu pedido foi cancelado",
       titulo: "Pedido cancelado",
-      corpo: "Seu pedido foi cancelado. Se o pagamento já tinha sido feito, o reembolso é processado automaticamente — no Pix costuma voltar rápido, e no cartão pode aparecer só na próxima fatura. Qualquer dúvida, fale com a Camily pelo WhatsApp.",
+      corpo: `Seu pedido foi cancelado.${sobreODinheiro} Qualquer dúvida, fale com a Camily pelo WhatsApp.`,
     },
   };
 

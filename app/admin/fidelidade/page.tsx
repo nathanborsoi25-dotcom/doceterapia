@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import CampoNumero from "@/components/CampoNumero";
 
 type Recompensa = {
   id: string;
@@ -12,11 +13,12 @@ type Recompensa = {
 };
 
 export default function AdminFidelidadePage() {
-  const [pontosPorReal, setPontosPorReal] = useState("1");
-  const [pontosPorAvaliacao, setPontosPorAvaliacao] = useState("10");
+  const [pontosPorReal, setPontosPorReal] = useState<number | null>(1);
+  const [pontosPorAvaliacao, setPontosPorAvaliacao] = useState<number | null>(10);
   const [salvandoRegras, setSalvandoRegras] = useState(false);
   const [recompensas, setRecompensas] = useState<Recompensa[]>([]);
-  const [nova, setNova] = useState({ nome: "", descricao: "", pontos: "" });
+  const [nova, setNova] = useState({ nome: "", descricao: "" });
+  const [pontosDoPremio, setPontosDoPremio] = useState<number | null>(null);
   const [criando, setCriando] = useState(false);
   const [aviso, setAviso] = useState("");
 
@@ -31,8 +33,8 @@ export default function AdminFidelidadePage() {
     fetch("/api/config-loja", { cache: "no-store" })
       .then((r) => r.json())
       .then((c) => {
-        setPontosPorReal(String(c.pontosPorReal ?? 1));
-        setPontosPorAvaliacao(String(c.pontosPorAvaliacao ?? 10));
+        setPontosPorReal(Number(c.pontosPorReal ?? 1));
+        setPontosPorAvaliacao(Number(c.pontosPorAvaliacao ?? 10));
       })
       .catch(() => {});
     carregarRecompensas();
@@ -47,8 +49,8 @@ export default function AdminFidelidadePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...atual,
-          pontosPorReal: Number(pontosPorReal) || 0,
-          pontosPorAvaliacao: Number(pontosPorAvaliacao) || 0,
+          pontosPorReal: pontosPorReal ?? 0,
+          pontosPorAvaliacao: Math.round(pontosPorAvaliacao ?? 0),
         }),
       });
     } finally {
@@ -64,14 +66,15 @@ export default function AdminFidelidadePage() {
       const res = await fetch("/api/recompensas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...nova, pontos: Number(nova.pontos) }),
+        body: JSON.stringify({ ...nova, pontos: Math.round(pontosDoPremio ?? 0) }),
       });
       const corpo = await res.json();
       if (!res.ok) {
         setAviso(corpo.error ?? "Não foi possível criar a recompensa.");
         return;
       }
-      setNova({ nome: "", descricao: "", pontos: "" });
+      setNova({ nome: "", descricao: "" });
+      setPontosDoPremio(null);
       carregarRecompensas();
     } finally {
       setCriando(false);
@@ -84,7 +87,7 @@ export default function AdminFidelidadePage() {
   }
 
   // Exemplo prático, pra ela conferir se a regra ficou do jeito que quer.
-  const exemplo = Math.floor(50 * (Number(pontosPorReal) || 0));
+  const exemplo = Math.floor(50 * (pontosPorReal ?? 0));
 
   return (
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
@@ -104,12 +107,9 @@ export default function AdminFidelidadePage() {
       <div className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4 mt-3 grid gap-3">
         <label className="grid gap-1 text-sm font-body text-ink/80">
           Pontos por real gasto
-          <input
-            type="number"
-            step="0.1"
-            inputMode="decimal"
-            value={pontosPorReal}
-            onChange={(e) => setPontosPorReal(e.target.value)}
+          <CampoNumero
+            valor={pontosPorReal}
+            onChange={setPontosPorReal}
             className="w-full border border-cherryLight/50 rounded-xl p-2.5 bg-white/70"
           />
           <span className="text-xs text-ink/50">
@@ -119,11 +119,10 @@ export default function AdminFidelidadePage() {
 
         <label className="grid gap-1 text-sm font-body text-ink/80">
           Pontos por avaliação
-          <input
-            type="number"
-            inputMode="numeric"
-            value={pontosPorAvaliacao}
-            onChange={(e) => setPontosPorAvaliacao(e.target.value)}
+          <CampoNumero
+            valor={pontosPorAvaliacao}
+            onChange={setPontosPorAvaliacao}
+            casas={0}
             className="w-full border border-cherryLight/50 rounded-xl p-2.5 bg-white/70"
           />
           <span className="text-xs text-ink/50">
@@ -171,11 +170,10 @@ export default function AdminFidelidadePage() {
         </label>
         <label className="grid gap-1 text-sm font-body text-ink/80">
           Custa quantos pontos *
-          <input
-            type="number"
-            inputMode="numeric"
-            value={nova.pontos}
-            onChange={(e) => setNova({ ...nova, pontos: e.target.value })}
+          <CampoNumero
+            valor={pontosDoPremio}
+            onChange={setPontosDoPremio}
+            casas={0}
             placeholder="100"
             className="w-full border border-cherryLight/50 rounded-xl p-2.5 bg-white/70"
           />

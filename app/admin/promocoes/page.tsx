@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import CampoNumero from "@/components/CampoNumero";
 import EscolherFoto from "@/components/EscolherFoto";
 import type { Cliente } from "@/lib/types";
 
@@ -40,12 +41,14 @@ export default function AdminPromocoesPage() {
     codigo: "",
     descricao: "",
     tipo: "percentual",
-    valor: "",
-    pedidoMinimo: "",
     clienteId: "",
     expiraEm: "",
-    limiteUsos: "",
   });
+  // Os números do cupom ficam separados: podem estar vazios enquanto ela
+  // digita, e vazio não é a mesma coisa que zero.
+  const [valor, setValor] = useState<number | null>(null);
+  const [pedidoMinimo, setPedidoMinimo] = useState<number | null>(null);
+  const [limiteUsos, setLimiteUsos] = useState<number | null>(null);
   const [criando, setCriando] = useState(false);
 
   function carregar() {
@@ -77,9 +80,9 @@ export default function AdminPromocoesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...novo,
-          valor: Number(novo.valor),
-          pedidoMinimo: Number(novo.pedidoMinimo) || 0,
-          limiteUsos: Number(novo.limiteUsos) || 0,
+          valor: valor ?? 0,
+          pedidoMinimo: pedidoMinimo ?? 0,
+          limiteUsos: Math.round(limiteUsos ?? 0),
           clienteId: novo.clienteId || null,
           expiraEm: novo.expiraEm || null,
         }),
@@ -93,12 +96,12 @@ export default function AdminPromocoesPage() {
         codigo: "",
         descricao: "",
         tipo: "percentual",
-        valor: "",
-        pedidoMinimo: "",
         clienteId: "",
         expiraEm: "",
-        limiteUsos: "",
       });
+      setValor(null);
+      setPedidoMinimo(null);
+      setLimiteUsos(null);
       carregar();
     } finally {
       setCriando(false);
@@ -221,20 +224,24 @@ export default function AdminPromocoesPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Campo
-            label={novo.tipo === "percentual" ? "Desconto (%) *" : "Desconto (R$) *"}
-            valor={novo.valor}
-            onChange={(v) => setNovo({ ...novo, valor: v })}
-            tipo="number"
-            placeholder={novo.tipo === "percentual" ? "10" : "5,00"}
-          />
-          <Campo
-            label="Pedido mínimo (R$)"
-            valor={novo.pedidoMinimo}
-            onChange={(v) => setNovo({ ...novo, pedidoMinimo: v })}
-            tipo="number"
-            placeholder="0"
-          />
+          <label className="grid gap-1 text-sm font-body text-ink/80">
+            {novo.tipo === "percentual" ? "Desconto (%) *" : "Desconto (R$) *"}
+            <CampoNumero
+              valor={valor}
+              onChange={setValor}
+              placeholder={novo.tipo === "percentual" ? "10" : "5,00"}
+              className={ESTILO_CAMPO}
+            />
+          </label>
+          <label className="grid gap-1 text-sm font-body text-ink/80">
+            Pedido mínimo (R$)
+            <CampoNumero
+              valor={pedidoMinimo}
+              onChange={setPedidoMinimo}
+              placeholder="0"
+              className={ESTILO_CAMPO}
+            />
+          </label>
         </div>
 
         <Campo
@@ -260,13 +267,16 @@ export default function AdminPromocoesPage() {
               ))}
             </select>
           </label>
-          <Campo
-            label="Limite de usos (0 = ilimitado)"
-            valor={novo.limiteUsos}
-            onChange={(v) => setNovo({ ...novo, limiteUsos: v })}
-            tipo="number"
-            placeholder="0"
-          />
+          <label className="grid gap-1 text-sm font-body text-ink/80">
+            Limite de usos (0 = ilimitado)
+            <CampoNumero
+              valor={limiteUsos}
+              onChange={setLimiteUsos}
+              casas={0}
+              placeholder="0"
+              className={ESTILO_CAMPO}
+            />
+          </label>
         </div>
 
         <Campo
@@ -329,6 +339,9 @@ export default function AdminPromocoesPage() {
   );
 }
 
+const ESTILO_CAMPO =
+  "w-full border border-cherryLight/50 rounded-xl p-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark";
+
 function Campo({
   label,
   valor,
@@ -347,11 +360,10 @@ function Campo({
       {label}
       <input
         type={tipo}
-        step={tipo === "number" ? "0.01" : undefined}
         value={valor}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-cherryLight/50 rounded-xl p-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
+        className={ESTILO_CAMPO}
       />
     </label>
   );

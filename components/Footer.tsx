@@ -1,4 +1,6 @@
+import Link from "next/link";
 import CherryDivider from "./CherryDivider";
+import { TELEFONE_EXIBICAO } from "@/lib/contato";
 
 export default function Footer() {
   return (
@@ -18,7 +20,21 @@ export default function Footer() {
           Doceterapia carrega um pouquinho de mim — obrigada por fazer parte
           dessa história.
         </p>
-        <p className="font-body text-sm text-cherryMid mt-3">(43) 99634-7895</p>
+        <p className="font-body text-sm text-cherryMid mt-3">{TELEFONE_EXIBICAO}</p>
+
+        {/* As regras da loja ficam a um toque de qualquer tela do cliente —
+            é onde ele procura quando bate a dúvida de "e se eu desistir?". */}
+        <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-5 font-body text-xs text-ink/60">
+          <Link href="/politica" className="underline py-2 hover:text-cherryDark">
+            Cancelamento e reembolso
+          </Link>
+          <Link href="/conta" className="underline py-2 hover:text-cherryDark">
+            Minha conta
+          </Link>
+          <Link href="/catalogo" className="underline py-2 hover:text-cherryDark">
+            Cardápio
+          </Link>
+        </nav>
       </div>
     </footer>
   );

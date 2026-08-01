@@ -38,6 +38,12 @@ export async function avisarMudancaDeStatus(
       total,
       prazoEm: linha.pedido.prazoEm?.toISOString() ?? null,
       linkRastreio: linha.pedido.linkRastreio,
+      reembolso: linha.pedido.statusReembolso as
+        | "nao_precisa"
+        | "concluido"
+        | "falhou"
+        | null,
+      formaPagamento: linha.pedido.formaPagamento,
     });
     if (!modelo) return; // situação que não rende aviso
 

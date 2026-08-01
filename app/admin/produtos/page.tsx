@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import CampoNumero from "@/components/CampoNumero";
 import EscolherFoto from "@/components/EscolherFoto";
 import { getProdutos, removerProduto, upsertProduto } from "@/lib/api";
 import type { Produto } from "@/lib/types";
@@ -69,25 +70,19 @@ export default function AdminProdutosPage() {
                 className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
               />
               <label className="grid gap-0.5">
-                <span className="text-xs text-ink/50">Preço de venda</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={produto.preco}
-                  onChange={(e) => handleCampo(produto.id, "preco", parseFloat(e.target.value) || 0)}
+                <span className="text-xs text-ink/50">Preço de venda (R$)</span>
+                <CampoNumero
+                  valor={produto.preco}
+                  onChange={(v) => handleCampo(produto.id, "preco", v ?? 0)}
                   className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
                 />
               </label>
               {/* Sem o custo não dá pra calcular lucro nas métricas. */}
               <label className="grid gap-0.5">
-                <span className="text-xs text-ink/50">Custo de produção</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  value={produto.custo ?? 0}
-                  onChange={(e) => handleCampo(produto.id, "custo", parseFloat(e.target.value) || 0)}
+                <span className="text-xs text-ink/50">Custo de produção (R$)</span>
+                <CampoNumero
+                  valor={produto.custo ?? 0}
+                  onChange={(v) => handleCampo(produto.id, "custo", v ?? 0)}
                   className={`w-full text-sm font-body bg-transparent border rounded-lg p-2 ${
                     (produto.custo ?? 0) <= 0
                       ? "border-amber-300 bg-amber-50/50"
@@ -110,12 +105,12 @@ export default function AdminProdutosPage() {
                 <option value="sob_encomenda">Sob encomenda</option>
               </select>
               {produto.disponibilidade === "sob_encomenda" && (
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={produto.prazoDias ?? 0}
-                  onChange={(e) => handleCampo(produto.id, "prazoDias", parseInt(e.target.value) || 0)}
+                <CampoNumero
+                  valor={produto.prazoDias ?? 0}
+                  onChange={(v) => handleCampo(produto.id, "prazoDias", Math.round(v ?? 0))}
+                  casas={0}
                   placeholder="Prazo (dias)"
+                  aria-label="Prazo em dias"
                   className="text-sm font-body border border-cherryLight/30 rounded-lg p-2 w-24"
                 />
               )}

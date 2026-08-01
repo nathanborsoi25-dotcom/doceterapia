@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { Cliente, ConfiguracaoFrete, FaixaFrete, ItemPedido } from "../types";
 
@@ -72,6 +73,22 @@ export const pedidos = pgTable("pedidos", {
   // Link de acompanhamento da entrega (o que o Uber Envios gera). A Camily
   // cola aqui ao despachar, e ele vai junto no e-mail de "saiu para entrega".
   linkRastreio: text("link_rastreio"),
+  // Número do pagamento APROVADO dentro do Mercado Pago. O `external_reference`
+  // que já tínhamos só faz o caminho contrário (do MP pra cá); pra mandar
+  // estornar é este número que o MP pede. Fica nulo até o pagamento entrar.
+  pagamentoId: text("pagamento_id"),
+  // Cancelamento: quem cancelou ("cliente" ou "loja") e por quê.
+  canceladoPor: text("cancelado_por"),
+  motivoCancelamento: text("motivo_cancelamento"),
+  canceladoEm: timestamp("cancelado_em", { withTimezone: true }),
+  /**
+   * Como ficou a devolução do dinheiro:
+   *   "nao_precisa" — ninguém tinha pago ainda
+   *   "concluido"   — o Mercado Pago aceitou o estorno
+   *   "falhou"      — deu erro; a Camily precisa estornar na mão
+   */
+  statusReembolso: text("status_reembolso"),
+  valorReembolsado: doublePrecision("valor_reembolsado"),
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -144,6 +161,38 @@ export const pontos = pgTable("pontos", {
   pedidoId: text("pedido_id"),
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Nota que o cliente dá para UM doce que comprou. É por doce, não por pedido:
+ * quem levou brigadeiro e torta pode adorar um e não gostar do outro.
+ *
+ * O par (pedido, doce) é único — assim cada pessoa avalia cada doce uma vez
+ * por compra, e não dá pra encher o cardápio de notas repetidas.
+ */
+export const avaliacoes = pgTable(
+  "avaliacoes",
+  {
+    id: text("id").primaryKey(),
+    produtoId: text("produto_id").notNull(),
+    clienteId: text("cliente_id").notNull(),
+    pedidoId: text("pedido_id").notNull(),
+    /** De 1 a 5. */
+    nota: integer("nota").notNull(),
+    comentario: text("comentario").notNull().default(""),
+    /**
+     * A avaliação nasce visível (publica na hora). A Camily pode esconder uma
+     * que seja abusiva — e a escondida também sai do cálculo da média.
+     */
+    visivel: boolean("visivel").notNull().default(true),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    umaPorDocePorPedido: uniqueIndex("avaliacoes_pedido_produto_idx").on(
+      t.pedidoId,
+      t.produtoId
+    ),
+  })
+);
 
 /** O que o cliente pode trocar pelos pontos. */
 export const recompensas = pgTable("recompensas", {

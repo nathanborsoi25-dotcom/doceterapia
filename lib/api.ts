@@ -1,7 +1,9 @@
 import type {
+  Avaliacao,
   Cliente,
   ConfiguracaoFrete,
   Pedido,
+  PedidoDoCliente,
   PedidoDoPainel,
   Produto,
   StatusPedido,
@@ -171,12 +173,131 @@ export async function getCarrinhosAbandonados(): Promise<CarrinhoAbandonado[]> {
 
 export async function atualizarPedido(
   id: string,
-  mudancas: { status?: StatusPedido; linkRastreio?: string }
+  mudancas: { status?: StatusPedido; linkRastreio?: string; motivo?: string }
 ): Promise<void> {
-  await fetch(`/api/pedidos/${id}`, {
+  const res = await fetch(`/api/pedidos/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(mudancas),
+  });
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível atualizar o pedido."));
+  }
+}
+
+/** Nova tentativa de estorno, quando o Mercado Pago recusou na primeira. */
+export async function tentarEstorno(id: string): Promise<void> {
+  const res = await fetch(`/api/pedidos/${id}/estorno`, { method: "POST" });
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível estornar."));
+  }
+}
+
+// ---- Minha conta (o cliente olhando as próprias compras) ----
+
+/** Pedidos de quem está logado, do mais novo pro mais antigo. */
+export async function getMeusPedidos(): Promise<PedidoDoCliente[]> {
+  return json<PedidoDoCliente[]>(
+    await fetch("/api/cliente/pedidos", { cache: "no-store" })
+  );
+}
+
+export type ResultadoCancelamento = {
+  reembolso: "nao_precisa" | "concluido" | "falhou";
+  valorReembolsado: number;
+};
+
+export async function cancelarMeuPedido(
+  id: string,
+  motivo: string
+): Promise<ResultadoCancelamento> {
+  const res = await fetch(`/api/cliente/pedidos/${id}/cancelar`, POST_JSON({ motivo }));
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível cancelar o pedido."));
+  }
+  return res.json();
+}
+
+export type MinhaConta = {
+  saldoPontos: number;
+  extrato: Array<{
+    id: string;
+    quantidade: number;
+    motivo: string;
+    descricao: string;
+    criadoEm: string;
+  }>;
+  cupons: Array<{
+    codigo: string;
+    descricao: string;
+    tipo: string;
+    valor: number;
+    pedidoMinimo: number;
+    expiraEm: string | null;
+    exclusivo: boolean;
+  }>;
+  recompensas: Array<{ id: string; nome: string; descricao: string; pontos: number }>;
+};
+
+/** Pontos, extrato, cupons disponíveis e prêmios — tudo o que a conta mostra. */
+export async function getMinhaConta(): Promise<MinhaConta> {
+  return json<MinhaConta>(await fetch("/api/cliente/conta", { cache: "no-store" }));
+}
+
+/** Salva as alterações que o cliente fez nos próprios dados. */
+export async function salvarMeusDados(dados: {
+  nome: string;
+  email: string;
+  telefone: string;
+  endereco: Cliente["endereco"];
+}): Promise<void> {
+  const res = await fetch("/api/cliente/eu", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dados),
+  });
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível salvar seus dados."));
+  }
+}
+
+// ---- Avaliações ----
+export async function getAvaliacoesDoProduto(produtoId: string): Promise<Avaliacao[]> {
+  return json<Avaliacao[]>(
+    await fetch(`/api/avaliacoes?produtoId=${encodeURIComponent(produtoId)}`, {
+      cache: "no-store",
+    })
+  );
+}
+
+export async function avaliarDoce(dados: {
+  pedidoId: string;
+  produtoId: string;
+  nota: number;
+  comentario: string;
+}): Promise<{ pontosGanhos: number }> {
+  const res = await fetch("/api/avaliacoes", POST_JSON(dados));
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível enviar sua avaliação."));
+  }
+  return res.json();
+}
+
+/** Painel: todas as avaliações, inclusive as escondidas. */
+export async function getTodasAvaliacoes(): Promise<Avaliacao[]> {
+  return json<Avaliacao[]>(
+    await fetch("/api/admin/avaliacoes", { cache: "no-store" })
+  );
+}
+
+export async function mostrarOuEsconderAvaliacao(
+  id: string,
+  visivel: boolean
+): Promise<void> {
+  await fetch("/api/admin/avaliacoes", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, visivel }),
   });
 }
 

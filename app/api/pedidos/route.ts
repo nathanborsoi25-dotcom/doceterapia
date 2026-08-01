@@ -37,6 +37,10 @@ export async function GET() {
     linkRastreio: p.linkRastreio,
     clienteNome: c?.nome ?? null,
     clienteTelefone: c?.telefone ?? null,
+    statusReembolso: p.statusReembolso,
+    valorReembolsado: p.valorReembolsado,
+    canceladoPor: p.canceladoPor,
+    motivoCancelamento: p.motivoCancelamento,
   }));
 
   return NextResponse.json(resultado);

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
+import RodapeLinks from "@/components/RodapeLinks";
+import { reais } from "@/lib/formato";
 import { getCarrinho } from "@/lib/store";
 import {
   getClienteLogado,
@@ -213,8 +215,8 @@ export default function CheckoutPage() {
               </AvisoFrete>
             ) : frete ? (
               <p className="text-sm font-body text-ink/70">
-                Distância até você: {frete.distanciaKm} km — frete: R${" "}
-                {(frete.valor ?? 0).toFixed(2)}
+                Distância até você: {frete.distanciaKm} km — frete:{" "}
+                {reais(frete.valor ?? 0)}
               </p>
             ) : null)}
 
@@ -269,15 +271,15 @@ export default function CheckoutPage() {
         <div className="grid gap-1 font-body">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>R$ {subtotal.toFixed(2)}</span>
+            <span>{reais(subtotal)}</span>
           </div>
           <div className="flex justify-between">
             <span>Frete</span>
-            <span>R$ {valorFrete.toFixed(2)}</span>
+            <span>{reais(valorFrete)}</span>
           </div>
           <div className="flex justify-between font-display text-lg mt-2">
             <span>Total</span>
-            <span>R$ {total.toFixed(2)}</span>
+            <span>{reais(total)}</span>
           </div>
         </div>
 
@@ -298,6 +300,7 @@ export default function CheckoutPage() {
             : "Você será levado ao ambiente seguro do Mercado Pago para pagar com Pix ou cartão."}
         </p>
       </main>
+      <RodapeLinks />
     </>
   );
 }

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
+import RodapeLinks from "@/components/RodapeLinks";
+import { reais } from "@/lib/formato";
 import { getCarrinho, salvarCarrinho } from "@/lib/store";
 import type { ItemPedido } from "@/lib/types";
 
@@ -50,7 +52,7 @@ export default function CarrinhoPage() {
                 <div className="min-w-0">
                   <p className="font-display text-ink truncate">{item.nome}</p>
                   <p className="text-sm text-ink/60 font-body">
-                    R$ {item.precoUnitario.toFixed(2)} cada
+                    {reais(item.precoUnitario)} cada
                   </p>
                 </div>
                 {/* Botões de 44px: tamanho confortável para o dedo */}
@@ -76,7 +78,7 @@ export default function CarrinhoPage() {
 
             <div className="flex justify-between font-display text-lg mt-4">
               <span>Subtotal</span>
-              <span>R$ {total.toFixed(2)}</span>
+              <span>{reais(total)}</span>
             </div>
             <p className="text-xs text-ink/50 font-body -mt-2">
               O frete é calculado na próxima etapa, de acordo com a distância
@@ -92,6 +94,7 @@ export default function CarrinhoPage() {
           </div>
         )}
       </main>
+      <RodapeLinks />
     </>
   );
 }
