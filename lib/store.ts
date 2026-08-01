@@ -13,6 +13,7 @@ import type { ItemPedido, Produto } from "./types";
 
 const KEYS = {
   carrinho: "dt_carrinho",
+  enderecoVisitante: "dt_endereco",
 };
 
 function ler<T>(chave: string, padrao: T): T {
@@ -77,4 +78,58 @@ export function adicionarAoCarrinho(produto: Produto) {
 export function limparCarrinho() {
   salvar(KEYS.carrinho, []);
   sincronizarComBanco([]);
+}
+
+/**
+ * Manda pro banco o carrinho que a pessoa montou ANTES de entrar.
+ *
+ * Enquanto ela era visitante, o servidor recusava (não havia sessão) e o
+ * carrinho ficou só no navegador. Chamando isto logo depois do login, a
+ * compra em andamento aparece pra Camily como carrinho abandonado se ela
+ * desistir no meio — que é justamente quando vale a pena chamar no WhatsApp.
+ */
+export function sincronizarCarrinhoAposLogin() {
+  const itens = getCarrinho();
+  if (itens.length > 0) sincronizarComBanco(itens);
+}
+
+// ---- Endereço de quem ainda não tem conta ----
+
+/**
+ * Endereço que a visitante digita no checkout antes de criar conta, só pra
+ * ver quanto fica o frete. Fica no navegador dela e nada mais: na hora de
+ * fechar o pedido o servidor usa o endereço do CADASTRO, que é o único que
+ * não dá pra forjar. Quando ela se cadastra, este endereço entra no
+ * formulário já preenchido, pra não digitar duas vezes.
+ */
+export type EnderecoVisitante = {
+  cep: string;
+  rua: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  complemento: string;
+  lat?: number;
+  lng?: number;
+};
+
+export const ENDERECO_VAZIO: EnderecoVisitante = {
+  cep: "",
+  rua: "",
+  numero: "",
+  bairro: "",
+  cidade: "Arapongas",
+  complemento: "",
+};
+
+export function getEnderecoVisitante(): EnderecoVisitante {
+  return ler<EnderecoVisitante>(KEYS.enderecoVisitante, ENDERECO_VAZIO);
+}
+
+export function salvarEnderecoVisitante(endereco: EnderecoVisitante) {
+  salvar(KEYS.enderecoVisitante, endereco);
+}
+
+export function limparEnderecoVisitante() {
+  salvar(KEYS.enderecoVisitante, ENDERECO_VAZIO);
 }

@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
+import EnderecoVisitante from "@/components/EnderecoVisitante";
 import { reais } from "@/lib/formato";
-import { getCarrinho } from "@/lib/store";
+import { getCarrinho, type EnderecoVisitante as EnderecoDeVisitante } from "@/lib/store";
 import {
   getClienteLogado,
   getConfiguracaoFrete,
@@ -36,6 +37,8 @@ export default function CheckoutPage() {
   // usado no frete é o que está de fato cadastrado na conta.
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [carregandoCliente, setCarregandoCliente] = useState(true);
+  // Endereço de quem ainda não criou conta, só pra ver o frete.
+  const [enderecoVisitante, setEnderecoVisitante] = useState<EnderecoDeVisitante | null>(null);
   const subtotal = carrinho.reduce((acc, i) => acc + i.precoUnitario * i.quantidade, 0);
 
   // Dias de encomenda do carrinho: o prazo vem do produto no banco, não do
@@ -67,34 +70,61 @@ export default function CheckoutPage() {
     [prazoDias]
   );
 
+  /**
+   * O endereço que vale nesta tela: o do cadastro quando a pessoa está
+   * logada, o digitado aqui quando ainda não está. Os dois calculam o frete
+   * do mesmo jeito — o que muda é que, na hora de fechar o pedido, o servidor
+   * usa SEMPRE o do cadastro (o único que ninguém consegue forjar).
+   */
+  const enderecoAtual = useMemo(() => {
+    if (cliente) return cliente.endereco;
+    if (!enderecoVisitante) return null;
+    return {
+      rua: enderecoVisitante.rua,
+      numero: enderecoVisitante.numero,
+      bairro: enderecoVisitante.bairro,
+      cidade: enderecoVisitante.cidade,
+      cep: enderecoVisitante.cep,
+      complemento: enderecoVisitante.complemento,
+      lat: enderecoVisitante.lat,
+      lng: enderecoVisitante.lng,
+    };
+  }, [cliente, enderecoVisitante]);
+
+  /** Endereço ainda em branco: a pessoa nem começou a preencher. */
+  const enderecoEmBranco =
+    !enderecoAtual || (!enderecoAtual.rua && !enderecoAtual.cep);
+  /** Começou mas ainda falta rua ou número — não é erro, é digitação em curso. */
+  const enderecoIncompleto =
+    !enderecoEmBranco && (!enderecoAtual?.rua || !enderecoAtual?.numero);
+
   useEffect(() => {
-    if (tipoEntrega !== "entrega" || !cliente || !config) return;
-    if (cliente.endereco.lat && cliente.endereco.lng) {
-      setFrete(calcularFretePorEndereco(cliente.endereco.lat, cliente.endereco.lng, config));
+    if (tipoEntrega !== "entrega" || !enderecoAtual || !config) return;
+    if (enderecoAtual.lat && enderecoAtual.lng) {
+      setFrete(calcularFretePorEndereco(enderecoAtual.lat, enderecoAtual.lng, config));
     } else {
       setFrete(null);
     }
-  }, [tipoEntrega, cliente, config]);
+  }, [tipoEntrega, enderecoAtual, config]);
 
   // A Doceterapia só atende Arapongas-PR: endereço de outra cidade trava a
   // compra inteira (entrega e retirada) e manda pro WhatsApp da Camily.
   const area = useMemo(
     () =>
-      cliente
+      enderecoAtual && !enderecoEmBranco
         ? checarAreaEntrega({
-            cep: cliente.endereco.cep,
-            cidade: cliente.endereco.cidade,
-            bairro: cliente.endereco.bairro,
-            rua: cliente.endereco.rua,
+            cep: enderecoAtual.cep,
+            cidade: enderecoAtual.cidade,
+            bairro: enderecoAtual.bairro,
+            rua: enderecoAtual.rua,
           })
         : { atendido: true as boolean, motivo: undefined as string | undefined },
-    [cliente]
+    [enderecoAtual, enderecoEmBranco]
   );
 
-  // O endereço do cliente só tem coordenadas se a geocodificação funcionou
-  // no cadastro. Sem elas não dá pra calcular distância — e sem distância
-  // não dá pra cobrar frete.
-  const semCoordenadas = !cliente?.endereco.lat || !cliente?.endereco.lng;
+  // O endereço só tem coordenadas se a geocodificação funcionou. Sem elas não
+  // dá pra calcular distância — e sem distância não dá pra cobrar frete.
+  const semCoordenadas = !enderecoAtual?.lat || !enderecoAtual?.lng;
   const carregandoFrete =
     tipoEntrega === "entrega" && (!config || carregandoCliente);
   const foraDaArea =
@@ -116,6 +146,15 @@ export default function CheckoutPage() {
       alert("Seu carrinho está vazio.");
       return;
     }
+
+    // É AQUI que a conta passa a ser necessária: até este clique dá pra
+    // navegar, montar o carrinho e ver o frete sem cadastro nenhum. Depois de
+    // entrar, a pessoa volta direto pra esta tela com o carrinho intacto.
+    if (!cliente) {
+      window.location.assign("/entrar?voltar=/checkout");
+      return;
+    }
+
     setFinalizando(true);
     try {
       // Cria o pedido e inicia o pagamento no Mercado Pago.
@@ -186,10 +225,49 @@ export default function CheckoutPage() {
             />
           </div>
 
+          {/* Endereço: quem tem conta vê o que está cadastrado (e o link pra
+              mudar); quem ainda não tem digita aqui só pra ver o frete. */}
+          {tipoEntrega === "entrega" && !carregandoCliente && (
+            <div className="bg-white/60 border border-cherryLight/30 rounded-xl p-4 grid gap-2">
+              {cliente ? (
+                <>
+                  <p className="text-sm font-body text-ink/80">
+                    <strong>Entregar em:</strong> {cliente.endereco.rua},{" "}
+                    {cliente.endereco.numero}
+                    {cliente.endereco.bairro && ` — ${cliente.endereco.bairro}`}
+                    {cliente.endereco.cidade && `, ${cliente.endereco.cidade}`}
+                  </p>
+                  <a
+                    href="/conta"
+                    className="text-sm text-cherryDark underline justify-self-start py-1"
+                  >
+                    Mudar meu endereço
+                  </a>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-body text-ink/70">
+                    Diga onde você está pra eu calcular a entrega. Você só
+                    precisa criar conta na hora de pagar.
+                  </p>
+                  <EnderecoVisitante onChange={setEnderecoVisitante} />
+                </>
+              )}
+            </div>
+          )}
+
           {tipoEntrega === "entrega" &&
             (carregandoFrete ? (
               <p className="text-sm font-body text-ink/70">
                 Calculando o frete a partir do seu endereço...
+              </p>
+            ) : enderecoEmBranco ? (
+              <p className="text-sm font-body text-ink/60">
+                Preencha o endereço acima para ver o valor da entrega.
+              </p>
+            ) : enderecoIncompleto ? (
+              <p className="text-sm font-body text-ink/60">
+                Falta a rua e o número para eu calcular a entrega.
               </p>
             ) : !area.atendido ? (
               <AvisoFrete>
@@ -200,9 +278,9 @@ export default function CheckoutPage() {
               </AvisoFrete>
             ) : semCoordenadas ? (
               <AvisoFrete>
-                <strong>Não é possível concluir a compra com entrega:</strong>{" "}
-                não conseguimos localizar seu endereço no mapa, então o frete
-                não pôde ser calculado. Escolha <strong>Retirada</strong> ou
+                <strong>Ainda não dá pra calcular a entrega:</strong> não
+                conseguimos localizar esse endereço no mapa. Confira a rua e o
+                número, escolha <strong>Retirada</strong> ou
                 combine a entrega com a Camily pelo WhatsApp.
                 <BotaoWhatsApp mensagem="Oi, Camily! Estou tentando fazer um pedido no site da Doceterapia, mas o site não conseguiu calcular o frete do meu endereço. Consegue me ajudar?" />
               </AvisoFrete>
@@ -292,12 +370,20 @@ export default function CheckoutPage() {
           }
           className="mt-6 w-full bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors disabled:opacity-40"
         >
-          {finalizando ? "Redirecionando para o pagamento..." : "Ir para o pagamento"}
+          {finalizando
+            ? "Redirecionando para o pagamento..."
+            : cliente === null && !carregandoCliente
+              ? "Entrar e finalizar o pedido"
+              : "Ir para o pagamento"}
         </button>
         <p className="text-xs text-ink/50 text-center mt-2 font-body">
           {compraBloqueada && !carregandoFrete
-            ? "Para continuar, escolha Retirada acima."
-            : "Você será levado ao ambiente seguro do Mercado Pago para pagar com Pix ou cartão."}
+            ? enderecoEmBranco || enderecoIncompleto
+              ? "Complete o endereço acima (ou escolha Retirada) para continuar."
+              : "Para continuar, escolha Retirada acima."
+            : cliente === null && !carregandoCliente
+              ? "Você entra (ou cria sua conta em 1 minuto) e volta direto pra cá, com o carrinho do jeito que está."
+              : "Você será levado ao ambiente seguro do Mercado Pago para pagar com Pix ou cartão."}
         </p>
       </main>
       <RodapeLinks />

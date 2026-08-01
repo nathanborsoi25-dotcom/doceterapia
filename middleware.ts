@@ -5,13 +5,16 @@ import { COOKIE_CLIENTE, lerSessaoCliente } from "./lib/sessao-cliente";
 /**
  * Duas portas trancadas no servidor:
  *  - /admin  -> só a Camily, com a senha do painel
- *  - as telas de compra -> só cliente logado
- * Quem não tem sessão válida é mandado para a tela de login certa antes
- * mesmo da página carregar. (Os DADOS têm travas próprias nas rotas /api.)
+ *  - a conta e o acompanhamento do pedido -> só cliente logado
+ *
+ * O cardápio, o carrinho e o checkout são ABERTOS de propósito: a pessoa
+ * escolhe os doces e vê o valor da entrega sem precisar de conta. A conta só
+ * entra na hora de pagar — quem faz essa exigência é a rota /api/pagamento,
+ * que devolve 401 sem sessão. (Todos os DADOS têm travas próprias nas /api.)
  */
 
 /** Telas que exigem cliente logado. */
-const TELAS_DO_CLIENTE = ["/catalogo", "/carrinho", "/checkout", "/pedido", "/conta"];
+const TELAS_DO_CLIENTE = ["/pedido", "/conta"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -32,8 +35,10 @@ export async function middleware(req: NextRequest) {
     const cookie = req.cookies.get(COOKIE_CLIENTE)?.value;
     if (await lerSessaoCliente(secret, cookie)) return NextResponse.next();
 
+    // Guarda de onde a pessoa veio, pra ela voltar pra cá depois de entrar.
     const url = req.nextUrl.clone();
     url.pathname = "/entrar";
+    url.search = `?voltar=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(url);
   }
 
@@ -41,14 +46,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/admin",
-    "/admin/:path*",
-    "/catalogo/:path*",
-    "/catalogo",
-    "/carrinho",
-    "/checkout",
-    "/pedido/:path*",
-    "/conta",
-  ],
+  matcher: ["/admin", "/admin/:path*", "/pedido/:path*", "/conta"],
 };

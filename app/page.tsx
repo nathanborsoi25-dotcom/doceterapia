@@ -1,14 +1,12 @@
 import { redirect } from "next/navigation";
-import { getClienteLogado } from "@/lib/cliente-logado";
-
-export const dynamic = "force-dynamic";
 
 /**
- * Porta de entrada do site: quem já está logado vai direto pro cardápio,
- * quem não está cai na tela de login. A decisão é tomada no servidor, então
- * não pisca uma tela antes da outra.
+ * Porta de entrada do site: todo mundo cai direto no cardápio.
+ *
+ * Antes a primeira tela era o login, e quem chegava pelo Instagram tinha que
+ * criar conta antes de ver um doce sequer — o jeito mais rápido de perder a
+ * visita. Agora a conta só é pedida na hora de pagar.
  */
-export default async function Home() {
-  const cliente = await getClienteLogado();
-  redirect(cliente ? "/catalogo" : "/entrar");
+export default function Home() {
+  redirect("/catalogo");
 }

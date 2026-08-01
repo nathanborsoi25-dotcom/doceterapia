@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import CherryDivider from "@/components/CherryDivider";
 import { buscarEnderecoPorCep, cadastrarCliente, geocodificarEndereco } from "@/lib/api";
 import { formatarCep, formatarCpf, formatarTelefone } from "@/lib/formato";
+import { getEnderecoVisitante, sincronizarCarrinhoAposLogin } from "@/lib/store";
+import { useDestinoDeVolta } from "@/lib/voltar";
 import { apenasDigitos, cpfValido, emailValido, telefoneValido } from "@/lib/validacoes";
 import { SENHA_MINIMA } from "@/lib/senha-regras";
 
@@ -25,6 +27,23 @@ export default function CadastroPage() {
   });
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const voltar = useDestinoDeVolta();
+
+  // Quem digitou o endereço no checkout pra ver o frete não precisa digitar
+  // tudo de novo aqui — o cadastro já vem preenchido com o que ela informou.
+  useEffect(() => {
+    const salvo = getEnderecoVisitante();
+    if (!salvo.rua && !salvo.cep) return;
+    setForm((f) => ({
+      ...f,
+      rua: f.rua || salvo.rua,
+      numero: f.numero || salvo.numero,
+      bairro: f.bairro || salvo.bairro,
+      cidade: salvo.cidade || f.cidade,
+      cep: f.cep || salvo.cep,
+      complemento: f.complemento || salvo.complemento,
+    }));
+  }, []);
 
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [avisoCep, setAvisoCep] = useState("");
@@ -128,8 +147,10 @@ export default function CadastroPage() {
           lng: coords.lng ?? undefined,
         },
       });
+      // O carrinho montado antes do cadastro agora tem dono: vai pro banco.
+      sincronizarCarrinhoAposLogin();
       // Navegação completa para o navegador oferecer salvar a senha.
-      window.location.assign("/catalogo");
+      window.location.assign(voltar);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível cadastrar.");
       setSalvando(false);
@@ -250,7 +271,10 @@ export default function CadastroPage() {
 
       <p className="text-center font-body text-sm text-ink/70 mt-6">
         Já tem cadastro?{" "}
-        <Link href="/entrar" className="text-cherryDark underline inline-block py-3 px-1">
+        <Link
+          href={`/entrar?voltar=${encodeURIComponent(voltar)}`}
+          className="text-cherryDark underline inline-block py-3 px-1"
+        >
           Entrar
         </Link>
       </p>

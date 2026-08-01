@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import { entrarCliente } from "@/lib/api";
 import { formatarCpf } from "@/lib/formato";
+import { sincronizarCarrinhoAposLogin } from "@/lib/store";
+import { useDestinoDeVolta } from "@/lib/voltar";
 
 export default function EntrarPage() {
-  const router = useRouter();
   const [cpf, setCpf] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [entrando, setEntrando] = useState(false);
+  // Pra onde voltar depois de entrar (ex: quem clicou em pagar no checkout).
+  const voltar = useDestinoDeVolta();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,14 +23,18 @@ export default function EntrarPage() {
     setEntrando(true);
     try {
       await entrarCliente(cpf, senha);
+      // O carrinho montado antes do login agora tem dono: vai pro banco.
+      sincronizarCarrinhoAposLogin();
       // Navegação completa (e não router.push) para o navegador entender que
       // o login deu certo e oferecer salvar a senha no gerenciador.
-      window.location.assign("/catalogo");
+      window.location.assign(voltar);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível entrar.");
       setEntrando(false);
     }
   }
+
+  const voltandoProCheckout = voltar === "/checkout";
 
   return (
     <main className="min-h-screen px-6 py-12 max-w-sm mx-auto flex flex-col justify-center">
@@ -37,7 +43,9 @@ export default function EntrarPage() {
         <span className="text-cherryLight">terapia</span>
       </h1>
       <p className="text-center text-ink/70 mt-2 font-body text-sm">
-        Entre para ver o cardápio e fazer seu pedido.
+        {voltandoProCheckout
+          ? "Falta só entrar pra fechar seu pedido. Seu carrinho continua guardadinho."
+          : "Entre para acompanhar seus pedidos e fechar a compra."}
       </p>
       <CherryDivider />
 
@@ -96,10 +104,17 @@ export default function EntrarPage() {
         Ainda não tem cadastro?
       </p>
       <Link
-        href="/cadastro"
+        href={`/cadastro?voltar=${encodeURIComponent(voltar)}`}
         className="mt-3 text-center border border-cherryDark text-cherryDark rounded-full py-3 font-body font-semibold hover:bg-blush transition-colors"
       >
         Fazer cadastro
+      </Link>
+
+      <Link
+        href="/catalogo"
+        className="text-center text-sm font-body text-ink/50 underline mt-4 py-3"
+      >
+        Só olhar o cardápio
       </Link>
 
       <RodapeLinks />

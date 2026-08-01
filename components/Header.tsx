@@ -1,14 +1,31 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { sairCliente } from "@/lib/api";
+import { getClienteLogado, sairCliente } from "@/lib/api";
 import { limparCarrinho } from "@/lib/store";
 
+/**
+ * Cabeçalho do site.
+ *
+ * O cardápio é aberto: qualquer pessoa entra, olha os doces e monta o
+ * carrinho sem conta nenhuma. Por isso o cabeçalho tem duas caras — quem não
+ * está logada vê "Entrar", e quem está vê a conta dela. A conta só é exigida
+ * na hora de pagar.
+ */
 export default function Header() {
+  const [logado, setLogado] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getClienteLogado()
+      .then((c) => setLogado(Boolean(c)))
+      .catch(() => setLogado(false));
+  }, []);
+
   async function sair() {
     await sairCliente();
     limparCarrinho();
-    window.location.assign("/entrar");
+    window.location.assign("/catalogo");
   }
 
   return (
@@ -28,7 +45,7 @@ export default function Header() {
           href="/catalogo"
           className="hidden min-[360px]:inline-block px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
         >
-          Catálogo
+          Cardápio
         </Link>
         <Link
           href="/carrinho"
@@ -36,20 +53,35 @@ export default function Header() {
         >
           Carrinho
         </Link>
-        <Link
-          href="/conta"
-          className="px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
-        >
-          {/* Em tela estreita só o rótulo curto cabe ao lado do carrinho. */}
-          <span className="hidden min-[420px]:inline">Minha conta</span>
-          <span className="min-[420px]:hidden">Conta</span>
-        </Link>
-        <button
-          onClick={sair}
-          className="px-2 py-3 rounded-lg text-ink/50 hover:text-cherryDark hover:bg-blush/60 transition-colors"
-        >
-          Sair
-        </button>
+
+        {/* Enquanto a resposta não chega, não mostra nada: piscar "Entrar"
+            pra quem já está logada seria pior do que esperar um instante. */}
+        {logado === true && (
+          <>
+            <Link
+              href="/conta"
+              className="px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
+            >
+              <span className="hidden min-[420px]:inline">Minha conta</span>
+              <span className="min-[420px]:hidden">Conta</span>
+            </Link>
+            <button
+              onClick={sair}
+              className="px-2 py-3 rounded-lg text-ink/50 hover:text-cherryDark hover:bg-blush/60 transition-colors"
+            >
+              Sair
+            </button>
+          </>
+        )}
+
+        {logado === false && (
+          <Link
+            href="/entrar"
+            className="bg-cherryDark text-white rounded-full px-4 py-2.5 font-semibold hover:bg-cherryMid transition-colors"
+          >
+            Entrar
+          </Link>
+        )}
       </nav>
     </header>
   );
