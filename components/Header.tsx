@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getClienteLogado, sairCliente } from "@/lib/api";
-import { limparCarrinho } from "@/lib/store";
+import { EVENTO_CARRINHO, limparCarrinho, totalDeItens } from "@/lib/store";
 
 /**
  * Cabeçalho do site.
@@ -15,11 +15,25 @@ import { limparCarrinho } from "@/lib/store";
  */
 export default function Header() {
   const [logado, setLogado] = useState<boolean | null>(null);
+  const [itens, setItens] = useState(0);
 
   useEffect(() => {
     getClienteLogado()
       .then((c) => setLogado(Boolean(c)))
       .catch(() => setLogado(false));
+  }, []);
+
+  // Contador do carrinho: atualiza ao adicionar por aqui (evento próprio) e
+  // também quando a pessoa mexe no carrinho em outra aba (evento storage).
+  useEffect(() => {
+    const atualizar = () => setItens(totalDeItens());
+    atualizar();
+    window.addEventListener(EVENTO_CARRINHO, atualizar);
+    window.addEventListener("storage", atualizar);
+    return () => {
+      window.removeEventListener(EVENTO_CARRINHO, atualizar);
+      window.removeEventListener("storage", atualizar);
+    };
   }, []);
 
   async function sair() {
@@ -49,9 +63,17 @@ export default function Header() {
         </Link>
         <Link
           href="/carrinho"
-          className="px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
+          className="relative px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
         >
           Carrinho
+          {itens > 0 && (
+            <span
+              className="absolute top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-cherryDark text-white text-[11px] font-semibold flex items-center justify-center tabular-nums"
+              aria-label={`${itens} ${itens === 1 ? "item" : "itens"} no carrinho`}
+            >
+              {itens}
+            </span>
+          )}
         </Link>
 
         {/* Enquanto a resposta não chega, não mostra nada: piscar "Entrar"

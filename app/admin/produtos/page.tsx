@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import CampoNumero from "@/components/CampoNumero";
-import EscolherFoto from "@/components/EscolherFoto";
+import GaleriaFotos from "@/components/GaleriaFotos";
 import { getProdutos, removerProduto, upsertProduto } from "@/lib/api";
+import { fotosDoProduto } from "@/lib/fotos";
 import type { Produto } from "@/lib/types";
 
 export default function AdminProdutosPage() {
@@ -24,6 +25,17 @@ export default function AdminProdutosPage() {
     valor: string | number | boolean | null
   ) {
     setProdutos((prev) => prev.map((p) => (p.id === id ? { ...p, [campo]: valor } : p)));
+  }
+
+  /**
+   * A galeria e a foto de capa andam juntas: a capa é sempre a primeira da
+   * lista. Guardar as duas coisas em sincronia aqui evita que o cardápio
+   * mostre uma foto que já foi removida da galeria.
+   */
+  function trocarFotos(id: string, fotos: string[]) {
+    setProdutos((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, fotos, fotoUrl: fotos[0] ?? "" } : p))
+    );
   }
 
   async function salvar(produto: Produto) {
@@ -133,9 +145,9 @@ export default function AdminProdutosPage() {
               </div>
             </label>
 
-            <EscolherFoto
-              valor={produto.fotoUrl}
-              onChange={(url) => handleCampo(produto.id, "fotoUrl", url)}
+            <GaleriaFotos
+              fotos={fotosDoProduto(produto)}
+              onChange={(fotos) => trocarFotos(produto.id, fotos)}
             />
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <select

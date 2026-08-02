@@ -38,6 +38,18 @@ async function main() {
   console.log("3) Estoque dos doces (nulo = não controla)...");
   await sql`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS estoque integer`;
 
+  console.log("3b) Galeria de até 3 fotos por doce...");
+  await sql`
+    ALTER TABLE produtos
+    ADD COLUMN IF NOT EXISTS fotos jsonb NOT NULL DEFAULT '[]'::jsonb
+  `;
+  // Quem já tinha foto entra na galeria com ela na primeira posição.
+  await sql`
+    UPDATE produtos
+    SET fotos = jsonb_build_array(foto_url)
+    WHERE fotos = '[]'::jsonb AND coalesce(foto_url, '') <> ''
+  `;
+
   console.log("4) Stories das clientes + pontos por story...");
   await sql`
     CREATE TABLE IF NOT EXISTS stories (

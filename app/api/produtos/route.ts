@@ -38,6 +38,10 @@ export async function POST(req: Request) {
     preco: p.preco ?? 0,
     custo: Math.max(0, Number(p.custo) || 0),
     fotoUrl: p.fotoUrl ?? "",
+    // No máximo 3, sem repetidas e sem vazias. A primeira é a do cardápio.
+    fotos: Array.from(
+      new Set((Array.isArray(p.fotos) ? p.fotos : []).filter((f) => typeof f === "string" && f))
+    ).slice(0, 3),
     disponibilidade: p.disponibilidade,
     prazoDias: p.prazoDias ?? null,
     // Campo vazio = sem controle de estoque (null). Zero é esgotado, então

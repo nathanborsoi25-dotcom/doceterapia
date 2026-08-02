@@ -19,10 +19,17 @@ export const viewport: Viewport = {
   themeColor: "#fdf0ea",
 };
 
+/**
+ * `gaveta` é a fatia extra do layout onde o doce aberto por dentro do
+ * cardápio aparece (ver `app/@gaveta`). Nas telas em que ninguém abriu um
+ * doce ela renderiza nada.
+ */
 export default function RootLayout({
   children,
+  gaveta,
 }: {
   children: React.ReactNode;
+  gaveta: React.ReactNode;
 }) {
   return (
     <html lang="pt-BR">
@@ -34,7 +41,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="font-body">{children}</body>
+      <body className="font-body">
+        {children}
+        {gaveta}
+      </body>
     </html>
   );
 }

@@ -8,7 +8,10 @@ export interface Produto {
   preco: number; // em reais
   /** Quanto custa produzir (ingredientes + embalagem). Alimenta o lucro. */
   custo?: number;
+  /** Foto principal, a que vai pro cardápio. */
   fotoUrl: string;
+  /** Até 3 fotos do doce, começando pela principal. */
+  fotos?: string[];
   disponibilidade: TipoDisponibilidade;
   prazoDias?: number; // usado quando "sob_encomenda"
   /** Unidades disponíveis. `null` = sem controle de estoque; 0 = esgotado. */

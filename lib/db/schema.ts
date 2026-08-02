@@ -21,7 +21,17 @@ export const produtos = pgTable("produtos", {
   // permite calcular lucro de verdade nas métricas — sem isso só dá pra
   // mostrar faturamento. Zero significa "ainda não informado".
   custo: doublePrecision("custo").notNull().default(0),
+  /**
+   * Foto principal — a que aparece no cardápio. Continua existindo separada
+   * de `fotos` porque todo doce já cadastrado tem esta preenchida, e o card
+   * precisa saber qual mostrar sem depender de ordem de array.
+   */
   fotoUrl: text("foto_url").notNull().default(""),
+  /**
+   * Até 3 fotos, na ordem em que a Camily quiser mostrar. A primeira é
+   * sempre igual à `fotoUrl`. Vazio significa "só tem a principal".
+   */
+  fotos: jsonb("fotos").$type<string[]>().notNull().default([]),
   disponibilidade: text("disponibilidade").notNull().default("pronta_entrega"),
   prazoDias: integer("prazo_dias"),
   /**

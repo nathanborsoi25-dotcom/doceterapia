@@ -61,6 +61,36 @@ body {
   overflow-x: clip;
 }
 
+/* Animações da gaveta do doce: ela sobe de baixo no celular e aparece
+   suavemente no computador. Curtas de propósito — animação longa em tela de
+   compra passa sensação de site travando. */
+@keyframes subir {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Quem prefere menos movimento não recebe a animação. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Divisor com cerejas — o elemento de assinatura do site, ecoando a logo */
 .cherry-divider {
   display: flex;

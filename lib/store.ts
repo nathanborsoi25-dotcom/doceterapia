@@ -39,6 +39,7 @@ export function getCarrinho(): ItemPedido[] {
 
 export function salvarCarrinho(itens: ItemPedido[]) {
   salvar(KEYS.carrinho, itens);
+  avisarQueMudou();
   sincronizarComBanco(itens);
 }
 
@@ -57,6 +58,23 @@ function sincronizarComBanco(itens: ItemPedido[]) {
   }).catch(() => {
     // Sem drama: é só o espelho do carrinho no banco.
   });
+}
+
+/**
+ * Aviso de que o carrinho mudou, pra quem está na tela reagir na hora — hoje
+ * o contador do cabeçalho. O `storage` do navegador só avisa OUTRAS abas, e
+ * quem acabou de adicionar o doce está justamente nesta.
+ */
+export const EVENTO_CARRINHO = "dt:carrinho";
+
+function avisarQueMudou() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(EVENTO_CARRINHO));
+}
+
+/** Quantos doces existem no carrinho, somando as quantidades. */
+export function totalDeItens(): number {
+  return getCarrinho().reduce((soma, i) => soma + i.quantidade, 0);
 }
 
 export function adicionarAoCarrinho(produto: Produto) {

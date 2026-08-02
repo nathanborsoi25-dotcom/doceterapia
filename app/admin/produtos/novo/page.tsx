@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CampoNumero from "@/components/CampoNumero";
-import EscolherFoto from "@/components/EscolherFoto";
+import GaleriaFotos from "@/components/GaleriaFotos";
 import { upsertProduto } from "@/lib/api";
 import type { Produto, TipoDisponibilidade } from "@/lib/types";
 
@@ -13,9 +13,10 @@ export default function NovoProdutoPage() {
     nome: "",
     descricao: "",
     sabor: "",
-    fotoUrl: "",
     disponibilidade: "pronta_entrega" as TipoDisponibilidade,
   });
+  // A primeira foto da galeria é a capa que vai pro cardápio.
+  const [fotos, setFotos] = useState<string[]>([]);
   // Números ficam separados do resto do formulário porque podem estar
   // "vazios" (null) enquanto ela ainda não digitou.
   const [preco, setPreco] = useState<number | null>(null);
@@ -34,7 +35,8 @@ export default function NovoProdutoPage() {
       sabor: form.sabor,
       preco: preco ?? 0,
       custo: custo ?? 0,
-      fotoUrl: form.fotoUrl,
+      fotoUrl: fotos[0] ?? "",
+      fotos,
       disponibilidade: form.disponibilidade,
       prazoDias: prazoDias ? Math.round(prazoDias) : undefined,
       // Vazio = sem controle de estoque; zero = já nasce esgotado.
@@ -114,10 +116,7 @@ export default function NovoProdutoPage() {
           </span>
         </label>
 
-        <EscolherFoto
-          valor={form.fotoUrl}
-          onChange={(url) => setForm({ ...form, fotoUrl: url })}
-        />
+        <GaleriaFotos fotos={fotos} onChange={setFotos} />
         <select
           value={form.disponibilidade}
           onChange={(e) => setForm({ ...form, disponibilidade: e.target.value as TipoDisponibilidade })}
