@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Preference } from "mercadopago";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { carrinhos, configFrete, cupons, pedidos, produtos } from "@/lib/db/schema";
+import { carrinhos, configFrete, cupons, pedidos, produtos, sabores } from "@/lib/db/schema";
 import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
@@ -10,6 +10,7 @@ import { checarAreaEntrega } from "@/lib/area-entrega";
 import { dataMinimaRetirada, prazoMaximoEmDias } from "@/lib/prazo";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
+import { prazoDoSabor } from "@/lib/sabores";
 import { sql } from "drizzle-orm";
 import type { ItemPedido, Pedido } from "@/lib/types";
 
@@ -58,6 +59,11 @@ export async function POST(req: Request) {
   const doBanco = await db.select().from(produtos).where(inArray(produtos.id, ids));
   const porId = new Map(doBanco.map((p) => [p.id, p]));
 
+  // Os recheios também saem do banco: o preço de um sabor é tão forjável
+  // quanto o do doce se vier do navegador.
+  const recheios = await db.select().from(sabores).where(inArray(sabores.produtoId, ids));
+  const saborPorId = new Map(recheios.map((s) => [s.id, s]));
+
   const itens: ItemPedido[] = [];
   for (const recebido of recebidos) {
     const produto = porId.get(recebido?.produtoId);
@@ -76,24 +82,52 @@ export async function POST(req: Request) {
       );
     }
 
+    // Recheio escolhido: precisa existir, ser deste doce e estar no cardápio.
+    const sabor = recebido?.saborId ? saborPorId.get(recebido.saborId) : undefined;
+    if (recebido?.saborId && (!sabor || sabor.produtoId !== produto.id || !sabor.ativo)) {
+      return NextResponse.json(
+        { error: `O recheio escolhido para ${produto.nome} não está mais disponível.` },
+        { status: 400 }
+      );
+    }
+
     itens.push({
       produtoId: produto.id,
       nome: produto.nome,
-      precoUnitario: produto.preco,
+      precoUnitario: sabor?.preco != null ? sabor.preco : produto.preco,
       quantidade,
+      saborId: sabor?.id,
+      saborNome: sabor?.nome,
     });
   }
 
   // Estoque conferido no servidor: entre montar o carrinho e clicar em pagar
   // o último doce pode ter sido vendido pra outra pessoa.
-  const faltas = conferirEstoque(itens, porId);
+  const faltas = conferirEstoque(itens, porId, saborPorId);
   if (faltas.length > 0) {
     return NextResponse.json({ error: mensagemDeFalta(faltas) }, { status: 409 });
   }
 
-  // Prazo de encomenda: o maior entre os doces escolhidos.
+  // Prazo de encomenda: o maior do carrinho. Quando o item tem recheio, o
+  // prazo é o DELE — a torta de Nutella pode estar pronta e a de morango não.
   const prazoDias = prazoMaximoEmDias(
-    itens.map((i) => porId.get(i.produtoId)?.prazoDias)
+    itens.map((i) => {
+      const produto = porId.get(i.produtoId);
+      if (!produto) return 0;
+      const sabor = i.saborId ? saborPorId.get(i.saborId) : undefined;
+      return prazoDoSabor(
+        { disponibilidade: produto.disponibilidade as "pronta_entrega" | "sob_encomenda", prazoDias: produto.prazoDias ?? undefined },
+        sabor
+          ? {
+              disponibilidade: sabor.disponibilidade as
+                | "pronta_entrega"
+                | "sob_encomenda"
+                | null,
+              prazoDias: sabor.prazoDias,
+            }
+          : null
+      );
+    })
   );
 
   // 2) Quem está comprando sai da SESSÃO, não do que o navegador mandou —

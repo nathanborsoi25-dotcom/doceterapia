@@ -77,6 +77,13 @@ export default function NovoProdutoPage() {
           onChange={(e) => setForm({ ...form, sabor: e.target.value })}
           className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         />
+        <p className="text-xs font-body text-ink/60 bg-blush/40 border border-cherryLight/30 rounded-lg px-3 py-2">
+          Se este doce vai ter <strong>recheios</strong> (o mesmo doce em vários
+          sabores), preencha aqui o preço e o custo de um deles — depois é só
+          entrar em <strong>Meus produtos</strong> e adicionar os recheios, cada
+          um com sua foto, preço e estoque.
+        </p>
+
         <label className="grid gap-1 text-sm font-body text-ink/80">
           Preço de venda (R$) *
           <CampoNumero

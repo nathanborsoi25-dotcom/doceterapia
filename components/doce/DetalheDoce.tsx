@@ -5,6 +5,15 @@ import Estrelas from "@/components/Estrelas";
 import { adicionarAoCarrinho } from "@/lib/store";
 import { reais } from "@/lib/formato";
 import { fotosDoProduto } from "@/lib/fotos";
+import {
+  disponibilidadeDoSabor,
+  doceEsgotado,
+  estoqueDoSabor,
+  prazoDoSabor,
+  precoDoSabor,
+  saborEsgotado,
+  saboresVisiveis,
+} from "@/lib/sabores";
 import type { Avaliacao, Produto } from "@/lib/types";
 
 /**
@@ -26,18 +35,40 @@ export default function DetalheDoce({
   produto: Produto;
   avaliacoes: Avaliacao[];
 }) {
-  const fotos = fotosDoProduto(produto);
+  const sabores = saboresVisiveis(produto);
+  const galeria = fotosDoProduto(produto);
   const [foto, setFoto] = useState(0);
   const [quantidade, setQuantidade] = useState(1);
   const [adicionado, setAdicionado] = useState(false);
 
-  const esgotado = produto.estoque === 0;
-  const limite = produto.estoque ?? 99;
+  // Começa no primeiro recheio que ainda tem — abrir o doce já no sabor
+  // esgotado seria começar pela porta fechada.
+  const [saborId, setSaborId] = useState<string | null>(
+    () => (sabores.find((s) => !saborEsgotado(s)) ?? sabores[0])?.id ?? null
+  );
+  const sabor = sabores.find((s) => s.id === saborId) ?? null;
+
+  // Com recheio escolhido, a foto dele manda; sem recheios, vale a galeria.
+  const fotos = sabor?.fotoUrl ? [sabor.fotoUrl] : galeria;
+  const fotoAtual = fotos[Math.min(foto, fotos.length - 1)];
+
+  const preco = precoDoSabor(produto, sabor);
+  const estoque = estoqueDoSabor(produto, sabor);
+  const disponibilidade = disponibilidadeDoSabor(produto, sabor);
+  const prazo = prazoDoSabor(produto, sabor);
+  const esgotado = sabor ? saborEsgotado(sabor) : doceEsgotado(produto);
+  const limite = estoque ?? 99;
   const podeAumentar = !esgotado && quantidade < limite;
+
+  function escolherSabor(id: string) {
+    setSaborId(id);
+    setFoto(0);
+    setQuantidade(1);
+  }
 
   function adicionar() {
     if (esgotado) return;
-    for (let i = 0; i < quantidade; i++) adicionarAoCarrinho(produto);
+    for (let i = 0; i < quantidade; i++) adicionarAoCarrinho(produto, sabor);
     setAdicionado(true);
     setTimeout(() => setAdicionado(false), 2500);
   }
@@ -47,11 +78,15 @@ export default function DetalheDoce({
       {/* ---------- Fotos ---------- */}
       <div className="grid gap-3">
         <div className="relative aspect-square rounded-3xl overflow-hidden bg-blush flex items-center justify-center">
-          {fotos.length > 0 ? (
+          {fotoAtual ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={fotos[foto]}
-              alt={`${produto.nome} — foto ${foto + 1} de ${fotos.length}`}
+              src={fotoAtual}
+              alt={
+                sabor
+                  ? `${produto.nome} com recheio de ${sabor.nome}`
+                  : `${produto.nome} — foto ${foto + 1} de ${fotos.length}`
+              }
               className={`w-full h-full object-contain ${esgotado ? "opacity-40 grayscale" : ""}`}
             />
           ) : (
@@ -112,16 +147,17 @@ export default function DetalheDoce({
           <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">
             {produto.nome}
           </h1>
+          {/* Segue o recheio escolhido, não o doce. */}
           <span
             className={`text-xs px-3 py-1 rounded-full font-body shrink-0 ${
-              produto.disponibilidade === "pronta_entrega"
+              disponibilidade === "pronta_entrega"
                 ? "bg-green-100 text-green-700"
                 : "bg-cherryLight/30 text-cherryDark"
             }`}
           >
-            {produto.disponibilidade === "pronta_entrega"
+            {disponibilidade === "pronta_entrega"
               ? "Pronta entrega"
-              : `Sob encomenda${produto.prazoDias ? ` · ${produto.prazoDias} dias` : ""}`}
+              : `Sob encomenda${prazo ? ` · ${prazo} ${prazo === 1 ? "dia" : "dias"}` : ""}`}
           </span>
         </div>
 
@@ -137,33 +173,90 @@ export default function DetalheDoce({
         )}
 
         <p className="font-body text-ink/75 leading-relaxed">{produto.descricao}</p>
-        {produto.sabor && (
-          <p className="font-body text-sm text-cherryMid">Sabor: {produto.sabor}</p>
+
+        {/* Recheios: cada um com a própria foto e o próprio preço. */}
+        {sabores.length > 0 ? (
+          <div className="grid gap-2 mt-1">
+            <span className="font-body text-sm text-ink/80">
+              Escolha o recheio
+              {sabor && <span className="text-cherryMid"> · {sabor.nome}</span>}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {sabores.map((s) => {
+                const acabou = saborEsgotado(s);
+                const escolhido = s.id === saborId;
+                const precoDele = precoDoSabor(produto, s);
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => escolherSabor(s.id)}
+                    disabled={acabou}
+                    aria-pressed={escolhido}
+                    className={`w-24 rounded-2xl border-2 p-1.5 text-center transition-all ${
+                      escolhido
+                        ? "border-cherryDark bg-blush/50"
+                        : "border-cherryLight/40 hover:border-cherryMid"
+                    } ${acabou ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <span className="block w-full aspect-square rounded-xl overflow-hidden bg-blush">
+                      {s.fotoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={s.fotoUrl}
+                          alt=""
+                          className={`w-full h-full object-cover ${acabou ? "grayscale" : ""}`}
+                        />
+                      ) : (
+                        <span className="flex items-center justify-center w-full h-full text-2xl">
+                          🍰
+                        </span>
+                      )}
+                    </span>
+                    <span className="block font-body text-xs text-ink/80 mt-1 leading-tight">
+                      {s.nome}
+                    </span>
+                    <span className="block font-body text-[11px] text-cherryMid">
+                      {acabou ? "esgotado" : reais(precoDele)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          produto.sabor && (
+            <p className="font-body text-sm text-cherryMid">Sabor: {produto.sabor}</p>
+          )
         )}
 
-        {produto.disponibilidade === "sob_encomenda" && produto.prazoDias ? (
+        {disponibilidade === "sob_encomenda" && prazo > 0 ? (
           <p className="font-body text-xs text-ink/60 bg-white/70 border border-cherryLight/30 rounded-xl px-3 py-2">
-            Este doce é feito sob encomenda: a Camily precisa de{" "}
-            {produto.prazoDias} {produto.prazoDias === 1 ? "dia" : "dias"} para
-            preparar.
+            {sabor ? `O recheio de ${sabor.nome} é feito` : "Este doce é feito"} sob
+            encomenda: a Camily precisa de {prazo} {prazo === 1 ? "dia" : "dias"}{" "}
+            para preparar.
+          </p>
+        ) : disponibilidade === "pronta_entrega" && sabor ? (
+          <p className="font-body text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+            Esse recheio está pronto para entrega. 🍒
           </p>
         ) : null}
 
-        {produto.estoque != null && produto.estoque > 0 && produto.estoque <= 3 && (
+        {estoque != null && estoque > 0 && estoque <= 3 && (
           <p className="font-body text-sm font-semibold text-cherryDark">
-            {produto.estoque === 1
-              ? "Só resta 1 unidade!"
-              : `Só restam ${produto.estoque} unidades!`}
+            {estoque === 1
+              ? `Só resta 1${sabor ? ` de ${sabor.nome}` : ""}!`
+              : `Só restam ${estoque}${sabor ? ` de ${sabor.nome}` : ""}!`}
           </p>
         )}
 
-        <p className="font-display text-3xl text-ink mt-1">{reais(produto.preco)}</p>
+        <p className="font-display text-3xl text-ink mt-1">{reais(preco)}</p>
 
         {/* Quantidade + adicionar */}
         {esgotado ? (
           <p className="font-body text-sm bg-blush/60 border border-cherryLight/40 rounded-xl px-4 py-3 text-ink/70">
-            Esse doce esgotou 😢 Fale com a Camily pelo WhatsApp para saber
-            quando volta.
+            {sabor
+              ? `O recheio de ${sabor.nome} esgotou 😢 Escolha outro acima ou fale com a Camily pelo WhatsApp.`
+              : "Esse doce esgotou 😢 Fale com a Camily pelo WhatsApp para saber quando volta."}
           </p>
         ) : (
           <div className="grid gap-3 mt-1">

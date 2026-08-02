@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "./db";
-import { produtos } from "./db/schema";
+import { produtos, sabores } from "./db/schema";
 import type { ItemPedido } from "./types";
 
 /**
@@ -18,22 +18,35 @@ import type { ItemPedido } from "./types";
 export type FaltaDeEstoque = { nome: string; disponivel: number };
 
 type ProdutoComEstoque = { id: string; nome: string; estoque: number | null };
+type SaborComEstoque = { id: string; nome: string; estoque: number | null };
 
 /**
  * Confere se dá pra vender tudo que está no carrinho. Devolve a lista do que
  * faltou (vazia quando está tudo certo).
+ *
+ * Quando o item tem recheio, quem vale é o estoque DELE — o do doce não entra
+ * na conta, senão a mesma venda seria descontada duas vezes.
  */
 export function conferirEstoque(
-  itens: Array<{ produtoId: string; quantidade: number }>,
-  porId: Map<string, ProdutoComEstoque>
+  itens: Array<{ produtoId: string; quantidade: number; saborId?: string }>,
+  porId: Map<string, ProdutoComEstoque>,
+  saborPorId?: Map<string, SaborComEstoque>
 ): FaltaDeEstoque[] {
   const faltas: FaltaDeEstoque[] = [];
 
   for (const item of itens) {
     const produto = porId.get(item.produtoId);
-    if (!produto || produto.estoque == null) continue; // sem controle
-    if (produto.estoque < item.quantidade) {
-      faltas.push({ nome: produto.nome, disponivel: produto.estoque });
+    if (!produto) continue;
+
+    const sabor = item.saborId ? saborPorId?.get(item.saborId) : undefined;
+    const disponivel = sabor ? sabor.estoque : produto.estoque;
+    if (disponivel == null) continue; // sem controle
+
+    if (disponivel < item.quantidade) {
+      faltas.push({
+        nome: sabor ? `${produto.nome} (${sabor.nome})` : produto.nome,
+        disponivel,
+      });
     }
   }
   return faltas;
@@ -60,6 +73,14 @@ export function mensagemDeFalta(faltas: FaltaDeEstoque[]): string {
 export async function baixarEstoque(itens: ItemPedido[]): Promise<void> {
   const db = getDb();
   for (const item of itens) {
+    // Item com recheio desconta do recheio; sem recheio, do doce.
+    if (item.saborId) {
+      await db
+        .update(sabores)
+        .set({ estoque: sql`greatest(coalesce(${sabores.estoque}, 0) - ${item.quantidade}, 0)` })
+        .where(sql`${sabores.id} = ${item.saborId} and ${sabores.estoque} is not null`);
+      continue;
+    }
     await db
       .update(produtos)
       .set({ estoque: sql`greatest(coalesce(${produtos.estoque}, 0) - ${item.quantidade}, 0)` })
@@ -71,6 +92,13 @@ export async function baixarEstoque(itens: ItemPedido[]): Promise<void> {
 export async function devolverAoEstoque(itens: ItemPedido[]): Promise<void> {
   const db = getDb();
   for (const item of itens) {
+    if (item.saborId) {
+      await db
+        .update(sabores)
+        .set({ estoque: sql`coalesce(${sabores.estoque}, 0) + ${item.quantidade}` })
+        .where(sql`${sabores.id} = ${item.saborId} and ${sabores.estoque} is not null`);
+      continue;
+    }
     await db
       .update(produtos)
       .set({ estoque: sql`coalesce(${produtos.estoque}, 0) + ${item.quantidade}` })

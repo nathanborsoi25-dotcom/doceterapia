@@ -136,9 +136,13 @@ function CartaoPedido({
 
       <ul className="text-ink/80 border-t border-cherryLight/20 pt-2 grid gap-1">
         {pedido.itens.map((i) => (
-          <li key={i.produtoId} className="flex justify-between gap-2">
+          <li
+            key={`${i.produtoId}-${i.saborId ?? ""}`}
+            className="flex justify-between gap-2"
+          >
             <span>
               {i.quantidade}× {i.nome}
+              {i.saborNome && <span className="text-cherryMid"> · {i.saborNome}</span>}
             </span>
             <span className="text-ink/60 shrink-0">
               {reais(i.precoUnitario * i.quantidade)}
@@ -177,7 +181,9 @@ function CartaoPedido({
             O que você achou? Sua nota ajuda outras pessoas a escolherem — e
             ainda rende pontos pra você.
           </p>
-          {pedido.itens.map((i) => (
+          {/* A nota é do doce, não do recheio: quem levou dois recheios da
+              mesma torta avalia a torta uma vez só. */}
+          {[...new Map(pedido.itens.map((i) => [i.produtoId, i])).values()].map((i) => (
             <AvaliarDoce
               key={i.produtoId}
               pedidoId={pedido.id}

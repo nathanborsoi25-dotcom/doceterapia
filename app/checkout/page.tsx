@@ -6,6 +6,7 @@ import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import EnderecoVisitante from "@/components/EnderecoVisitante";
 import { reais } from "@/lib/formato";
+import { prazoDoSabor } from "@/lib/sabores";
 import { getCarrinho, type EnderecoVisitante as EnderecoDeVisitante } from "@/lib/store";
 import {
   getClienteLogado,
@@ -55,10 +56,17 @@ export default function CheckoutPage() {
       .finally(() => setCarregandoCliente(false));
     getProdutos()
       .then((lista) => {
-        const noCarrinho = new Set(carrinho.map((i) => i.produtoId));
+        const porId = new Map(lista.map((p) => [p.id, p]));
+        // O prazo sai do RECHEIO escolhido quando existe: dois recheios da
+        // mesma torta podem ter prazos diferentes.
         setPrazoDias(
           prazoMaximoEmDias(
-            lista.filter((p) => noCarrinho.has(p.id)).map((p) => p.prazoDias)
+            carrinho.map((item) => {
+              const produto = porId.get(item.produtoId);
+              if (!produto) return 0;
+              const sabor = (produto.sabores ?? []).find((s) => s.id === item.saborId);
+              return prazoDoSabor(produto, sabor);
+            })
           )
         );
       })

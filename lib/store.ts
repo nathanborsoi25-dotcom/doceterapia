@@ -1,6 +1,7 @@
 "use client";
 
-import type { ItemPedido, Produto } from "./types";
+import { chaveDoItem, precoDoSabor } from "./sabores";
+import type { ItemPedido, Produto, SaborDoDoce } from "./types";
 
 /**
  * O carrinho é a única coisa que ainda vive só no navegador — é rascunho de
@@ -77,17 +78,26 @@ export function totalDeItens(): number {
   return getCarrinho().reduce((soma, i) => soma + i.quantidade, 0);
 }
 
-export function adicionarAoCarrinho(produto: Produto) {
+/**
+ * Põe o doce no carrinho. Quando ele tem recheios, o sabor escolhido vai
+ * junto — e passa a fazer parte da identidade do item: uma torta de Nutella e
+ * uma de ninho são duas linhas, não uma torta de quantidade 2.
+ */
+export function adicionarAoCarrinho(produto: Produto, sabor?: SaborDoDoce | null) {
   const itens = getCarrinho();
-  const existente = itens.find((i) => i.produtoId === produto.id);
+  const chave = chaveDoItem(produto.id, sabor?.id);
+  const existente = itens.find((i) => chaveDoItem(i.produtoId, i.saborId) === chave);
+
   if (existente) {
     existente.quantidade += 1;
   } else {
     itens.push({
       produtoId: produto.id,
       nome: produto.nome,
-      precoUnitario: produto.preco,
+      precoUnitario: precoDoSabor(produto, sabor),
       quantidade: 1,
+      saborId: sabor?.id,
+      saborNome: sabor?.nome,
     });
   }
   salvarCarrinho(itens);

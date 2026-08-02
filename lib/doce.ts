@@ -1,6 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "./db";
-import { avaliacoes, clientes, produtos } from "./db/schema";
+import { avaliacoes, clientes, produtos, sabores } from "./db/schema";
 import { mediasPorProduto, primeiroNome } from "./avaliacoes";
 import { idDoSlug } from "./slug";
 import type { Avaliacao, Produto } from "./types";
@@ -23,7 +23,7 @@ export async function buscarDocePorSlug(slug: string): Promise<DoceCompleto | nu
   const [linha] = await db.select().from(produtos).where(eq(produtos.id, id));
   if (!linha || !linha.ativo) return null;
 
-  const [medias, notas] = await Promise.all([
+  const [medias, notas, recheios] = await Promise.all([
     mediasPorProduto(),
     db
       .select({ a: avaliacoes, nome: clientes.nome })
@@ -31,6 +31,7 @@ export async function buscarDocePorSlug(slug: string): Promise<DoceCompleto | nu
       .leftJoin(clientes, eq(avaliacoes.clienteId, clientes.id))
       .where(and(eq(avaliacoes.produtoId, id), eq(avaliacoes.visivel, true)))
       .orderBy(desc(avaliacoes.criadoEm)),
+    db.select().from(sabores).where(eq(sabores.produtoId, id)).orderBy(asc(sabores.ordem)),
   ]);
 
   const media = medias.get(id);
@@ -50,6 +51,16 @@ export async function buscarDocePorSlug(slug: string): Promise<DoceCompleto | nu
       ativo: linha.ativo,
       notaMedia: media?.media ?? 0,
       totalAvaliacoes: media?.total ?? 0,
+      sabores: recheios.map((s) => ({
+        id: s.id,
+        produtoId: s.produtoId,
+        nome: s.nome,
+        fotoUrl: s.fotoUrl,
+        preco: s.preco,
+        estoque: s.estoque,
+        ordem: s.ordem,
+        ativo: s.ativo,
+      })),
     },
     avaliacoes: notas.map(({ a, nome }) => ({
       id: a.id,

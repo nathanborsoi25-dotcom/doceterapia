@@ -45,6 +45,44 @@ export const produtos = pgTable("produtos", {
   ativo: boolean("ativo").notNull().default(true),
 });
 
+/**
+ * Recheios de um mesmo doce: a torta de Nutella, a de ninho, a de brigadeiro.
+ *
+ * Ficam numa tabela à parte (e não numa lista dentro do produto) porque cada
+ * um tem estoque próprio: assim a venda de uma torta de Nutella desconta só
+ * dela, com um UPDATE direto, sem reescrever a lista inteira e sem risco de
+ * duas compras simultâneas se atropelarem.
+ */
+export const sabores = pgTable("sabores", {
+  id: text("id").primaryKey(),
+  produtoId: text("produto_id").notNull(),
+  nome: text("nome").notNull(),
+  /** Foto deste recheio. É ela que aparece quando a cliente toca no sabor. */
+  fotoUrl: text("foto_url").notNull().default(""),
+  /** Nulo = cobra o preço do doce. Preencher só quando o sabor custa outro valor. */
+  preco: doublePrecision("preco"),
+  /**
+   * Quanto custa produzir ESTE recheio. Fica no sabor porque é aqui que a
+   * diferença aparece: uma torta de Nutella gasta mais que uma de brigadeiro,
+   * e sem isso o lucro das métricas sairia torto.
+   */
+  custo: doublePrecision("custo").notNull().default(0),
+  /** Nulo = sem controle de estoque; zero = este sabor esgotou. */
+  estoque: integer("estoque"),
+  /**
+   * "pronta_entrega" ou "sob_encomenda" — nulo herda do doce.
+   *
+   * Fica no recheio porque a realidade da cozinha é essa: a torta de Nutella
+   * pode estar pronta na geladeira enquanto a de morango só sai por encomenda.
+   */
+  disponibilidade: text("disponibilidade"),
+  /** Dias de preparo deste recheio, quando ele é sob encomenda. */
+  prazoDias: integer("prazo_dias"),
+  /** Ordem em que aparecem no cardápio. */
+  ordem: integer("ordem").notNull().default(0),
+  ativo: boolean("ativo").notNull().default(true),
+});
+
 // Clientes cadastrados (cada CPF é único).
 export const clientes = pgTable("clientes", {
   id: text("id").primaryKey(),

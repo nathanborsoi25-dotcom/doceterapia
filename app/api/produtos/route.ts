@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { produtos } from "@/lib/db/schema";
+import { produtos, sabores } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { mediasPorProduto } from "@/lib/avaliacoes";
-import type { Produto } from "@/lib/types";
+import type { Produto, SaborDoDoce } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -11,17 +12,47 @@ export async function GET() {
   const db = getDb();
   const rows = await db.select().from(produtos);
 
-  // A nota dos clientes vem junto: o cardápio mostra as estrelas embaixo de
-  // cada doce sem precisar de uma segunda ida ao servidor por card.
-  const medias = await mediasPorProduto();
+  // A nota dos clientes e os recheios vêm junto: o cardápio monta o card
+  // inteiro sem precisar de uma segunda ida ao servidor por doce.
+  const [medias, todosSabores] = await Promise.all([
+    mediasPorProduto(),
+    db.select().from(sabores).orderBy(asc(sabores.ordem)),
+  ]);
+
+  const porProduto = new Map<string, SaborDoDoce[]>();
+  for (const s of todosSabores) {
+    const lista = porProduto.get(s.produtoId) ?? [];
+    lista.push({
+      id: s.id,
+      produtoId: s.produtoId,
+      nome: s.nome,
+      fotoUrl: s.fotoUrl,
+      preco: s.preco,
+      custo: s.custo,
+      estoque: s.estoque,
+      disponibilidade: s.disponibilidade as SaborDoDoce["disponibilidade"],
+      prazoDias: s.prazoDias,
+      ordem: s.ordem,
+      ativo: s.ativo,
+    });
+    porProduto.set(s.produtoId, lista);
+  }
 
   return NextResponse.json(
     rows.map((p) => ({
       ...p,
       notaMedia: medias.get(p.id)?.media ?? 0,
       totalAvaliacoes: medias.get(p.id)?.total ?? 0,
+      sabores: porProduto.get(p.id) ?? [],
     }))
   );
+}
+
+/** Número que pode ficar em branco (preço e estoque do sabor). */
+function numeroOuNulo(valor: unknown, minimo = 0): number | null {
+  if (valor == null || valor === "") return null;
+  const n = Number(valor);
+  return Number.isFinite(n) ? Math.max(minimo, n) : null;
 }
 
 // Criar/editar produto: só o admin logado.
@@ -52,10 +83,63 @@ export async function POST(req: Request) {
         : Math.max(0, Math.floor(Number(p.estoque) || 0)),
     ativo: p.ativo ?? true,
   };
+
   const db = getDb();
   await db.insert(produtos).values(values).onConflictDoUpdate({
     target: produtos.id,
     set: values,
   });
+
+  // Os recheios chegam junto com o doce: a tela salva tudo de uma vez.
+  if (Array.isArray(p.sabores)) {
+    const recebidos = p.sabores
+      .filter((s) => s && typeof s.nome === "string" && s.nome.trim())
+      .slice(0, 20)
+      .map((s, i) => ({
+        id: s.id,
+        produtoId: p.id,
+        nome: s.nome.trim().slice(0, 60),
+        fotoUrl: typeof s.fotoUrl === "string" ? s.fotoUrl : "",
+        preco: numeroOuNulo(s.preco),
+        custo: Math.max(0, Number(s.custo) || 0),
+        estoque: (() => {
+          const n = numeroOuNulo(s.estoque);
+          return n == null ? null : Math.floor(n);
+        })(),
+        disponibilidade:
+          s.disponibilidade === "pronta_entrega" || s.disponibilidade === "sob_encomenda"
+            ? s.disponibilidade
+            : null,
+        // Prazo só faz sentido em recheio sob encomenda.
+        prazoDias:
+          s.disponibilidade === "sob_encomenda"
+            ? Math.max(0, Math.floor(Number(s.prazoDias) || 0))
+            : null,
+        ordem: i,
+        ativo: s.ativo ?? true,
+      }));
+
+    // Some do banco o que a Camily tirou da tela.
+    const idsQueFicam = recebidos.map((s) => s.id);
+    const existentes = await db
+      .select({ id: sabores.id })
+      .from(sabores)
+      .where(eq(sabores.produtoId, p.id));
+    const paraApagar = existentes
+      .map((s) => s.id)
+      .filter((id) => !idsQueFicam.includes(id));
+    if (paraApagar.length > 0) {
+      await db.delete(sabores).where(inArray(sabores.id, paraApagar));
+    }
+
+    for (const sabor of recebidos) {
+      const { id: _id, ...atualizacao } = sabor;
+      await db
+        .insert(sabores)
+        .values(sabor)
+        .onConflictDoUpdate({ target: sabores.id, set: atualizacao });
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

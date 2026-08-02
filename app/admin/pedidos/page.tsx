@@ -240,8 +240,9 @@ export default function AdminPedidosPage() {
               </div>
               <ul className="text-ink/80">
                 {c.itens.map((i) => (
-                  <li key={i.produtoId}>
+                  <li key={`${i.produtoId}-${i.saborId ?? ""}`}>
                     {i.quantidade}× {i.nome}
+                    {i.saborNome && <span className="text-cherryMid"> · {i.saborNome}</span>}
                   </li>
                 ))}
               </ul>
@@ -329,10 +330,16 @@ export default function AdminPedidosPage() {
                   )}
                 </div>
 
+                {/* O recheio vem em destaque: é o que muda o que ela faz na
+                    cozinha, então não pode ficar escondido no meio da linha. */}
                 <ul className="text-ink/80">
                   {p.itens.map((i) => (
-                    <li key={i.produtoId}>
-                      {i.quantidade}× {i.nome} — {reais(i.precoUnitario)}
+                    <li key={`${i.produtoId}-${i.saborId ?? ""}`}>
+                      {i.quantidade}× {i.nome}
+                      {i.saborNome && (
+                        <strong className="text-cherryDark"> · {i.saborNome}</strong>
+                      )}{" "}
+                      — {reais(i.precoUnitario)}
                     </li>
                   ))}
                 </ul>

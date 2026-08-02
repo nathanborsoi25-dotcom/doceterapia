@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { carrinhos, produtos } from "@/lib/db/schema";
+import { carrinhos, produtos, sabores } from "@/lib/db/schema";
 import { getClienteLogado } from "@/lib/cliente-logado";
 import { inArray } from "drizzle-orm";
 import type { ItemPedido } from "@/lib/types";
@@ -43,6 +43,13 @@ export async function POST(req: Request) {
     : [];
   const porId = new Map(doBanco.map((p) => [p.id, p]));
 
+  // O recheio também é remontado daqui: assim o "carrinho abandonado" que a
+  // Camily vê diz qual sabor a pessoa tinha escolhido.
+  const recheios = ids.length
+    ? await db.select().from(sabores).where(inArray(sabores.produtoId, ids))
+    : [];
+  const saborPorId = new Map(recheios.map((s) => [s.id, s]));
+
   const itens: ItemPedido[] = [];
   for (const r of recebidos) {
     const p = porId.get(r?.produtoId);
@@ -51,11 +58,17 @@ export async function POST(req: Request) {
     if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > QUANTIDADE_MAXIMA) {
       continue;
     }
+
+    const sabor = r?.saborId ? saborPorId.get(r.saborId) : undefined;
+    if (r?.saborId && (!sabor || sabor.produtoId !== p.id)) continue; // recheio sumiu
+
     itens.push({
       produtoId: p.id,
       nome: p.nome,
-      precoUnitario: p.preco,
+      precoUnitario: sabor?.preco != null ? sabor.preco : p.preco,
       quantidade,
+      saborId: sabor?.id,
+      saborNome: sabor?.nome,
     });
   }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, gte, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { clientes, pedidos, produtos } from "@/lib/db/schema";
+import { clientes, pedidos, produtos, sabores } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { calcularPeriodo, variacao, type NomePeriodo } from "@/lib/periodo";
 import type { ItemPedido, StatusPedido } from "@/lib/types";
@@ -32,10 +32,22 @@ export async function GET(req: Request) {
   const periodo = calcularPeriodo(nome);
   const db = getDb();
 
-  // Custo de produção de cada doce, pra calcular o lucro.
-  const listaProdutos = await db.select().from(produtos);
+  // Custo de produção, pra calcular o lucro. Doce com recheios guarda o custo
+  // em CADA recheio (a torta de Nutella gasta mais que a de brigadeiro), então
+  // o custo do item vem do recheio quando ele existe.
+  const [listaProdutos, listaSabores] = await Promise.all([
+    db.select().from(produtos),
+    db.select().from(sabores),
+  ]);
   const custoPorId = new Map(listaProdutos.map((p) => [p.id, p.custo]));
-  const semCusto = listaProdutos.filter((p) => p.ativo && p.custo <= 0).length;
+  const custoPorSabor = new Map(listaSabores.map((s) => [s.id, s.custo]));
+
+  // Quantos ainda estão sem custo — com eles o lucro sai torto. Doce que tem
+  // recheios é cobrado pelos recheios, não por ele mesmo.
+  const comRecheio = new Set(listaSabores.map((s) => s.produtoId));
+  const semCusto =
+    listaProdutos.filter((p) => p.ativo && !comRecheio.has(p.id) && p.custo <= 0).length +
+    listaSabores.filter((s) => s.ativo && s.custo <= 0).length;
 
   async function resumir(inicio: Date, fim: Date): Promise<{
     resumo: Resumo;
@@ -68,10 +80,12 @@ export async function GET(req: Request) {
       // fica com a Camily — mas esse valor não passa pelo site.
       r.faturamento += subtotal + p.valorFrete;
 
-      const custoItens = itens.reduce(
-        (a, i) => a + (custoPorId.get(i.produtoId) ?? 0) * i.quantidade,
-        0
-      );
+      const custoItens = itens.reduce((a, i) => {
+        const custo = i.saborId
+          ? custoPorSabor.get(i.saborId) ?? 0
+          : custoPorId.get(i.produtoId) ?? 0;
+        return a + custo * i.quantidade;
+      }, 0);
       r.lucro += subtotal - custoItens;
 
       for (const i of itens) {

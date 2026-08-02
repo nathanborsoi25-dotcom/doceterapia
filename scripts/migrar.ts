@@ -50,6 +50,27 @@ async function main() {
     WHERE fotos = '[]'::jsonb AND coalesce(foto_url, '') <> ''
   `;
 
+  console.log("3c) Sabores (recheios) do mesmo doce...");
+  await sql`
+    CREATE TABLE IF NOT EXISTS sabores (
+      id text PRIMARY KEY,
+      produto_id text NOT NULL,
+      nome text NOT NULL,
+      foto_url text NOT NULL DEFAULT '',
+      preco double precision,
+      estoque integer,
+      ordem integer NOT NULL DEFAULT 0,
+      ativo boolean NOT NULL DEFAULT true
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS sabores_produto_idx ON sabores (produto_id)`;
+  await sql`
+    ALTER TABLE sabores
+    ADD COLUMN IF NOT EXISTS custo double precision NOT NULL DEFAULT 0
+  `;
+  await sql`ALTER TABLE sabores ADD COLUMN IF NOT EXISTS disponibilidade text`;
+  await sql`ALTER TABLE sabores ADD COLUMN IF NOT EXISTS prazo_dias integer`;
+
   console.log("4) Stories das clientes + pontos por story...");
   await sql`
     CREATE TABLE IF NOT EXISTS stories (

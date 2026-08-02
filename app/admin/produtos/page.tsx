@@ -3,10 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import CampoNumero from "@/components/CampoNumero";
+import EditorSabores from "@/components/EditorSabores";
 import GaleriaFotos from "@/components/GaleriaFotos";
 import { getProdutos, removerProduto, upsertProduto } from "@/lib/api";
 import { fotosDoProduto } from "@/lib/fotos";
-import type { Produto } from "@/lib/types";
+import type { Produto, SaborDoDoce } from "@/lib/types";
+
+/** Doce com recheio guarda preço, custo e estoque em cada um deles. */
+function temRecheios(produto: Produto): boolean {
+  return (produto.sabores ?? []).length > 0;
+}
 
 export default function AdminProdutosPage() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -22,7 +28,7 @@ export default function AdminProdutosPage() {
     id: string,
     campo: keyof Produto,
     // `null` é um valor de verdade aqui: é o estoque "não controlado".
-    valor: string | number | boolean | null
+    valor: string | number | boolean | null | SaborDoDoce[]
   ) {
     setProdutos((prev) => prev.map((p) => (p.id === id ? { ...p, [campo]: valor } : p)));
   }
@@ -78,76 +84,98 @@ export default function AdminProdutosPage() {
               rows={3}
               className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
             />
-            {/* Empilha no celular; volta a dividir a linha do tablet pra cima */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <input
-                value={produto.sabor}
-                onChange={(e) => handleCampo(produto.id, "sabor", e.target.value)}
-                placeholder="Sabor"
-                className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
-              />
-              <label className="grid gap-0.5">
-                <span className="text-xs text-ink/50">Preço de venda (R$)</span>
-                <CampoNumero
-                  valor={produto.preco}
-                  onChange={(v) => handleCampo(produto.id, "preco", v ?? 0)}
-                  className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
-                />
-              </label>
-              {/* Sem o custo não dá pra calcular lucro nas métricas. */}
-              <label className="grid gap-0.5">
-                <span className="text-xs text-ink/50">Custo de produção (R$)</span>
-                <CampoNumero
-                  valor={produto.custo ?? 0}
-                  onChange={(v) => handleCampo(produto.id, "custo", v ?? 0)}
-                  className={`w-full text-sm font-body bg-transparent border rounded-lg p-2 ${
-                    (produto.custo ?? 0) <= 0
-                      ? "border-amber-300 bg-amber-50/50"
-                      : "border-cherryLight/30"
-                  }`}
-                />
-              </label>
-            </div>
+            {/*
+              Doce COM recheios não tem preço, custo nem estoque próprios —
+              quem manda são os recheios, e mostrar os dois lugares só criaria
+              dúvida sobre qual vale. Sem recheios, é aqui que fica tudo.
+            */}
+            {temRecheios(produto) ? (
+              <p className="text-xs font-body text-ink/60 bg-blush/40 border border-cherryLight/30 rounded-lg px-3 py-2">
+                Preço, custo e estoque deste doce ficam em cada recheio, logo
+                abaixo. 🍒
+              </p>
+            ) : (
+              <>
+                {/* Empilha no celular; volta a dividir a linha do tablet pra cima */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    value={produto.sabor}
+                    onChange={(e) => handleCampo(produto.id, "sabor", e.target.value)}
+                    placeholder="Sabor"
+                    className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
+                  />
+                  <label className="grid gap-0.5">
+                    <span className="text-xs text-ink/50">Preço de venda (R$)</span>
+                    <CampoNumero
+                      valor={produto.preco}
+                      onChange={(v) => handleCampo(produto.id, "preco", v ?? 0)}
+                      className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
+                    />
+                  </label>
+                  {/* Sem o custo não dá pra calcular lucro nas métricas. */}
+                  <label className="grid gap-0.5">
+                    <span className="text-xs text-ink/50">Custo de produção (R$)</span>
+                    <CampoNumero
+                      valor={produto.custo ?? 0}
+                      onChange={(v) => handleCampo(produto.id, "custo", v ?? 0)}
+                      className={`w-full text-sm font-body bg-transparent border rounded-lg p-2 ${
+                        (produto.custo ?? 0) <= 0
+                          ? "border-amber-300 bg-amber-50/50"
+                          : "border-cherryLight/30"
+                      }`}
+                    />
+                  </label>
+                </div>
+              </>
+            )}
             {/* Estoque: vazio = não controla (o doce nunca esgota sozinho);
                 zero = esgotado, e o cardápio mostra a faixa em cima dele. */}
-            <label className="grid gap-0.5">
-              <span className="text-xs text-ink/50">
-                Estoque — quantas unidades você tem
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                <CampoNumero
-                  valor={produto.estoque ?? null}
-                  onChange={(v) =>
-                    handleCampo(produto.id, "estoque", v == null ? null : Math.round(v))
-                  }
-                  casas={0}
-                  placeholder="deixe vazio para não controlar"
-                  className={`w-full sm:w-64 text-sm font-body bg-transparent border rounded-lg p-2 ${
-                    produto.estoque === 0
-                      ? "border-cherryDark bg-cherryDark/5"
-                      : "border-cherryLight/30"
-                  }`}
-                />
-                <span className="text-xs font-body">
-                  {produto.estoque == null ? (
-                    <span className="text-ink/45">sempre disponível</span>
-                  ) : produto.estoque === 0 ? (
-                    <span className="text-cherryDark font-semibold">
-                      ESGOTADO no cardápio
-                    </span>
-                  ) : (
-                    <span className="text-green-700">
-                      {produto.estoque}{" "}
-                      {produto.estoque === 1 ? "unidade à venda" : "unidades à venda"}
-                    </span>
-                  )}
+            {!temRecheios(produto) && (
+              <label className="grid gap-0.5">
+                <span className="text-xs text-ink/50">
+                  Estoque — quantas unidades você tem
                 </span>
-              </div>
-            </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <CampoNumero
+                    valor={produto.estoque ?? null}
+                    onChange={(v) =>
+                      handleCampo(produto.id, "estoque", v == null ? null : Math.round(v))
+                    }
+                    casas={0}
+                    placeholder="deixe vazio para não controlar"
+                    className={`w-full sm:w-64 text-sm font-body bg-transparent border rounded-lg p-2 ${
+                      produto.estoque === 0
+                        ? "border-cherryDark bg-cherryDark/5"
+                        : "border-cherryLight/30"
+                    }`}
+                  />
+                  <span className="text-xs font-body">
+                    {produto.estoque == null ? (
+                      <span className="text-ink/45">sempre disponível</span>
+                    ) : produto.estoque === 0 ? (
+                      <span className="text-cherryDark font-semibold">
+                        ESGOTADO no cardápio
+                      </span>
+                    ) : (
+                      <span className="text-green-700">
+                        {produto.estoque}{" "}
+                        {produto.estoque === 1 ? "unidade à venda" : "unidades à venda"}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </label>
+            )}
 
             <GaleriaFotos
               fotos={fotosDoProduto(produto)}
               onChange={(fotos) => trocarFotos(produto.id, fotos)}
+            />
+
+            <EditorSabores
+              produto={produto}
+              sabores={produto.sabores ?? []}
+              onChange={(sabores) => handleCampo(produto.id, "sabores", sabores)}
             />
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <select

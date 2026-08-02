@@ -20,6 +20,28 @@ export interface Produto {
   /** Média das notas dos clientes (0 quando ninguém avaliou ainda). */
   notaMedia?: number;
   totalAvaliacoes?: number;
+  /** Recheios deste doce. Vazio = doce de sabor único. */
+  sabores?: SaborDoDoce[];
+}
+
+/**
+ * Um recheio do doce. Preço e estoque nulos querem dizer "segue o doce" e
+ * "sem controle" — quem resolve isso é `lib/sabores.ts`, num lugar só.
+ */
+export interface SaborDoDoce {
+  id: string;
+  produtoId: string;
+  nome: string;
+  fotoUrl: string;
+  preco?: number | null;
+  /** Quanto custa produzir este recheio (alimenta o lucro). */
+  custo?: number;
+  estoque?: number | null;
+  /** Nulo = segue o doce. */
+  disponibilidade?: TipoDisponibilidade | null;
+  prazoDias?: number | null;
+  ordem: number;
+  ativo: boolean;
 }
 
 export interface Cliente {
@@ -49,6 +71,13 @@ export interface ItemPedido {
   nome: string;
   precoUnitario: number;
   quantidade: number;
+  /**
+   * Recheio escolhido, quando o doce tem sabores. O nome vai junto porque o
+   * pedido precisa continuar legível anos depois, mesmo que o sabor seja
+   * renomeado ou saia do cardápio — é o que a Camily lê para produzir.
+   */
+  saborId?: string;
+  saborNome?: string;
 }
 
 export type StatusPedido =
