@@ -8,6 +8,7 @@ const atalhos = [
   { href: "/admin/pedidos", label: "Meus pedidos", desc: "Ver e acompanhar os pedidos recebidos" },
   { href: "/admin/metricas", label: "Meus números", desc: "Vendas, faturamento, lucro e mais vendidos" },
   { href: "/admin/avaliacoes", label: "Avaliações", desc: "O que os clientes acharam de cada doce" },
+  { href: "/admin/stories", label: "Stories", desc: "Aprovar quem postou o doce e liberar os pontos" },
   { href: "/admin/promocoes", label: "Promoções", desc: "Cupons de desconto e destaque do cardápio" },
   { href: "/admin/fidelidade", label: "Fidelidade", desc: "Pontos por compra e prêmios para resgate" },
   { href: "/admin/produtos", label: "Meus produtos", desc: "Editar fotos, título, descrição e preço" },

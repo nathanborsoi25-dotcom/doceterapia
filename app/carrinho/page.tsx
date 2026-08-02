@@ -6,27 +6,48 @@ import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import { reais } from "@/lib/formato";
+import { getProdutos } from "@/lib/api";
 import { getCarrinho, salvarCarrinho } from "@/lib/store";
 import type { ItemPedido } from "@/lib/types";
 
 export default function CarrinhoPage() {
   const [itens, setItens] = useState<ItemPedido[]>([]);
+  /** Estoque de cada doce agora — o carrinho pode ser de ontem. */
+  const [estoques, setEstoques] = useState<Map<string, number | null>>(new Map());
 
   useEffect(() => {
     setItens(getCarrinho());
+    getProdutos()
+      .then((lista) => setEstoques(new Map(lista.map((p) => [p.id, p.estoque ?? null]))))
+      .catch(() => {});
   }, []);
 
+  /** Quantas unidades ainda dá pra levar deste doce (null = sem limite). */
+  function limite(produtoId: string): number | null {
+    return estoques.get(produtoId) ?? null;
+  }
+
   function atualizarQuantidade(produtoId: string, delta: number) {
+    const max = limite(produtoId);
     const novos = itens
-      .map((i) =>
-        i.produtoId === produtoId ? { ...i, quantidade: i.quantidade + delta } : i
-      )
+      .map((i) => {
+        if (i.produtoId !== produtoId) return i;
+        const desejada = i.quantidade + delta;
+        // Não deixa passar do que existe pra vender: melhor avisar aqui do
+        // que na hora de pagar, quando a pessoa já está com o cartão na mão.
+        return { ...i, quantidade: max == null ? desejada : Math.min(desejada, max) };
+      })
       .filter((i) => i.quantidade > 0);
     setItens(novos);
     salvarCarrinho(novos);
   }
 
   const total = itens.reduce((acc, i) => acc + i.precoUnitario * i.quantidade, 0);
+  /** Algum doce do carrinho esgotou ou não tem quantidade suficiente. */
+  const temProblema = itens.some((i) => {
+    const max = limite(i.produtoId);
+    return max != null && i.quantidade > max;
+  });
 
   return (
     <>
@@ -54,6 +75,16 @@ export default function CarrinhoPage() {
                   <p className="text-sm text-ink/60 font-body">
                     {reais(item.precoUnitario)} cada
                   </p>
+                  {limite(item.produtoId) === 0 ? (
+                    <p className="text-xs font-body font-semibold text-cherryDark">
+                      Esgotou — tire do carrinho para continuar
+                    </p>
+                  ) : limite(item.produtoId) != null &&
+                    item.quantidade > (limite(item.produtoId) ?? 0) ? (
+                    <p className="text-xs font-body font-semibold text-cherryDark">
+                      Restam só {limite(item.produtoId)} — ajuste a quantidade
+                    </p>
+                  ) : null}
                 </div>
                 {/* Botões de 44px: tamanho confortável para o dedo */}
                 <div className="flex items-center gap-1 font-body shrink-0">
@@ -68,7 +99,11 @@ export default function CarrinhoPage() {
                   <button
                     onClick={() => atualizarQuantidade(item.produtoId, 1)}
                     aria-label={`Adicionar um ${item.nome}`}
-                    className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform"
+                    disabled={
+                      limite(item.produtoId) != null &&
+                      item.quantidade >= (limite(item.produtoId) ?? 0)
+                    }
+                    className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-35 disabled:active:scale-100"
                   >
                     +
                   </button>
@@ -85,12 +120,18 @@ export default function CarrinhoPage() {
               ou a retirada.
             </p>
 
-            <Link
-              href="/checkout"
-              className="mt-2 text-center bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors"
-            >
-              Ir para entrega e pagamento
-            </Link>
+            {temProblema ? (
+              <p className="mt-2 text-center bg-blush/70 border border-cherryLight/50 rounded-xl py-3 px-4 font-body text-sm text-cherryDark">
+                Ajuste os itens marcados acima para seguir para o pagamento.
+              </p>
+            ) : (
+              <Link
+                href="/checkout"
+                className="mt-2 text-center bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors"
+              >
+                Ir para entrega e pagamento
+              </Link>
+            )}
           </div>
         )}
       </main>

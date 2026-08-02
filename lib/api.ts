@@ -7,6 +7,7 @@ import type {
   PedidoDoPainel,
   Produto,
   StatusPedido,
+  StoryEnviado,
 } from "./types";
 
 /**
@@ -279,6 +280,54 @@ export async function avaliarDoce(dados: {
   const res = await fetch("/api/avaliacoes", POST_JSON(dados));
   if (!res.ok) {
     throw new Error(await erroDoServidor(res, "Não foi possível enviar sua avaliação."));
+  }
+  return res.json();
+}
+
+// ---- Stories (a cliente posta, a Camily aprova) ----
+
+/** Os stories que a própria cliente já enviou. */
+export async function getMeusStories(): Promise<StoryEnviado[]> {
+  return json<StoryEnviado[]>(
+    await fetch("/api/cliente/stories", { cache: "no-store" })
+  );
+}
+
+/** Manda o print do story. Vai como FormData porque é arquivo. */
+export async function enviarStory(dados: {
+  pedidoId: string;
+  arroba: string;
+  imagem: File;
+}): Promise<void> {
+  const form = new FormData();
+  form.append("pedidoId", dados.pedidoId);
+  form.append("arroba", dados.arroba);
+  form.append("imagem", dados.imagem);
+
+  const res = await fetch("/api/cliente/stories", { method: "POST", body: form });
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível enviar seu story."));
+  }
+}
+
+/** Painel: todos os stories enviados, com o print. */
+export async function getStoriesDoPainel(): Promise<StoryEnviado[]> {
+  return json<StoryEnviado[]>(
+    await fetch("/api/admin/stories", { cache: "no-store" })
+  );
+}
+
+export async function decidirStory(
+  id: string,
+  aprovar: boolean
+): Promise<{ pontos: number }> {
+  const res = await fetch("/api/admin/stories", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, aprovar }),
+  });
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível decidir agora."));
   }
   return res.json();
 }

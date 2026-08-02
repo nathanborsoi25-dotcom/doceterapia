@@ -24,6 +24,14 @@ export const produtos = pgTable("produtos", {
   fotoUrl: text("foto_url").notNull().default(""),
   disponibilidade: text("disponibilidade").notNull().default("pronta_entrega"),
   prazoDias: integer("prazo_dias"),
+  /**
+   * Quantas unidades existem para vender agora.
+   *
+   * NULO significa "não controlo estoque deste doce" — é o caso do que é
+   * feito sob encomenda, que a Camily faz na quantidade que pedirem. Zero é
+   * diferente: quer dizer esgotado, e o doce aparece riscado no cardápio.
+   */
+  estoque: integer("estoque"),
   ativo: boolean("ativo").notNull().default(true),
 });
 
@@ -194,6 +202,38 @@ export const avaliacoes = pgTable(
   })
 );
 
+/**
+ * Print do story que a cliente postou marcando a loja, esperando aprovação.
+ *
+ * Por que print e não integração com o Instagram: a API deles só enxerga
+ * story de perfil PÚBLICO que marque com @, e ainda exige revisão da Meta.
+ * Metade das clientes ficaria de fora reclamando que postou e não ganhou.
+ * Com o print, a Camily aprova em um clique e ainda vê o story pra repostar.
+ *
+ * Um por pedido — é o que amarra a recompensa a uma compra de verdade.
+ */
+export const stories = pgTable(
+  "stories",
+  {
+    id: text("id").primaryKey(),
+    clienteId: text("cliente_id").notNull(),
+    pedidoId: text("pedido_id").notNull(),
+    /** Print enviado pela cliente, guardado no Vercel Blob. */
+    imagemUrl: text("imagem_url").notNull(),
+    /** @ da pessoa no Instagram, pra Camily achar o story e repostar. */
+    arroba: text("arroba").notNull().default(""),
+    /** "pendente" | "aprovado" | "recusado" */
+    situacao: text("situacao").notNull().default("pendente"),
+    pontosCreditados: integer("pontos_creditados").notNull().default(0),
+    motivoRecusa: text("motivo_recusa"),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    decididoEm: timestamp("decidido_em", { withTimezone: true }),
+  },
+  (t) => ({
+    umPorPedido: uniqueIndex("stories_pedido_idx").on(t.pedidoId),
+  })
+);
+
 /** O que o cliente pode trocar pelos pontos. */
 export const recompensas = pgTable("recompensas", {
   id: text("id").primaryKey(),
@@ -215,6 +255,8 @@ export const configLoja = pgTable("config_loja", {
   pontosPorReal: doublePrecision("pontos_por_real").notNull().default(1),
   /** Pontos ganhos ao avaliar um doce. */
   pontosPorAvaliacao: integer("pontos_por_avaliacao").notNull().default(10),
+  /** Pontos ganhos ao postar o doce nos stories (depois da Camily aprovar). */
+  pontosPorStory: integer("pontos_por_story").notNull().default(15),
   bannerAtivo: boolean("banner_ativo").notNull().default(false),
   bannerTitulo: text("banner_titulo").notNull().default(""),
   bannerDescricao: text("banner_descricao").notNull().default(""),

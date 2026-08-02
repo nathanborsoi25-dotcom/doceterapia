@@ -11,6 +11,8 @@ export interface Produto {
   fotoUrl: string;
   disponibilidade: TipoDisponibilidade;
   prazoDias?: number; // usado quando "sob_encomenda"
+  /** Unidades disponíveis. `null` = sem controle de estoque; 0 = esgotado. */
+  estoque?: number | null;
   ativo: boolean;
   /** Média das notas dos clientes (0 quando ninguém avaliou ainda). */
   notaMedia?: number;
@@ -102,6 +104,21 @@ export interface PedidoDoCliente extends Pedido {
   podeAvaliar: boolean;
   /** Ids dos doces deste pedido que ele já avaliou. */
   avaliados: string[];
+}
+
+/** Print de story que a cliente mandou, esperando a Camily aprovar. */
+export interface StoryEnviado {
+  id: string;
+  pedidoId: string;
+  situacao: "pendente" | "aprovado" | "recusado";
+  pontosCreditados: number;
+  motivoRecusa?: string | null;
+  criadoEm: string;
+  /** Só o painel recebe estes campos. */
+  imagemUrl?: string;
+  arroba?: string;
+  clienteNome?: string;
+  clienteTelefone?: string | null;
 }
 
 /** Nota que um cliente deu para um doce. */

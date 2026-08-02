@@ -11,6 +11,7 @@ export const CONFIG_PADRAO: ConfigLoja = {
   id: ID_CONFIG,
   pontosPorReal: 1,
   pontosPorAvaliacao: 10,
+  pontosPorStory: 15,
   bannerAtivo: false,
   bannerTitulo: "",
   bannerDescricao: "",

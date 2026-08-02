@@ -10,6 +10,7 @@ import {
   registrarCancelamentoDoMercadoPago,
 } from "@/lib/cancelamento";
 import { creditarPontosDoPedido } from "@/lib/fidelidade";
+import { baixarEstoque } from "@/lib/estoque";
 import type { Pedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -115,13 +116,15 @@ export async function POST(req: Request) {
           .where(eq(pedidos.id, pedidoId));
         await avisarMudancaDeStatus(pedidoId, novoStatus);
 
-        // Pagamento confirmado: agora sim o cliente ganha os pontos. Fazer
-        // isso na criação do pedido daria pontos por compra nunca paga.
+        // Pagamento confirmado: agora sim o cliente ganha os pontos e o
+        // estoque baixa. Fazer isso na criação do pedido daria pontos por
+        // compra nunca paga e seguraria doce de carrinho abandonado.
         if (novoStatus === "pago") {
           const [p] = await db
             .select()
             .from(pedidos)
             .where(eq(pedidos.id, pedidoId));
+          if (p) await baixarEstoque(p.itens);
           if (p?.clienteId) {
             const subtotal = p.itens.reduce(
               (a, i) => a + i.precoUnitario * i.quantidade,

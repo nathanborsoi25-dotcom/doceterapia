@@ -21,6 +21,7 @@ export default function NovoProdutoPage() {
   const [preco, setPreco] = useState<number | null>(null);
   const [custo, setCusto] = useState<number | null>(null);
   const [prazoDias, setPrazoDias] = useState<number | null>(null);
+  const [estoque, setEstoque] = useState<number | null>(null);
 
   const [salvando, setSalvando] = useState(false);
 
@@ -36,6 +37,8 @@ export default function NovoProdutoPage() {
       fotoUrl: form.fotoUrl,
       disponibilidade: form.disponibilidade,
       prazoDias: prazoDias ? Math.round(prazoDias) : undefined,
+      // Vazio = sem controle de estoque; zero = já nasce esgotado.
+      estoque: estoque == null ? null : Math.round(estoque),
       ativo: true,
     };
     setSalvando(true);
@@ -96,6 +99,21 @@ export default function NovoProdutoPage() {
             métricas — dá pra preencher depois.
           </span>
         </label>
+        <label className="grid gap-1 text-sm font-body text-ink/80">
+          Estoque — quantas unidades você tem
+          <CampoNumero
+            valor={estoque}
+            onChange={setEstoque}
+            casas={0}
+            placeholder="deixe vazio para não controlar"
+            className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
+          />
+          <span className="text-xs text-ink/50">
+            Se preencher, o cardápio mostra a faixa de <strong>esgotado</strong>{" "}
+            quando chegar a zero. Deixando vazio, o doce fica sempre disponível.
+          </span>
+        </label>
+
         <EscolherFoto
           valor={form.fotoUrl}
           onChange={(url) => setForm({ ...form, fotoUrl: url })}

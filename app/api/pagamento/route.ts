@@ -9,6 +9,7 @@ import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shippin
 import { checarAreaEntrega } from "@/lib/area-entrega";
 import { dataMinimaRetirada, prazoMaximoEmDias } from "@/lib/prazo";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
+import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
 import { sql } from "drizzle-orm";
 import type { ItemPedido, Pedido } from "@/lib/types";
 
@@ -81,6 +82,13 @@ export async function POST(req: Request) {
       precoUnitario: produto.preco,
       quantidade,
     });
+  }
+
+  // Estoque conferido no servidor: entre montar o carrinho e clicar em pagar
+  // o último doce pode ter sido vendido pra outra pessoa.
+  const faltas = conferirEstoque(itens, porId);
+  if (faltas.length > 0) {
+    return NextResponse.json({ error: mensagemDeFalta(faltas) }, { status: 409 });
   }
 
   // Prazo de encomenda: o maior entre os doces escolhidos.

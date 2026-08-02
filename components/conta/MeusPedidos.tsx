@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Estrelas from "@/components/Estrelas";
-import { avaliarDoce, cancelarMeuPedido, getMeusPedidos } from "@/lib/api";
+import {
+  avaliarDoce,
+  cancelarMeuPedido,
+  enviarStory,
+  getMeusPedidos,
+  getMeusStories,
+} from "@/lib/api";
 import { reais } from "@/lib/formato";
 import { SITUACAO_PARA_CLIENTE, textoDoReembolso } from "@/lib/status-pedido";
-import type { PedidoDoCliente } from "@/lib/types";
+import type { PedidoDoCliente, StoryEnviado } from "@/lib/types";
 
 /**
  * Histórico de compras do cliente. Daqui ele faz as duas coisas que antes só
@@ -14,17 +20,24 @@ import type { PedidoDoCliente } from "@/lib/types";
  */
 export default function MeusPedidos() {
   const [pedidos, setPedidos] = useState<PedidoDoCliente[]>([]);
+  const [stories, setStories] = useState<StoryEnviado[]>([]);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    getMeusPedidos()
-      .then(setPedidos)
-      .catch(() => setPedidos([]))
+    Promise.all([
+      getMeusPedidos().catch(() => []),
+      getMeusStories().catch(() => []),
+    ])
+      .then(([p, s]) => {
+        setPedidos(p);
+        setStories(s);
+      })
       .finally(() => setCarregando(false));
   }, []);
 
   function recarregar() {
     getMeusPedidos().then(setPedidos).catch(() => {});
+    getMeusStories().then(setStories).catch(() => {});
   }
 
   if (carregando) {
@@ -51,7 +64,12 @@ export default function MeusPedidos() {
   return (
     <div className="grid gap-4">
       {pedidos.map((p) => (
-        <CartaoPedido key={p.id} pedido={p} onMudou={recarregar} />
+        <CartaoPedido
+          key={p.id}
+          pedido={p}
+          story={stories.find((s) => s.pedidoId === p.id) ?? null}
+          onMudou={recarregar}
+        />
       ))}
     </div>
   );
@@ -59,9 +77,11 @@ export default function MeusPedidos() {
 
 function CartaoPedido({
   pedido,
+  story,
   onMudou,
 }: {
   pedido: PedidoDoCliente;
+  story: StoryEnviado | null;
   onMudou: () => void;
 }) {
   const [cancelando, setCancelando] = useState(false);
@@ -170,6 +190,11 @@ function CartaoPedido({
         </div>
       )}
 
+      {/* Postou nos stories? Manda o print e a Camily libera os pontos. */}
+      {pedido.podeAvaliar && (
+        <EnviarStory pedidoId={pedido.id} story={story} onEnviou={onMudou} />
+      )}
+
       {erro && <p className="text-cherryDark text-sm">{erro}</p>}
 
       {pedido.podeCancelar && !confirmando && (
@@ -205,6 +230,119 @@ function CartaoPedido({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * "Postei nos stories": a cliente manda o print e espera a Camily aprovar.
+ *
+ * O print existe porque o Instagram não deixa o site descobrir sozinho quem
+ * postou (a API só enxerga perfil público que marque com @). Assim vale pra
+ * todo mundo, e a Camily ainda vê o story pra repostar.
+ */
+function EnviarStory({
+  pedidoId,
+  story,
+  onEnviou,
+}: {
+  pedidoId: string;
+  story: StoryEnviado | null;
+  onEnviou: () => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const [arroba, setArroba] = useState("");
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  if (story) {
+    const cor =
+      story.situacao === "aprovado"
+        ? "text-green-700 bg-green-50 border-green-200"
+        : story.situacao === "recusado"
+          ? "text-cherryDark bg-blush/60 border-cherryLight/50"
+          : "text-ink/70 bg-white/70 border-cherryLight/30";
+    return (
+      <p className={`text-xs border rounded-xl px-3 py-2 ${cor}`}>
+        {story.situacao === "aprovado" &&
+          `Story aprovado! Você ganhou ${story.pontosCreditados} ${story.pontosCreditados === 1 ? "ponto" : "pontos"}. 🍒`}
+        {story.situacao === "pendente" &&
+          "Story enviado! A Camily vai conferir e seus pontos entram logo."}
+        {story.situacao === "recusado" &&
+          `Não deu pra validar este story.${story.motivoRecusa ? ` ${story.motivoRecusa}` : " Fale com a Camily no WhatsApp."}`}
+      </p>
+    );
+  }
+
+  async function enviar() {
+    if (!arquivo) {
+      setErro("Escolha o print do seu story.");
+      return;
+    }
+    setErro("");
+    setEnviando(true);
+    try {
+      await enviarStory({ pedidoId, arroba, imagem: arquivo });
+      onEnviou();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível enviar.");
+      setEnviando(false);
+    }
+  }
+
+  if (!aberto) {
+    return (
+      <button
+        onClick={() => setAberto(true)}
+        className="border border-cherryDark text-cherryDark rounded-full px-5 py-2.5 font-semibold justify-self-start text-sm"
+      >
+        📸 Postei nos stories — quero meus pontos
+      </button>
+    );
+  }
+
+  return (
+    <div className="border border-cherryLight/40 rounded-xl p-3 grid gap-2 bg-blush/30">
+      <p className="text-xs text-ink/70">
+        Poste o doce nos stories marcando <strong>@doceterapia</strong>, tire um
+        print e mande aqui. A Camily confere e os pontos entram na sua conta.
+      </p>
+
+      <label className="grid gap-1 text-xs text-ink/70">
+        Seu @ no Instagram (opcional)
+        <input
+          value={arroba}
+          onChange={(e) => setArroba(e.target.value)}
+          placeholder="@seuperfil"
+          className="w-full border border-cherryLight/40 rounded-xl px-3 py-2.5 bg-white/70 text-sm"
+        />
+      </label>
+
+      <label className="grid gap-1 text-xs text-ink/70">
+        Print do story *
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+          className="w-full text-sm file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-cherryDark file:text-white file:font-semibold"
+        />
+      </label>
+
+      {erro && <p className="text-cherryDark text-xs">{erro}</p>}
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={enviar}
+          disabled={enviando}
+          className="bg-cherryDark text-white rounded-full px-5 py-2.5 font-semibold disabled:opacity-50 text-sm"
+        >
+          {enviando ? "Enviando..." : "Enviar story"}
+        </button>
+        <button onClick={() => setAberto(false)} className="text-ink/60 px-4 py-2.5 text-sm">
+          Agora não
+        </button>
+      </div>
     </div>
   );
 }

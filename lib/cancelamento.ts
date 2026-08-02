@@ -4,6 +4,7 @@ import { getDb } from "./db";
 import { cupons, pedidos, pontos } from "./db/schema";
 import { getMpClient } from "./mercadopago";
 import { avisarMudancaDeStatus } from "./avisar-cliente";
+import { devolverAoEstoque } from "./estoque";
 import type { StatusPedido } from "./types";
 
 /**
@@ -165,6 +166,9 @@ export async function cancelarPedido(
   // 3) Desfaz o que a compra tinha rendido.
   if (pedido.clienteId) await estornarPontosDoPedido(pedidoId, pedido.clienteId);
   if (pedido.cupomCodigo) await liberarUsoDoCupom(pedido.cupomCodigo);
+  // Os doces voltam pra prateleira — mas só se tinham saído dela, o que
+  // acontece na confirmação do pagamento.
+  if (jaFoiPago(status)) await devolverAoEstoque(pedido.itens);
 
   // 4) Avisa o cliente. Nunca lança erro — o cancelamento já está feito.
   await avisarMudancaDeStatus(pedidoId, "cancelado");
@@ -202,6 +206,9 @@ export async function registrarCancelamentoDoMercadoPago(
 
   if (pedido.clienteId) await estornarPontosDoPedido(pedidoId, pedido.clienteId);
   if (pedido.cupomCodigo) await liberarUsoDoCupom(pedido.cupomCodigo);
+  if (jaFoiPago(pedido.status as StatusPedido)) {
+    await devolverAoEstoque(pedido.itens);
+  }
   await avisarMudancaDeStatus(pedidoId, "cancelado");
 }
 

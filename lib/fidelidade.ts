@@ -28,7 +28,7 @@ export async function extratoDePontos(clienteId: string) {
 export async function lancarPontos(dados: {
   clienteId: string;
   quantidade: number;
-  motivo: "pedido" | "avaliacao" | "resgate" | "estorno";
+  motivo: "pedido" | "avaliacao" | "resgate" | "estorno" | "story";
   descricao?: string;
   pedidoId?: string | null;
 }): Promise<void> {

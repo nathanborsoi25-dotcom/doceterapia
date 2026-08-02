@@ -15,6 +15,7 @@ type Recompensa = {
 export default function AdminFidelidadePage() {
   const [pontosPorReal, setPontosPorReal] = useState<number | null>(1);
   const [pontosPorAvaliacao, setPontosPorAvaliacao] = useState<number | null>(10);
+  const [pontosPorStory, setPontosPorStory] = useState<number | null>(15);
   const [salvandoRegras, setSalvandoRegras] = useState(false);
   const [recompensas, setRecompensas] = useState<Recompensa[]>([]);
   const [nova, setNova] = useState({ nome: "", descricao: "" });
@@ -35,6 +36,7 @@ export default function AdminFidelidadePage() {
       .then((c) => {
         setPontosPorReal(Number(c.pontosPorReal ?? 1));
         setPontosPorAvaliacao(Number(c.pontosPorAvaliacao ?? 10));
+        setPontosPorStory(Number(c.pontosPorStory ?? 15));
       })
       .catch(() => {});
     carregarRecompensas();
@@ -51,6 +53,7 @@ export default function AdminFidelidadePage() {
           ...atual,
           pontosPorReal: pontosPorReal ?? 0,
           pontosPorAvaliacao: Math.round(pontosPorAvaliacao ?? 0),
+          pontosPorStory: Math.round(pontosPorStory ?? 0),
         }),
       });
     } finally {
@@ -127,6 +130,23 @@ export default function AdminFidelidadePage() {
           />
           <span className="text-xs text-ink/50">
             Quanto o cliente ganha ao avaliar um doce que comprou.
+          </span>
+        </label>
+
+        <label className="grid gap-1 text-sm font-body text-ink/80">
+          Pontos por story no Instagram
+          <CampoNumero
+            valor={pontosPorStory}
+            onChange={setPontosPorStory}
+            casas={0}
+            className="w-full border border-cherryLight/50 rounded-xl p-2.5 bg-white/70"
+          />
+          <span className="text-xs text-ink/50">
+            A cliente posta o doce marcando você, manda o print e{" "}
+            <Link href="/admin/stories" className="text-cherryDark underline">
+              você aprova aqui
+            </Link>
+            . Vale um story por pedido.
           </span>
         </label>
 

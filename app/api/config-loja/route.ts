@@ -29,6 +29,7 @@ export async function PUT(req: Request) {
     id: ID_CONFIG,
     pontosPorReal: Math.max(0, Number(b.pontosPorReal) || 0),
     pontosPorAvaliacao: Math.max(0, Math.floor(Number(b.pontosPorAvaliacao) || 0)),
+    pontosPorStory: Math.max(0, Math.floor(Number(b.pontosPorStory) || 0)),
     bannerAtivo: Boolean(b.bannerAtivo),
     bannerTitulo: texto(b.bannerTitulo, 80),
     bannerDescricao: texto(b.bannerDescricao, 200),

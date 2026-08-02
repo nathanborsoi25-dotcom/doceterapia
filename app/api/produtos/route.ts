@@ -40,6 +40,12 @@ export async function POST(req: Request) {
     fotoUrl: p.fotoUrl ?? "",
     disponibilidade: p.disponibilidade,
     prazoDias: p.prazoDias ?? null,
+    // Campo vazio = sem controle de estoque (null). Zero é esgotado, então
+    // os dois casos precisam continuar distintos até o banco.
+    estoque:
+      p.estoque == null || p.estoque === ("" as unknown)
+        ? null
+        : Math.max(0, Math.floor(Number(p.estoque) || 0)),
     ativo: p.ativo ?? true,
   };
   const db = getDb();

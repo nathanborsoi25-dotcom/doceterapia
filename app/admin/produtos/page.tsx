@@ -17,7 +17,12 @@ export default function AdminProdutosPage() {
       .catch(() => setProdutos([]));
   }, []);
 
-  function handleCampo(id: string, campo: keyof Produto, valor: string | number | boolean) {
+  function handleCampo(
+    id: string,
+    campo: keyof Produto,
+    // `null` é um valor de verdade aqui: é o estoque "não controlado".
+    valor: string | number | boolean | null
+  ) {
     setProdutos((prev) => prev.map((p) => (p.id === id ? { ...p, [campo]: valor } : p)));
   }
 
@@ -91,6 +96,43 @@ export default function AdminProdutosPage() {
                 />
               </label>
             </div>
+            {/* Estoque: vazio = não controla (o doce nunca esgota sozinho);
+                zero = esgotado, e o cardápio mostra a faixa em cima dele. */}
+            <label className="grid gap-0.5">
+              <span className="text-xs text-ink/50">
+                Estoque — quantas unidades você tem
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <CampoNumero
+                  valor={produto.estoque ?? null}
+                  onChange={(v) =>
+                    handleCampo(produto.id, "estoque", v == null ? null : Math.round(v))
+                  }
+                  casas={0}
+                  placeholder="deixe vazio para não controlar"
+                  className={`w-full sm:w-64 text-sm font-body bg-transparent border rounded-lg p-2 ${
+                    produto.estoque === 0
+                      ? "border-cherryDark bg-cherryDark/5"
+                      : "border-cherryLight/30"
+                  }`}
+                />
+                <span className="text-xs font-body">
+                  {produto.estoque == null ? (
+                    <span className="text-ink/45">sempre disponível</span>
+                  ) : produto.estoque === 0 ? (
+                    <span className="text-cherryDark font-semibold">
+                      ESGOTADO no cardápio
+                    </span>
+                  ) : (
+                    <span className="text-green-700">
+                      {produto.estoque}{" "}
+                      {produto.estoque === 1 ? "unidade à venda" : "unidades à venda"}
+                    </span>
+                  )}
+                </span>
+              </div>
+            </label>
+
             <EscolherFoto
               valor={produto.fotoUrl}
               onChange={(url) => handleCampo(produto.id, "fotoUrl", url)}
