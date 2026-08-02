@@ -41,6 +41,7 @@ export async function GET() {
   return NextResponse.json(
     rows.map((p) => ({
       ...p,
+      criadoEm: p.criadoEm?.toISOString(),
       notaMedia: medias.get(p.id)?.media ?? 0,
       totalAvaliacoes: medias.get(p.id)?.total ?? 0,
       sabores: porProduto.get(p.id) ?? [],
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
     nome: p.nome,
     descricao: p.descricao ?? "",
     sabor: p.sabor ?? "",
+    categoria: (p.categoria ?? "").trim().slice(0, 40),
     preco: p.preco ?? 0,
     custo: Math.max(0, Number(p.custo) || 0),
     fotoUrl: p.fotoUrl ?? "",

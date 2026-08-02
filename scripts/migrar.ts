@@ -50,6 +50,13 @@ async function main() {
     WHERE fotos = '[]'::jsonb AND coalesce(foto_url, '') <> ''
   `;
 
+  console.log("3d) Categoria e data de criação do doce...");
+  await sql`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS categoria text NOT NULL DEFAULT ''`;
+  await sql`
+    ALTER TABLE produtos
+    ADD COLUMN IF NOT EXISTS criado_em timestamptz NOT NULL DEFAULT now()
+  `;
+
   console.log("3c) Sabores (recheios) do mesmo doce...");
   await sql`
     CREATE TABLE IF NOT EXISTS sabores (

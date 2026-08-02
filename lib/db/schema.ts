@@ -16,6 +16,12 @@ export const produtos = pgTable("produtos", {
   nome: text("nome").notNull(),
   descricao: text("descricao").notNull().default(""),
   sabor: text("sabor").notNull().default(""),
+  /**
+   * Categoria do doce ("Tortas", "Bolos", "Docinhos de festa"...). É por ela
+   * que o cardápio se organiza — vazio significa "sem categoria", e esses
+   * doces aparecem juntos no fim.
+   */
+  categoria: text("categoria").notNull().default(""),
   preco: doublePrecision("preco").notNull().default(0),
   // Quanto custa PRODUZIR este doce (ingredientes + embalagem). É o que
   // permite calcular lucro de verdade nas métricas — sem isso só dá pra
@@ -43,6 +49,8 @@ export const produtos = pgTable("produtos", {
    */
   estoque: integer("estoque"),
   ativo: boolean("ativo").notNull().default(true),
+  /** Quando o doce entrou no cardápio — serve pra ordenar o painel. */
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 
 /**

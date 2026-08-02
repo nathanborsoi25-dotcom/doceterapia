@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import CampoNumero from "@/components/CampoNumero";
 import GaleriaFotos from "@/components/GaleriaFotos";
-import { upsertProduto } from "@/lib/api";
+import { getProdutos, upsertProduto } from "@/lib/api";
+import { categoriasDe } from "@/lib/catalogo";
 import type { Produto, TipoDisponibilidade } from "@/lib/types";
 
 export default function NovoProdutoPage() {
@@ -13,6 +14,7 @@ export default function NovoProdutoPage() {
     nome: "",
     descricao: "",
     sabor: "",
+    categoria: "",
     disponibilidade: "pronta_entrega" as TipoDisponibilidade,
   });
   // A primeira foto da galeria é a capa que vai pro cardápio.
@@ -25,6 +27,14 @@ export default function NovoProdutoPage() {
   const [estoque, setEstoque] = useState<number | null>(null);
 
   const [salvando, setSalvando] = useState(false);
+  /** Categorias que já existem, pra sugerir e evitar "Tortas" vs "torta". */
+  const [categorias, setCategorias] = useState<string[]>([]);
+
+  useEffect(() => {
+    getProdutos()
+      .then((lista) => setCategorias(categoriasDe(lista)))
+      .catch(() => setCategorias([]));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,6 +43,7 @@ export default function NovoProdutoPage() {
       nome: form.nome,
       descricao: form.descricao,
       sabor: form.sabor,
+      categoria: form.categoria,
       preco: preco ?? 0,
       custo: custo ?? 0,
       fotoUrl: fotos[0] ?? "",
@@ -77,6 +88,27 @@ export default function NovoProdutoPage() {
           onChange={(e) => setForm({ ...form, sabor: e.target.value })}
           className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
         />
+
+        {/* O cardápio agrupa os doces por categoria. */}
+        <label className="grid gap-1 text-sm font-body text-ink/80">
+          Categoria
+          <input
+            value={form.categoria}
+            onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+            list="categorias-existentes"
+            placeholder="Ex: Tortas, Bolos, Docinhos"
+            className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
+          />
+          <datalist id="categorias-existentes">
+            {categorias.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+          <span className="text-xs text-ink/50">
+            É por ela que o cardápio se organiza. Deixando vazio, o doce
+            aparece em &ldquo;Outros doces&rdquo;.
+          </span>
+        </label>
         <p className="text-xs font-body text-ink/60 bg-blush/40 border border-cherryLight/30 rounded-lg px-3 py-2">
           Se este doce vai ter <strong>recheios</strong> (o mesmo doce em vários
           sabores), preencha aqui o preço e o custo de um deles — depois é só

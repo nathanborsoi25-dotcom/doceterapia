@@ -40,9 +40,21 @@ async function main() {
   const db = getDb();
 
   for (const p of produtosIniciais) {
+    // Campos escolhidos um a um: o tipo Produto tem coisas que só existem na
+    // tela (nota média, recheios, data em texto) e não entram no insert.
     await db
       .insert(produtos)
-      .values({ ...p, prazoDias: p.prazoDias ?? null })
+      .values({
+        id: p.id,
+        nome: p.nome,
+        descricao: p.descricao,
+        sabor: p.sabor,
+        preco: p.preco,
+        fotoUrl: p.fotoUrl,
+        disponibilidade: p.disponibilidade,
+        prazoDias: p.prazoDias ?? null,
+        ativo: p.ativo,
+      })
       .onConflictDoNothing();
   }
 

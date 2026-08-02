@@ -5,6 +5,10 @@ export interface Produto {
   nome: string;
   descricao: string;
   sabor: string;
+  /** Como o cardápio agrupa os doces. Vazio = sem categoria. */
+  categoria?: string;
+  /** Quando entrou no cardápio (ISO). Usado pra ordenar o painel. */
+  criadoEm?: string;
   preco: number; // em reais
   /** Quanto custa produzir (ingredientes + embalagem). Alimenta o lucro. */
   custo?: number;
