@@ -54,6 +54,22 @@ export const produtos = pgTable("produtos", {
 });
 
 /**
+ * Categorias do cardápio ("Tortas", "Bolos", "Docinhos de festa").
+ *
+ * Existem como tabela — e não só como texto solto no produto — pra Camily
+ * poder criar, renomear e escolher A ORDEM em que aparecem no cardápio. O
+ * produto continua guardando o NOME da categoria; renomear aqui atualiza os
+ * doces que a usam, então nunca sobra doce apontando pra nome que não existe.
+ */
+export const categorias = pgTable("categorias", {
+  id: text("id").primaryKey(),
+  nome: text("nome").notNull().unique(),
+  /** Posição no cardápio: menor aparece primeiro. */
+  ordem: integer("ordem").notNull().default(0),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * Recheios de um mesmo doce: a torta de Nutella, a de ninho, a de brigadeiro.
  *
  * Ficam numa tabela à parte (e não numa lista dentro do produto) porque cada

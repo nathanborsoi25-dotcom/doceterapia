@@ -12,6 +12,7 @@ const atalhos = [
   { href: "/admin/promocoes", label: "Promoções", desc: "Cupons de desconto e destaque do cardápio" },
   { href: "/admin/fidelidade", label: "Fidelidade", desc: "Pontos por compra e prêmios para resgate" },
   { href: "/admin/produtos", label: "Meus produtos", desc: "Editar fotos, título, descrição e preço" },
+  { href: "/admin/categorias", label: "Categorias", desc: "Criar e organizar as seções do cardápio" },
   { href: "/admin/produtos/novo", label: "Adicionar produto", desc: "Cadastrar um novo doce no cardápio" },
   { href: "/admin/frete", label: "Configurar frete", desc: "Faixas de distância e valores" },
   { href: "/admin/clientes", label: "Meus clientes", desc: "Quem já fez cadastro no site" },

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import CampoNumero from "@/components/CampoNumero";
+import VoltarAoPainel from "@/components/VoltarAoPainel";
 import { getConfiguracaoFrete, salvarConfiguracaoFrete } from "@/lib/api";
 import type { ConfiguracaoFrete, FaixaFrete } from "@/lib/types";
 
@@ -72,7 +73,12 @@ export default function AdminFretePage() {
 
   return (
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-2xl mx-auto">
-      <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Configurar frete</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">
+          Configurar frete
+        </h1>
+        <VoltarAoPainel />
+      </div>
 
       <label className="grid gap-1 text-sm font-body text-ink/80 mt-4">
         Endereço da loja (ponto de partida do frete)

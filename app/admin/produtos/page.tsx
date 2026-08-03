@@ -5,7 +5,14 @@ import Link from "next/link";
 import CampoNumero from "@/components/CampoNumero";
 import EditorSabores from "@/components/EditorSabores";
 import GaleriaFotos from "@/components/GaleriaFotos";
-import { getProdutos, removerProduto, upsertProduto } from "@/lib/api";
+import VoltarAoPainel from "@/components/VoltarAoPainel";
+import {
+  getCategorias,
+  getProdutos,
+  removerProduto,
+  upsertProduto,
+  type CategoriaDoPainel,
+} from "@/lib/api";
 import {
   categoriaDoProduto,
   categoriasDe,
@@ -43,12 +50,17 @@ export default function AdminProdutosPage() {
   const [categoria, setCategoria] = useState("todas");
   const [estoque, setEstoque] = useState<FiltroEstoque>("todos");
   const [ordem, setOrdem] = useState<Ordem>("recentes");
+  /** As categorias criadas em /admin/categorias, pra escolher em cada doce. */
+  const [categorias, setCategorias] = useState<CategoriaDoPainel[]>([]);
 
   useEffect(() => {
     getProdutos()
       .then(setProdutos)
       .catch(() => setProdutos([]))
       .finally(() => setCarregando(false));
+    getCategorias()
+      .then(setCategorias)
+      .catch(() => setCategorias([]));
   }, []);
 
   function handleCampo(
@@ -96,7 +108,11 @@ export default function AdminProdutosPage() {
     );
   }
 
-  const categorias = useMemo(() => categoriasDe(produtos), [produtos]);
+  /** Para o filtro: as criadas mais as que aparecem nos doces. */
+  const categoriasParaFiltrar = useMemo(() => {
+    const doPainel = categorias.map((c) => c.nome);
+    return [...new Set([...doPainel, ...categoriasDe(produtos)])];
+  }, [categorias, produtos]);
 
   const visiveis = useMemo(() => {
     const filtrados = produtos.filter((p) => {
@@ -122,12 +138,15 @@ export default function AdminProdutosPage() {
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Meus produtos</h1>
-        <Link
-          href="/admin/produtos/novo"
-          className="text-sm text-cherryDark underline font-body py-3"
-        >
-          + Adicionar produto
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/produtos/novo"
+            className="text-sm text-cherryDark underline font-body py-3"
+          >
+            + Adicionar produto
+          </Link>
+          <VoltarAoPainel />
+        </div>
       </div>
 
       <p className="text-sm font-body text-ink/60 mt-1">
@@ -158,7 +177,7 @@ export default function AdminProdutosPage() {
             className="shrink-0 text-sm font-body border border-cherryLight/40 rounded-full px-3 py-2 bg-white/80"
           >
             <option value="todas">Todas as categorias</option>
-            {categorias.map((c) => (
+            {categoriasParaFiltrar.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -272,18 +291,38 @@ export default function AdminProdutosPage() {
                     className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
                   />
 
-                  {/* Categoria: o cardápio agrupa os doces por ela. */}
+                  {/* Categoria: escolhida entre as que ela criou, pra não
+                      nascerem "Tortas" e "torta" como coisas diferentes. */}
                   <label className="grid gap-0.5">
                     <span className="text-xs text-ink/50">
                       Categoria (o cardápio agrupa por ela)
                     </span>
-                    <input
+                    <select
                       value={produto.categoria ?? ""}
                       onChange={(e) => handleCampo(produto.id, "categoria", e.target.value)}
-                      list="categorias-existentes"
-                      placeholder="Ex: Tortas, Bolos, Docinhos"
-                      className="w-full text-sm font-body bg-transparent border border-cherryLight/30 rounded-lg p-2"
-                    />
+                      className="w-full text-sm font-body border border-cherryLight/30 rounded-lg p-2 bg-white/70"
+                    >
+                      <option value="">Sem categoria</option>
+                      {categorias.map((c) => (
+                        <option key={c.id} value={c.nome}>
+                          {c.nome}
+                        </option>
+                      ))}
+                      {/* Categoria antiga que não existe mais na lista: fica
+                          visível pra ela ver o que está gravado hoje. */}
+                      {produto.categoria &&
+                        !categorias.some((c) => c.nome === produto.categoria) && (
+                          <option value={produto.categoria}>
+                            {produto.categoria} (removida)
+                          </option>
+                        )}
+                    </select>
+                    <Link
+                      href="/admin/categorias"
+                      className="text-xs text-cherryDark underline justify-self-start py-1"
+                    >
+                      Criar ou organizar categorias
+                    </Link>
                   </label>
 
                   {/*
@@ -439,13 +478,6 @@ export default function AdminProdutosPage() {
         })}
       </div>
 
-      {/* Sugestões de categoria: as que já existem, pra ela não digitar
-          "Tortas" numa e "torta" na outra e virarem duas categorias. */}
-      <datalist id="categorias-existentes">
-        {categorias.map((c) => (
-          <option key={c} value={c} />
-        ))}
-      </datalist>
     </main>
   );
 }

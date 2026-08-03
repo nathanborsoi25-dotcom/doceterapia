@@ -57,6 +57,24 @@ async function main() {
     ADD COLUMN IF NOT EXISTS criado_em timestamptz NOT NULL DEFAULT now()
   `;
 
+  console.log("3e) Tabela de categorias...");
+  await sql`
+    CREATE TABLE IF NOT EXISTS categorias (
+      id text PRIMARY KEY,
+      nome text NOT NULL UNIQUE,
+      ordem integer NOT NULL DEFAULT 0,
+      criado_em timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  // Categorias que já estavam digitadas nos doces viram registros, pra nada
+  // se perder na virada.
+  await sql`
+    INSERT INTO categorias (id, nome, ordem)
+    SELECT gen_random_uuid()::text, categoria, row_number() OVER (ORDER BY categoria) - 1
+    FROM (SELECT DISTINCT trim(categoria) AS categoria FROM produtos WHERE trim(categoria) <> '') AS existentes
+    ON CONFLICT (nome) DO NOTHING
+  `;
+
   console.log("3c) Sabores (recheios) do mesmo doce...");
   await sql`
     CREATE TABLE IF NOT EXISTS sabores (

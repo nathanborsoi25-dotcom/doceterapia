@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import Estrelas from "@/components/Estrelas";
+import VoltarAoPainel from "@/components/VoltarAoPainel";
 import { getTodasAvaliacoes, mostrarOuEsconderAvaliacao } from "@/lib/api";
 import type { Avaliacao } from "@/lib/types";
 
@@ -44,9 +44,7 @@ export default function AdminAvaliacoesPage() {
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">
           Avaliações dos clientes
         </h1>
-        <Link href="/admin" className="text-sm text-cherryDark underline font-body py-3 px-1">
-          Voltar ao painel
-        </Link>
+        <VoltarAoPainel />
       </div>
 
       {!carregando && lista.length > 0 && (

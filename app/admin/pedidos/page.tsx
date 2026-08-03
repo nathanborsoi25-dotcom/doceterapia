@@ -8,6 +8,7 @@ import {
   tentarEstorno,
   type CarrinhoAbandonado,
 } from "@/lib/api";
+import VoltarAoPainel from "@/components/VoltarAoPainel";
 import { linkWhatsAppNumero } from "@/lib/contato";
 import { reais } from "@/lib/formato";
 import { mensagemCarrinhoAbandonado, mensagemDeStatus } from "@/lib/mensagens-whatsapp";
@@ -170,7 +171,10 @@ export default function AdminPedidosPage() {
 
   return (
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
-      <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Meus pedidos</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Meus pedidos</h1>
+        <VoltarAoPainel />
+      </div>
       <p className="text-sm font-body text-ink/60 mt-1">
         Em ordem de prazo — o mais urgente primeiro.
         {vencidos > 0 && (

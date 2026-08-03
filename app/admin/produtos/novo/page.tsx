@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import CampoNumero from "@/components/CampoNumero";
 import GaleriaFotos from "@/components/GaleriaFotos";
-import { getProdutos, upsertProduto } from "@/lib/api";
-import { categoriasDe } from "@/lib/catalogo";
+import VoltarAoPainel from "@/components/VoltarAoPainel";
+import Link from "next/link";
+import { getCategorias, upsertProduto, type CategoriaDoPainel } from "@/lib/api";
 import type { Produto, TipoDisponibilidade } from "@/lib/types";
 
 export default function NovoProdutoPage() {
@@ -27,12 +28,12 @@ export default function NovoProdutoPage() {
   const [estoque, setEstoque] = useState<number | null>(null);
 
   const [salvando, setSalvando] = useState(false);
-  /** Categorias que já existem, pra sugerir e evitar "Tortas" vs "torta". */
-  const [categorias, setCategorias] = useState<string[]>([]);
+  /** As categorias criadas no painel — a Camily escolhe uma da lista. */
+  const [categorias, setCategorias] = useState<CategoriaDoPainel[]>([]);
 
   useEffect(() => {
-    getProdutos()
-      .then((lista) => setCategorias(categoriasDe(lista)))
+    getCategorias()
+      .then(setCategorias)
       .catch(() => setCategorias([]));
   }, []);
 
@@ -65,7 +66,10 @@ export default function NovoProdutoPage() {
 
   return (
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-lg mx-auto">
-      <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Novo produto</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Novo produto</h1>
+        <VoltarAoPainel />
+      </div>
       <form onSubmit={handleSubmit} className="grid gap-3 mt-6">
         <input
           required
@@ -92,21 +96,25 @@ export default function NovoProdutoPage() {
         {/* O cardápio agrupa os doces por categoria. */}
         <label className="grid gap-1 text-sm font-body text-ink/80">
           Categoria
-          <input
+          <select
             value={form.categoria}
             onChange={(e) => setForm({ ...form, categoria: e.target.value })}
-            list="categorias-existentes"
-            placeholder="Ex: Tortas, Bolos, Docinhos"
-            className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body"
-          />
-          <datalist id="categorias-existentes">
+            className="w-full border border-cherryLight/50 rounded-lg p-2.5 font-body bg-white/70"
+          >
+            <option value="">Sem categoria</option>
             {categorias.map((c) => (
-              <option key={c} value={c} />
+              <option key={c.id} value={c.nome}>
+                {c.nome}
+              </option>
             ))}
-          </datalist>
+          </select>
           <span className="text-xs text-ink/50">
             É por ela que o cardápio se organiza. Deixando vazio, o doce
-            aparece em &ldquo;Outros doces&rdquo;.
+            aparece em &ldquo;Outros doces&rdquo;.{" "}
+            <Link href="/admin/categorias" className="text-cherryDark underline">
+              Criar categorias
+            </Link>
+            .
           </span>
         </label>
         <p className="text-xs font-body text-ink/60 bg-blush/40 border border-cherryLight/30 rounded-lg px-3 py-2">

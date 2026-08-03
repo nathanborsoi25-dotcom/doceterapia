@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import CampoNumero from "@/components/CampoNumero";
+import VoltarAoPainel from "@/components/VoltarAoPainel";
 import EscolherFoto from "@/components/EscolherFoto";
 import type { Cliente } from "@/lib/types";
 
@@ -138,9 +138,7 @@ export default function AdminPromocoesPage() {
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Promoções</h1>
-        <Link href="/admin" className="text-sm text-cherryDark underline font-body py-3 px-1">
-          Voltar ao painel
-        </Link>
+        <VoltarAoPainel />
       </div>
 
       {/* ---------------- Banner da página inicial ---------------- */}

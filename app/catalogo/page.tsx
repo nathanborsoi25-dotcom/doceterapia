@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import BannerPromocao from "@/components/BannerPromocao";
 import CherryDivider from "@/components/CherryDivider";
-import { getProdutos } from "@/lib/api";
+import { getCategorias, getProdutos } from "@/lib/api";
 import { agruparPorCategoria, categoriaDoProduto, categoriasDe } from "@/lib/catalogo";
 import type { Produto } from "@/lib/types";
 
@@ -16,14 +16,24 @@ export default function CatalogoPage() {
   /** Categoria escolhida. Vazio = mostra todas, agrupadas. */
   const [categoria, setCategoria] = useState("");
 
+  /** Ordem das categorias definida pela Camily no painel. */
+  const [ordemDaCamily, setOrdemDaCamily] = useState<string[]>([]);
+
   useEffect(() => {
     getProdutos()
       .then((lista) => setProdutos(lista.filter((p) => p.ativo)))
       .catch(() => setProdutos([]))
       .finally(() => setCarregando(false));
+    getCategorias()
+      .then((lista) => setOrdemDaCamily(lista.map((c) => c.nome)))
+      .catch(() => setOrdemDaCamily([]));
   }, []);
 
-  const categorias = useMemo(() => categoriasDe(produtos), [produtos]);
+  // A ordem das seções é a que a Camily montou no painel.
+  const categorias = useMemo(
+    () => categoriasDe(produtos, ordemDaCamily),
+    [produtos, ordemDaCamily]
+  );
 
   /**
    * Sem escolha, os doces vêm separados por categoria — assim a cliente vê
@@ -34,8 +44,8 @@ export default function CatalogoPage() {
     const filtrados = categoria
       ? produtos.filter((p) => categoriaDoProduto(p) === categoria)
       : produtos;
-    return agruparPorCategoria(filtrados);
-  }, [produtos, categoria]);
+    return agruparPorCategoria(filtrados, ordemDaCamily);
+  }, [produtos, categoria, ordemDaCamily]);
 
   return (
     <>

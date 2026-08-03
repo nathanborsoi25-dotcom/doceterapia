@@ -56,6 +56,54 @@ export async function enviarFotoProduto(arquivo: File): Promise<string> {
   return url;
 }
 
+// ---- Categorias do cardápio ----
+export type CategoriaDoPainel = {
+  id: string;
+  nome: string;
+  ordem: number;
+  /** Quantos doces estão nela — o painel avisa antes de remover. */
+  doces: number;
+};
+
+/** Leitura pública: o cardápio usa a ordem definida pela Camily. */
+export async function getCategorias(): Promise<CategoriaDoPainel[]> {
+  return json<CategoriaDoPainel[]>(
+    await fetch("/api/categorias", { cache: "no-store" })
+  );
+}
+
+export async function criarCategoria(nome: string): Promise<void> {
+  const res = await fetch("/api/categorias", POST_JSON({ nome }));
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível criar a categoria."));
+  }
+}
+
+export async function renomearCategoria(id: string, nome: string): Promise<void> {
+  const res = await fetch("/api/categorias", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, nome }),
+  });
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não foi possível renomear."));
+  }
+}
+
+export async function reordenarCategorias(
+  ordem: Array<{ id: string; ordem: number }>
+): Promise<void> {
+  await fetch("/api/categorias", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ordem }),
+  });
+}
+
+export async function removerCategoria(id: string): Promise<void> {
+  await fetch(`/api/categorias?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 // ---- Geocodificação (endereço → coordenadas) ----
 export async function geocodificarEndereco(endereco: {
   rua?: string;

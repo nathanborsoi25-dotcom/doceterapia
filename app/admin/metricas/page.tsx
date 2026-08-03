@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import VoltarAoPainel from "@/components/VoltarAoPainel";
 
 type Resumo = {
   pedidos: number;
@@ -52,9 +53,7 @@ export default function AdminMetricasPage() {
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">
           Meus números
         </h1>
-        <Link href="/admin" className="text-sm text-cherryDark underline font-body py-3 px-1">
-          Voltar ao painel
-        </Link>
+        <VoltarAoPainel />
       </div>
 
       <div className="flex gap-2 mt-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">

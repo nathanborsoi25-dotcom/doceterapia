@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import VoltarAoPainel from "@/components/VoltarAoPainel";
 import { decidirStory, getStoriesDoPainel } from "@/lib/api";
 import { linkWhatsAppNumero } from "@/lib/contato";
 import type { StoryEnviado } from "@/lib/types";
@@ -64,9 +64,7 @@ export default function AdminStoriesPage() {
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">
           Stories das clientes
         </h1>
-        <Link href="/admin" className="text-sm text-cherryDark underline font-body py-3 px-1">
-          Voltar ao painel
-        </Link>
+        <VoltarAoPainel />
       </div>
       <p className="text-sm font-body text-ink/60 mt-1">
         Elas postam marcando você e mandam o print. Confira e libere os pontos.

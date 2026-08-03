@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import CampoNumero from "@/components/CampoNumero";
+import VoltarAoPainel from "@/components/VoltarAoPainel";
 
 type Recompensa = {
   id: string;
@@ -98,9 +99,7 @@ export default function AdminFidelidadePage() {
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">
           Programa de fidelidade
         </h1>
-        <Link href="/admin" className="text-sm text-cherryDark underline font-body py-3 px-1">
-          Voltar ao painel
-        </Link>
+        <VoltarAoPainel />
       </div>
 
       <h2 className="font-display text-xl text-cherryDark mt-6">

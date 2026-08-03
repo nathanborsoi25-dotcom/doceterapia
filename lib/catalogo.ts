@@ -16,22 +16,35 @@ export function categoriaDoProduto(produto: Pick<Produto, "categoria">): string 
 }
 
 /**
- * Categorias existentes, na ordem em que devem aparecer: alfabética, com
- * "Outros doces" sempre por último — ele é o resto, não uma categoria de
- * verdade.
+ * Categorias que aparecem nos doces, na ordem em que devem ser mostradas.
+ *
+ * `ordemPreferida` é a lista que a Camily montou no painel — quem está nela
+ * vem primeiro, na ordem dela. O que sobrar (categoria antiga de um doce que
+ * ela não recriou) entra em ordem alfabética, e "Outros doces" fecha a fila:
+ * é o resto, não uma categoria de verdade.
  */
-export function categoriasDe(produtos: Pick<Produto, "categoria">[]): string[] {
+export function categoriasDe(
+  produtos: Pick<Produto, "categoria">[],
+  ordemPreferida: string[] = []
+): string[] {
   const nomes = new Set(produtos.map(categoriaDoProduto));
-  const lista = [...nomes].filter((c) => c !== SEM_CATEGORIA).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  const primeiro = ordemPreferida.filter((c) => nomes.has(c));
+  const resto = [...nomes]
+    .filter((c) => c !== SEM_CATEGORIA && !primeiro.includes(c))
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  const lista = [...primeiro, ...resto];
   if (nomes.has(SEM_CATEGORIA)) lista.push(SEM_CATEGORIA);
   return lista;
 }
 
 /** Agrupa os doces por categoria, respeitando a ordem acima. */
 export function agruparPorCategoria<T extends Pick<Produto, "categoria">>(
-  produtos: T[]
+  produtos: T[],
+  ordemPreferida: string[] = []
 ): Array<{ categoria: string; doces: T[] }> {
-  return categoriasDe(produtos).map((categoria) => ({
+  return categoriasDe(produtos, ordemPreferida).map((categoria) => ({
     categoria,
     doces: produtos.filter((p) => categoriaDoProduto(p) === categoria),
   }));
