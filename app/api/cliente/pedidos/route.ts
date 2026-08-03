@@ -50,6 +50,9 @@ export async function GET() {
       linkRastreio: p.linkRastreio,
       cupomCodigo: p.cupomCodigo,
       desconto: p.desconto,
+      ehPresente: p.ehPresente,
+      nomeQuemRecebe: p.nomeQuemRecebe,
+      bilhete: p.bilhete,
       podeCancelar: clientePodeCancelar(status),
       statusReembolso: p.statusReembolso,
       // Só faz sentido avaliar o que a pessoa recebeu de fato.

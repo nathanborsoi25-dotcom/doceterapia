@@ -38,8 +38,16 @@ export default function CheckoutPage() {
   // usado no frete é o que está de fato cadastrado na conta.
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [carregandoCliente, setCarregandoCliente] = useState(true);
-  // Endereço de quem ainda não criou conta, só pra ver o frete.
+  // Endereço digitado na tela: de quem ainda não criou conta, ou de quem quer
+  // entregar em outro lugar (presente, casa da mãe, trabalho).
   const [enderecoVisitante, setEnderecoVisitante] = useState<EnderecoDeVisitante | null>(null);
+  const [outroEndereco, setOutroEndereco] = useState(false);
+
+  // Presente e bilhete.
+  const [ehPresente, setEhPresente] = useState(false);
+  const [nomeQuemRecebe, setNomeQuemRecebe] = useState("");
+  const [querBilhete, setQuerBilhete] = useState(false);
+  const [bilhete, setBilhete] = useState("");
   const subtotal = carrinho.reduce((acc, i) => acc + i.precoUnitario * i.quantidade, 0);
 
   // Dias de encomenda do carrinho: o prazo vem do produto no banco, não do
@@ -85,7 +93,8 @@ export default function CheckoutPage() {
    * usa SEMPRE o do cadastro (o único que ninguém consegue forjar).
    */
   const enderecoAtual = useMemo(() => {
-    if (cliente) return cliente.endereco;
+    // Logada, mas pediu pra entregar em outro lugar: vale o que ela digitou.
+    if (cliente && !outroEndereco) return cliente.endereco;
     if (!enderecoVisitante) return null;
     return {
       rua: enderecoVisitante.rua,
@@ -97,7 +106,7 @@ export default function CheckoutPage() {
       lat: enderecoVisitante.lat,
       lng: enderecoVisitante.lng,
     };
-  }, [cliente, enderecoVisitante]);
+  }, [cliente, outroEndereco, enderecoVisitante]);
 
   /** Endereço ainda em branco: a pessoa nem começou a preencher. */
   const enderecoEmBranco =
@@ -171,9 +180,20 @@ export default function CheckoutPage() {
         itens: carrinho,
         tipoEntrega,
         dataAgendada,
-        enderecoEntrega: tipoEntrega === "entrega" ? cliente?.endereco : undefined,
+        // Entregando em outro lugar, o endereço vai junto — o servidor
+        // confere a área e recalcula o frete a partir dele.
+        entregarEmOutroEndereco: outroEndereco,
+        enderecoEntrega:
+          tipoEntrega === "entrega"
+            ? outroEndereco
+              ? enderecoAtual ?? undefined
+              : cliente?.endereco
+            : undefined,
         valorFrete,
         formaPagamento,
+        ehPresente,
+        nomeQuemRecebe: ehPresente ? nomeQuemRecebe : "",
+        bilhete: querBilhete ? bilhete : "",
       });
       if (url) {
         // Redireciona para o checkout seguro do Mercado Pago (Pix/cartão).
@@ -237,7 +257,7 @@ export default function CheckoutPage() {
               mudar); quem ainda não tem digita aqui só pra ver o frete. */}
           {tipoEntrega === "entrega" && !carregandoCliente && (
             <div className="bg-white/60 border border-cherryLight/30 rounded-xl p-4 grid gap-2">
-              {cliente ? (
+              {cliente && !outroEndereco ? (
                 <>
                   <p className="text-sm font-body text-ink/80">
                     <strong>Entregar em:</strong> {cliente.endereco.rua},{" "}
@@ -245,12 +265,32 @@ export default function CheckoutPage() {
                     {cliente.endereco.bairro && ` — ${cliente.endereco.bairro}`}
                     {cliente.endereco.cidade && `, ${cliente.endereco.cidade}`}
                   </p>
-                  <a
-                    href="/conta"
-                    className="text-sm text-cherryDark underline justify-self-start py-1"
-                  >
-                    Mudar meu endereço
-                  </a>
+                  <div className="flex flex-wrap gap-x-4">
+                    <button
+                      onClick={() => setOutroEndereco(true)}
+                      className="text-sm text-cherryDark underline py-2"
+                    >
+                      Entregar em outro endereço
+                    </button>
+                    <a href="/conta" className="text-sm text-ink/60 underline py-2">
+                      Mudar meu endereço fixo
+                    </a>
+                  </div>
+                </>
+              ) : cliente && outroEndereco ? (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-body text-ink/70">
+                      Entregar neste endereço, só neste pedido:
+                    </p>
+                    <button
+                      onClick={() => setOutroEndereco(false)}
+                      className="text-sm text-cherryDark underline py-2"
+                    >
+                      Usar meu endereço
+                    </button>
+                  </div>
+                  <EnderecoVisitante onChange={setEnderecoVisitante} />
                 </>
               ) : (
                 <>
@@ -332,6 +372,74 @@ export default function CheckoutPage() {
                 ? `Um dos doces do seu carrinho é feito sob encomenda e precisa de ${prazoDias} ${prazoDias === 1 ? "dia" : "dias"} de preparo. A Camily combina o dia e o horário da entrega com você pelo WhatsApp.`
                 : "A Camily combina o dia e o horário da entrega com você pelo WhatsApp, assim que o pagamento for confirmado."}
             </p>
+          )}
+        </section>
+
+        <CherryDivider />
+
+        {/* Presente e bilhete: os dois começam fechados porque a maioria das
+            compras é pra própria pessoa — só abre quem precisa. */}
+        <section className="grid gap-3">
+          <h2 className="font-display text-lg text-ink">É um presente?</h2>
+
+          <label className="flex items-start gap-2.5 font-body text-sm text-ink/80">
+            <input
+              type="checkbox"
+              checked={ehPresente}
+              onChange={(e) => setEhPresente(e.target.checked)}
+              className="w-5 h-5 mt-0.5 accent-cherryDark shrink-0"
+            />
+            <span>
+              Sim, é presente para outra pessoa
+              <span className="block text-xs text-ink/50">
+                A Camily leva no nome de quem vai receber.
+              </span>
+            </span>
+          </label>
+
+          {ehPresente && (
+            <label className="grid gap-1 text-sm font-body text-ink/80">
+              Nome de quem vai receber
+              <input
+                value={nomeQuemRecebe}
+                onChange={(e) => setNomeQuemRecebe(e.target.value)}
+                placeholder="Ex: Ana Paula"
+                className="w-full border border-cherryLight/60 rounded-xl px-4 py-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
+              />
+            </label>
+          )}
+
+          <label className="flex items-start gap-2.5 font-body text-sm text-ink/80">
+            <input
+              type="checkbox"
+              checked={querBilhete}
+              onChange={(e) => setQuerBilhete(e.target.checked)}
+              className="w-5 h-5 mt-0.5 accent-cherryDark shrink-0"
+            />
+            <span>
+              Quero enviar um bilhete junto
+              <span className="block text-xs text-ink/50">
+                A Camily escreve à mão num cartãozinho e manda com o doce.
+              </span>
+            </span>
+          </label>
+
+          {querBilhete && (
+            <label className="grid gap-1 text-sm font-body text-ink/80">
+              Sua mensagem
+              <textarea
+                value={bilhete}
+                onChange={(e) => setBilhete(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="Feliz aniversário! Que seu dia seja tão doce quanto você. 🍒"
+                className="w-full border border-cherryLight/60 rounded-xl px-4 py-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
+              />
+              <span className="text-xs text-ink/45">
+                {bilhete.length}/500 — escrito à mão, então caprichamos no que
+                couber no cartão.
+              </span>
+            </label>
           )}
         </section>
 

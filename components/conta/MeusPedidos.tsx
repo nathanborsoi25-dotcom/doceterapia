@@ -128,6 +128,13 @@ function CartaoPedido({
 
       <p className="text-ink/70">{situacao.explicacao}</p>
 
+      {pedido.ehPresente && (
+        <p className="text-xs bg-blush/60 border border-cherryLight/40 rounded-xl px-3 py-2 text-ink/70">
+          🎁 Presente{pedido.nomeQuemRecebe ? ` para ${pedido.nomeQuemRecebe}` : ""}
+          {pedido.bilhete && " · com bilhete"}
+        </p>
+      )}
+
       {reembolso && (
         <p className="text-xs bg-blush/60 border border-cherryLight/30 rounded-xl px-3 py-2 text-ink/70">
           {reembolso}

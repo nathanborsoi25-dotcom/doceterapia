@@ -357,6 +357,32 @@ export default function AdminPedidosPage() {
                   {p.valorFrete > 0 && ` · Frete ${reais(p.valorFrete)}`}
                 </p>
 
+                {/* Presente e bilhete em destaque: mudam o que ela faz na
+                    entrega e o que escreve no cartão. */}
+                {p.ehPresente && (
+                  <p className="bg-blush/70 border border-cherryLight/50 rounded-xl px-3 py-2 text-ink/80">
+                    🎁 <strong>É presente</strong>
+                    {p.nomeQuemRecebe && (
+                      <>
+                        {" "}
+                        — entregar para{" "}
+                        <strong className="text-cherryDark">{p.nomeQuemRecebe}</strong>
+                      </>
+                    )}
+                  </p>
+                )}
+
+                {p.bilhete && (
+                  <div className="bg-white border border-cherryLight/50 rounded-xl px-3 py-2.5">
+                    <p className="text-xs text-cherryMid font-semibold mb-1">
+                      Bilhete para escrever no cartão:
+                    </p>
+                    <p className="font-display text-base text-ink whitespace-pre-wrap">
+                      &ldquo;{p.bilhete}&rdquo;
+                    </p>
+                  </div>
+                )}
+
                 {p.tipoEntrega === "entrega" && p.enderecoEntrega && (
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-ink/60">

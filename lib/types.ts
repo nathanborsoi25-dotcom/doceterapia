@@ -104,6 +104,10 @@ export interface Pedido {
   formaPagamento: FormaPagamento;
   status: StatusPedido;
   criadoEm: string;
+  /** Compra para outra pessoa: quem recebe e o recado que vai junto. */
+  ehPresente?: boolean;
+  nomeQuemRecebe?: string | null;
+  bilhete?: string | null;
 }
 
 /**
@@ -124,6 +128,9 @@ export interface PedidoDoPainel extends Pedido {
   canceladoPor: string | null;
   motivoCancelamento: string | null;
 }
+
+/** Endereço de entrega informado só para aquele pedido. */
+export type EnderecoDoPedido = Cliente["endereco"];
 
 /**
  * O pedido como o próprio cliente vê na conta dele: sem os dados internos da

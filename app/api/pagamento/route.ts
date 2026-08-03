@@ -7,6 +7,7 @@ import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
+import { geocodificar } from "@/lib/geocode";
 import { dataMinimaRetirada, prazoMaximoEmDias } from "@/lib/prazo";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
@@ -25,7 +26,13 @@ type Corpo = Pick<
   | "enderecoEntrega"
   | "valorFrete"
   | "formaPagamento"
->;
+  | "ehPresente"
+  | "nomeQuemRecebe"
+  | "bilhete"
+> & {
+  /** A cliente pediu para entregar em endereço diferente do cadastro. */
+  entregarEmOutroEndereco?: boolean;
+};
 
 /** Limite de segurança: ninguém pede 500 brigadeiros por engano. */
 const QUANTIDADE_MAXIMA = 200;
@@ -45,6 +52,7 @@ export async function POST(req: Request) {
 
   const db = getDb();
   const tipoEntrega = body.tipoEntrega ?? "entrega";
+  const ehPresente = body.ehPresente === true;
 
   // 1) Remonta os itens A PARTIR DO BANCO. Nome e preço que vêm do navegador
   // são descartados — só o produtoId e a quantidade são aproveitados —, senão
@@ -141,14 +149,58 @@ export async function POST(req: Request) {
     );
   }
 
+  /**
+   * Para onde vai a entrega.
+   *
+   * Por padrão é o endereço do cadastro. Mas a cliente pode mandar entregar
+   * em OUTRO lugar (presente pra uma amiga, entrega no trabalho) — nesse caso
+   * o endereço vem da tela, e por isso ele é tratado como tudo que vem do
+   * navegador: os campos são limpos, a área é checada de novo e as
+   * coordenadas são buscadas AQUI. Aceitar lat/lng do navegador deixaria
+   * alguém informar um ponto pertinho da loja e receber do outro lado da
+   * cidade pagando frete de esquina.
+   */
+  const outroEndereco = body.enderecoEntrega;
+  const usaOutroEndereco =
+    tipoEntrega === "entrega" && body.entregarEmOutroEndereco === true && outroEndereco;
+
+  const enderecoDestino = usaOutroEndereco
+    ? {
+        rua: texto(outroEndereco?.rua, 120),
+        numero: texto(outroEndereco?.numero, 20),
+        bairro: texto(outroEndereco?.bairro, 120),
+        cidade: texto(outroEndereco?.cidade, 120),
+        cep: texto(outroEndereco?.cep, 12),
+        complemento: texto(outroEndereco?.complemento, 120) || undefined,
+        lat: undefined as number | undefined,
+        lng: undefined as number | undefined,
+      }
+    : {
+        rua: cliente.rua,
+        numero: cliente.numero,
+        bairro: cliente.bairro,
+        cidade: cliente.cidade,
+        cep: cliente.cep,
+        complemento: cliente.complemento ?? undefined,
+        lat: cliente.lat ?? undefined,
+        lng: cliente.lng ?? undefined,
+      };
+
+  if (usaOutroEndereco && (!enderecoDestino.rua || !enderecoDestino.numero)) {
+    return NextResponse.json(
+      { error: "Preencha a rua e o número do endereço de entrega." },
+      { status: 400 }
+    );
+  }
+
   // A entrega só vale pra Arapongas-PR. Quem é de fora ainda pode comprar
   // escolhendo Retirada, então a checagem só vale pra entrega.
   if (tipoEntrega === "entrega") {
     const area = checarAreaEntrega({
-      cep: cliente.cep,
-      cidade: cliente.cidade,
-      bairro: cliente.bairro,
-      rua: cliente.rua,
+      cep: enderecoDestino.cep,
+      cidade: enderecoDestino.cidade,
+      bairro: enderecoDestino.bairro,
+      rua: enderecoDestino.rua,
     });
     if (!area.atendido) {
       return NextResponse.json(
@@ -157,6 +209,28 @@ export async function POST(req: Request) {
         },
         { status: 400 }
       );
+    }
+
+    // Endereço novo: descobre onde ele fica, aqui no servidor.
+    if (usaOutroEndereco) {
+      const coords = await geocodificar({
+        rua: enderecoDestino.rua,
+        numero: enderecoDestino.numero,
+        bairro: enderecoDestino.bairro,
+        cidade: enderecoDestino.cidade,
+        cep: enderecoDestino.cep,
+      });
+      if (!coords) {
+        return NextResponse.json(
+          {
+            error:
+              "Não consegui localizar esse endereço de entrega no mapa. Confira a rua e o número, ou escolha Retirada.",
+          },
+          { status: 400 }
+        );
+      }
+      enderecoDestino.lat = coords.lat;
+      enderecoDestino.lng = coords.lng;
     }
   }
 
@@ -173,7 +247,7 @@ export async function POST(req: Request) {
       ? { origem: linhaCfg.origem, faixas: linhaCfg.faixas }
       : configuracaoFretePadrao;
 
-    const { lat, lng } = cliente;
+    const { lat, lng } = enderecoDestino;
 
     if (lat == null || lng == null) {
       return NextResponse.json(
@@ -269,21 +343,12 @@ export async function POST(req: Request) {
     // Na entrega o cliente nao agenda: quem marca a data e a Camily.
     dataAgendada: tipoEntrega === "retirada" ? texto(body.dataAgendada, 40) : "",
     prazoEm,
-    // Endereço congelado no momento da compra, tirado do cadastro — se o
-    // cliente mudar de casa depois, o pedido antigo mantém o endereço certo.
-    enderecoEntrega:
-      tipoEntrega === "entrega"
-        ? {
-            rua: cliente.rua,
-            numero: cliente.numero,
-            bairro: cliente.bairro,
-            cidade: cliente.cidade,
-            cep: cliente.cep,
-            complemento: cliente.complemento ?? undefined,
-            lat: cliente.lat ?? undefined,
-            lng: cliente.lng ?? undefined,
-          }
-        : null,
+    // Endereço congelado no momento da compra — se a cliente mudar de casa
+    // depois, o pedido antigo mantém o endereço certo.
+    enderecoEntrega: tipoEntrega === "entrega" ? enderecoDestino : null,
+    ehPresente,
+    nomeQuemRecebe: ehPresente ? texto(body.nomeQuemRecebe, 120) || null : null,
+    bilhete: texto(body.bilhete, 500) || null,
     valorFrete,
     cupomCodigo,
     desconto,

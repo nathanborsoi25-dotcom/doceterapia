@@ -139,6 +139,15 @@ export const pedidos = pgTable("pedidos", {
   dataAgendada: text("data_agendada").notNull().default(""),
   enderecoEntrega: jsonb("endereco_entrega").$type<Cliente["endereco"] | null>(),
   valorFrete: doublePrecision("valor_frete").notNull().default(0),
+  /**
+   * Presente: a compra vai para outra pessoa. O nome de quem recebe importa
+   * na porta — é ele que a Camily (ou o entregador) chama, não o de quem
+   * pagou.
+   */
+  ehPresente: boolean("eh_presente").notNull().default(false),
+  nomeQuemRecebe: text("nome_quem_recebe"),
+  /** Recadinho que a cliente escreve e a Camily copia à mão no cartão. */
+  bilhete: text("bilhete"),
   /** Cupom aplicado na compra, se houve. */
   cupomCodigo: text("cupom_codigo"),
   desconto: doublePrecision("desconto").notNull().default(0),

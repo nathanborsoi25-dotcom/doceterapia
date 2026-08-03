@@ -178,7 +178,13 @@ export type NovoPedido = Pick<
   | "enderecoEntrega"
   | "valorFrete"
   | "formaPagamento"
->;
+> & {
+  /** Entregar em endereço diferente do cadastro (o servidor revalida). */
+  entregarEmOutroEndereco?: boolean;
+  ehPresente?: boolean;
+  nomeQuemRecebe?: string;
+  bilhete?: string;
+};
 
 /**
  * Cria o pedido e inicia o pagamento no Mercado Pago. Retorna a URL do

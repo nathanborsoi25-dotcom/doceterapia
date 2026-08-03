@@ -17,6 +17,14 @@ async function main() {
   await sql`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS status_reembolso text`;
   await sql`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS valor_reembolsado double precision`;
 
+  console.log("1b) Presente e bilhete no pedido...");
+  await sql`
+    ALTER TABLE pedidos
+    ADD COLUMN IF NOT EXISTS eh_presente boolean NOT NULL DEFAULT false
+  `;
+  await sql`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS nome_quem_recebe text`;
+  await sql`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS bilhete text`;
+
   console.log("2) Tabela de avaliações...");
   await sql`
     CREATE TABLE IF NOT EXISTS avaliacoes (

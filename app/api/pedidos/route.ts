@@ -41,6 +41,9 @@ export async function GET() {
     valorReembolsado: p.valorReembolsado,
     canceladoPor: p.canceladoPor,
     motivoCancelamento: p.motivoCancelamento,
+    ehPresente: p.ehPresente,
+    nomeQuemRecebe: p.nomeQuemRecebe,
+    bilhete: p.bilhete,
   }));
 
   return NextResponse.json(resultado);
