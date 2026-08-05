@@ -28,6 +28,10 @@ export default function AdminClientesPage() {
         {clientes.map((c) => (
           <div key={c.id} className="bg-white/70 border border-cherryLight/30 rounded-xl p-4 font-body text-sm">
             <p className="font-display text-base text-cherryDark">{c.nome}</p>
+            {/* O e-mail é por onde a cliente entra no site: é ele que a Camily
+                precisa ter à mão quando alguém liga dizendo que não consegue
+                acessar a conta. */}
+            <p className="break-words">E-mail: {c.email}</p>
             <p>Telefone: {c.telefone}</p>
             <p>
               Endereço: {c.endereco.rua}, {c.endereco.numero} — {c.endereco.bairro},{" "}

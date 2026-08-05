@@ -107,14 +107,19 @@ export const sabores = pgTable("sabores", {
   ativo: boolean("ativo").notNull().default(true),
 });
 
-// Clientes cadastrados (cada CPF é único).
+// Clientes cadastrados (cada e-mail é único).
 export const clientes = pgTable("clientes", {
   id: text("id").primaryKey(),
   nome: text("nome").notNull(),
-  cpf: text("cpf").notNull().unique(),
-  // E-mail é para onde vai o código de "esqueci minha senha", então é ele
-  // que protege a conta (o CPF não serve: circula em nota fiscal e vazamentos).
-  email: text("email").notNull().default(""),
+  /**
+   * A identidade da conta: é com ele que a pessoa entra e é para ele que vai
+   * o código de "esqueci minha senha". Guardado sempre em minúsculas, para
+   * "Fulano@Gmail.com" e "fulano@gmail.com" serem a mesma conta.
+   *
+   * Já foi o CPF que fazia esse papel. Saiu porque a loja não precisa dele
+   * pra vender nem pra entregar, e guardar documento à toa só cria risco.
+   */
+  email: text("email").notNull().unique(),
   // Senha do cliente, guardada como hash scrypt (nunca em texto puro).
   // Aceita nulo por causa de quem se cadastrou antes de existir login.
   senhaHash: text("senha_hash"),

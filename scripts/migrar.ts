@@ -1,8 +1,9 @@
 import { neon } from "@neondatabase/serverless";
 
 /**
- * Migração ADITIVA: só acrescenta colunas e tabelas novas.
- * Nenhum DROP, nenhum ALTER destrutivo — rodar duas vezes não faz mal.
+ * Migração ADITIVA: acrescenta colunas, tabelas e índices. Nunca apaga dado
+ * nem coluna — o mais longe que vai é AFROUXAR regra (tirar um NOT NULL, tirar
+ * um "único"). Rodar duas vezes não faz mal.
  *
  *   npx dotenv -e .env.local -- npx tsx scripts/migrar.ts
  */
@@ -127,6 +128,55 @@ async function main() {
     ADD COLUMN IF NOT EXISTS pontos_por_story integer NOT NULL DEFAULT 15
   `;
 
+  console.log("5) Login por e-mail (o CPF sai de cena)...");
+  // Tudo em minúsculas: o login compara com o que a pessoa digitar, e
+  // "Fulano@Gmail.com" e "fulano@gmail.com" são a mesma conta.
+  await sql`UPDATE clientes SET email = lower(trim(email)) WHERE email <> lower(trim(email))`;
+
+  // Trava de segurança: sem e-mail (ou com e-mail repetido) alguém ficaria
+  // sem conseguir entrar. Melhor parar aqui do que descobrir depois.
+  const problemas = await sql`
+    SELECT
+      count(*) FILTER (WHERE coalesce(trim(email), '') = '') AS sem_email,
+      count(*) - count(DISTINCT email) AS repetidos
+    FROM clientes
+  `;
+  const { sem_email: semEmail, repetidos } = problemas[0] as Record<string, number>;
+  if (Number(semEmail) > 0 || Number(repetidos) > 0) {
+    throw new Error(
+      `Não dá pra migrar: ${semEmail} cliente(s) sem e-mail e ${repetidos} e-mail(s) repetido(s). ` +
+        `Arrume esses cadastros antes de rodar de novo.`
+    );
+  }
+
+  // O e-mail passa a ser a identidade da conta.
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS clientes_email_idx ON clientes (email)`;
+
+  // O CPF deixa de ser obrigatório e deixa de ser único, pra parar de estorvar
+  // quem se cadastra sem ele. Tudo dentro do "se a coluna existir": em
+  // 2026-08-04 ela foi apagada de vez (`scripts/remover-coluna-cpf.ts`), e num
+  // banco novo ela nunca chega a existir.
+  await sql`
+    DO $$
+    DECLARE r record;
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'clientes' AND column_name = 'cpf'
+      ) THEN
+        ALTER TABLE clientes ALTER COLUMN cpf DROP NOT NULL;
+        FOR r IN
+          SELECT c.conname
+          FROM pg_constraint c
+          JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+          WHERE c.conrelid = 'clientes'::regclass AND c.contype = 'u' AND a.attname = 'cpf'
+        LOOP
+          EXECUTE format('ALTER TABLE clientes DROP CONSTRAINT %I', r.conname);
+        END LOOP;
+      END IF;
+    END $$
+  `;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns
@@ -153,6 +203,21 @@ async function main() {
     const existe = await sql`SELECT to_regclass(${"public." + t}) AS t`;
     console.log(`  tabela ${t}:`, existe[0].t ?? "NÃO CRIADA");
   }
+
+  const emailUnico = await sql`SELECT to_regclass('public.clientes_email_idx') AS i`;
+  console.log("  clientes.email único:", emailUnico[0].i ? "ok" : "NÃO CRIADO");
+  const cpfObrigatorio = await sql`
+    SELECT is_nullable FROM information_schema.columns
+    WHERE table_name = 'clientes' AND column_name = 'cpf'
+  `;
+  console.log(
+    "  clientes.cpf:",
+    cpfObrigatorio.length === 0
+      ? "coluna já removida"
+      : cpfObrigatorio[0].is_nullable === "YES"
+        ? "destravado (não é mais obrigatório)"
+        : "AINDA OBRIGATÓRIO"
+  );
   console.log("\nPronto.");
 }
 

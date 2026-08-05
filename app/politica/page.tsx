@@ -136,10 +136,10 @@ export default function PoliticaPage() {
 
       <Secao titulo="Seus dados">
         <p>
-          Guardo apenas o necessário pra vender e entregar: nome, CPF, e-mail,
-          telefone e endereço. Sua senha fica guardada de forma embaralhada
-          (nem eu consigo ver). Não vendo nem compartilho seus dados com
-          ninguém. Se quiser que eu apague seu cadastro, é só pedir.
+          Guardo apenas o necessário pra vender e entregar: nome, e-mail,
+          telefone e endereço. Não peço CPF. Sua senha fica guardada de forma
+          embaralhada (nem eu consigo ver). Não vendo nem compartilho seus dados
+          com ninguém. Se quiser que eu apague seu cadastro, é só pedir.
         </p>
       </Secao>
 

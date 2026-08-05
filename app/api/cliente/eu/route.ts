@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { clientes } from "@/lib/db/schema";
 import { getClienteLogado } from "@/lib/cliente-logado";
-import { emailValido, telefoneValido } from "@/lib/validacoes";
+import { emailJaExiste } from "@/lib/db/erros";
+import { emailValido, normalizarEmail, telefoneValido } from "@/lib/validacoes";
 import type { Cliente } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function GET() {
   const cliente: Cliente = {
     id: c.id,
     nome: c.nome,
-    cpf: c.cpf,
+    email: c.email,
     telefone: c.telefone,
     endereco: {
       rua: c.rua,
@@ -33,7 +34,7 @@ export async function GET() {
     criadoEm: c.criadoEm.toISOString(),
   };
   // A senha (hash) nunca sai daqui.
-  return NextResponse.json({ ...cliente, email: c.email });
+  return NextResponse.json(cliente);
 }
 
 function texto(valor: unknown, limite = 120): string {
@@ -49,8 +50,9 @@ function coordenada(valor: unknown, max: number): number | null {
  * O cliente editando os próprios dados na tela "Minha conta".
  *
  * Quem está sendo editado sai da SESSÃO — o navegador não manda id nenhum.
- * O CPF e a senha ficam de fora de propósito: o CPF é a identidade de quem
- * entra no site, e senha se troca pelo "esqueci minha senha".
+ * A senha fica de fora de propósito: troca-se pelo "esqueci minha senha". O
+ * e-mail, sim, pode mudar aqui — mas como ele é o login, o novo precisa estar
+ * livre, senão duas contas passariam a disputar o mesmo endereço.
  */
 export async function PUT(req: Request) {
   const atual = await getClienteLogado();
@@ -64,7 +66,7 @@ export async function PUT(req: Request) {
   }
 
   const nome = texto(body.nome);
-  const email = texto(body.email).toLowerCase();
+  const email = normalizarEmail(texto(body.email));
   const telefone = texto(body.telefone, 30);
   const endereco = body.endereco ?? {};
 
@@ -87,24 +89,42 @@ export async function PUT(req: Request) {
     );
   }
 
-  await getDb()
-    .update(clientes)
-    .set({
-      nome,
-      email,
-      telefone,
-      rua: texto(endereco.rua),
-      numero: texto(endereco.numero, 20),
-      bairro: texto(endereco.bairro),
-      cidade: texto(endereco.cidade),
-      cep: texto(endereco.cep, 12),
-      complemento: texto(endereco.complemento) || null,
-      // Sem coordenadas novas, mantém as antigas: perder o lat/lng deixaria o
-      // frete sem como ser calculado no próximo pedido.
-      lat: coordenada(endereco.lat, 90) ?? atual.lat,
-      lng: coordenada(endereco.lng, 180) ?? atual.lng,
-    })
-    .where(eq(clientes.id, atual.id));
+  const emailOcupado = { error: "Este e-mail já está sendo usado por outra conta." };
+
+  // Trocou de e-mail? Confere se já não é o login de outra pessoa.
+  if (email !== atual.email) {
+    const [outro] = await getDb()
+      .select({ id: clientes.id })
+      .from(clientes)
+      .where(eq(clientes.email, email));
+    if (outro && outro.id !== atual.id) {
+      return NextResponse.json(emailOcupado, { status: 409 });
+    }
+  }
+
+  try {
+    await getDb()
+      .update(clientes)
+      .set({
+        nome,
+        email,
+        telefone,
+        rua: texto(endereco.rua),
+        numero: texto(endereco.numero, 20),
+        bairro: texto(endereco.bairro),
+        cidade: texto(endereco.cidade),
+        cep: texto(endereco.cep, 12),
+        complemento: texto(endereco.complemento) || null,
+        // Sem coordenadas novas, mantém as antigas: perder o lat/lng deixaria o
+        // frete sem como ser calculado no próximo pedido.
+        lat: coordenada(endereco.lat, 90) ?? atual.lat,
+        lng: coordenada(endereco.lng, 180) ?? atual.lng,
+      })
+      .where(eq(clientes.id, atual.id));
+  } catch (e) {
+    if (emailJaExiste(e)) return NextResponse.json(emailOcupado, { status: 409 });
+    throw e;
+  }
 
   return NextResponse.json({ ok: true });
 }

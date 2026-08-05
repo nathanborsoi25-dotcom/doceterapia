@@ -5,12 +5,11 @@ import Link from "next/link";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import { entrarCliente } from "@/lib/api";
-import { formatarCpf } from "@/lib/formato";
 import { sincronizarCarrinhoAposLogin } from "@/lib/store";
 import { useDestinoDeVolta } from "@/lib/voltar";
 
 export default function EntrarPage() {
-  const [cpf, setCpf] = useState("");
+  const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [entrando, setEntrando] = useState(false);
@@ -22,7 +21,7 @@ export default function EntrarPage() {
     setErro("");
     setEntrando(true);
     try {
-      await entrarCliente(cpf, senha);
+      await entrarCliente(email, senha);
       // O carrinho montado antes do login agora tem dono: vai pro banco.
       sincronizarCarrinhoAposLogin();
       // Navegação completa (e não router.push) para o navegador entender que
@@ -53,15 +52,15 @@ export default function EntrarPage() {
           o que faz o gerenciador de senhas oferecer salvar o login. */}
       <form onSubmit={handleSubmit} method="post" action="#" className="grid gap-4">
         <label className="grid gap-1 text-sm font-body text-ink/80">
-          CPF
+          E-mail
           <input
             name="username"
+            type="email"
             autoComplete="username"
-            inputMode="numeric"
             required
-            value={cpf}
-            onChange={(e) => setCpf(formatarCpf(e.target.value))}
-            placeholder="000.000.000-00"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="voce@email.com"
             className="border border-cherryLight/60 rounded-xl px-4 py-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
           />
         </label>

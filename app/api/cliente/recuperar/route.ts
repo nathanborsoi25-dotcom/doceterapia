@@ -3,8 +3,8 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { clientes, codigosSenha } from "@/lib/db/schema";
 import { gerarHashSenha } from "@/lib/senha";
-import { emailCodigoSenha, enviarEmail, mascararEmail } from "@/lib/email";
-import { apenasDigitos } from "@/lib/validacoes";
+import { emailCodigoSenha, enviarEmail } from "@/lib/email";
+import { emailValido, normalizarEmail } from "@/lib/validacoes";
 
 export const dynamic = "force-dynamic";
 
@@ -13,21 +13,22 @@ const VALIDADE_MINUTOS = 15;
 const ESPERA_SEGUNDOS = 60;
 
 export async function POST(req: Request) {
-  const { cpf } = (await req.json().catch(() => ({}))) as { cpf?: string };
-  const digitos = apenasDigitos(cpf ?? "");
+  const body = (await req.json().catch(() => ({}))) as { email?: string };
+  const email = normalizarEmail(body.email ?? "");
 
-  // Resposta sempre igual, exista o CPF ou não: senão daria pra descobrir
-  // quem tem conta aqui só testando CPFs.
+  // Resposta sempre igual, exista o e-mail ou não: senão daria pra descobrir
+  // quem tem conta aqui só testando endereços. É por isso que não devolvemos
+  // mais o e-mail de destino — a tela mostra o que a própria pessoa digitou.
   const generico = {
     ok: true,
     mensagem:
-      "Se este CPF tiver uma conta, enviamos um código para o e-mail cadastrado.",
+      "Se este e-mail tiver uma conta, enviamos um código para ele.",
   };
 
-  if (digitos.length !== 11) return NextResponse.json(generico);
+  if (!emailValido(email)) return NextResponse.json(generico);
 
   const db = getDb();
-  const [cliente] = await db.select().from(clientes).where(eq(clientes.cpf, digitos));
+  const [cliente] = await db.select().from(clientes).where(eq(clientes.email, email));
   if (!cliente || !cliente.email) return NextResponse.json(generico);
 
   const agora = new Date();
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
       )
     );
   if (recente) {
-    return NextResponse.json({ ...generico, email: mascararEmail(cliente.email) });
+    return NextResponse.json(generico);
   }
 
   // Um código válido por vez: os anteriores são marcados como usados.
@@ -78,5 +79,5 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ ...generico, email: mascararEmail(cliente.email) });
+  return NextResponse.json(generico);
 }

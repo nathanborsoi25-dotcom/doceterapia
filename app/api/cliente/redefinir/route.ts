@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { clientes, codigosSenha } from "@/lib/db/schema";
 import { conferirSenha, gerarHashSenha } from "@/lib/senha";
 import { validarSenha } from "@/lib/senha-regras";
-import { apenasDigitos } from "@/lib/validacoes";
+import { apenasDigitos, normalizarEmail } from "@/lib/validacoes";
 
 export const dynamic = "force-dynamic";
 
@@ -13,13 +13,13 @@ const TENTATIVAS_MAXIMAS = 5;
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
-    cpf?: string;
+    email?: string;
     codigo?: string;
     senha?: string;
     confirmarSenha?: string;
   };
 
-  const cpf = apenasDigitos(body.cpf ?? "");
+  const email = normalizarEmail(body.email ?? "");
   const codigo = apenasDigitos(body.codigo ?? "");
 
   const erroSenha = validarSenha(body.senha);
@@ -29,12 +29,12 @@ export async function POST(req: Request) {
   }
 
   const invalido = { error: "Código inválido ou expirado. Peça um novo." };
-  if (cpf.length !== 11 || codigo.length !== 6) {
+  if (!email || codigo.length !== 6) {
     return NextResponse.json(invalido, { status: 400 });
   }
 
   const db = getDb();
-  const [cliente] = await db.select().from(clientes).where(eq(clientes.cpf, cpf));
+  const [cliente] = await db.select().from(clientes).where(eq(clientes.email, email));
   if (!cliente) return NextResponse.json(invalido, { status: 400 });
 
   // Pega o código mais recente que ainda não foi usado nem venceu.

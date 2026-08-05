@@ -143,10 +143,6 @@ export async function buscarEnderecoPorCep(
 }
 
 // ---- Clientes ----
-export async function registrarCliente(cliente: Cliente): Promise<void> {
-  await fetch("/api/clientes", POST_JSON(cliente));
-}
-
 export async function getListaClientes(): Promise<Cliente[]> {
   return json<Cliente[]>(await fetch("/api/clientes", { cache: "no-store" }));
 }
@@ -417,7 +413,6 @@ async function erroDoServidor(res: Response, padrao: string): Promise<string> {
 
 export type DadosCadastro = {
   nome: string;
-  cpf: string;
   email: string;
   telefone: string;
   senha: string;
@@ -430,26 +425,29 @@ export async function cadastrarCliente(dados: DadosCadastro): Promise<void> {
   if (!res.ok) throw new Error(await erroDoServidor(res, "Não foi possível cadastrar."));
 }
 
-export async function entrarCliente(cpf: string, senha: string): Promise<void> {
-  const res = await fetch("/api/cliente/login", POST_JSON({ cpf, senha }));
-  if (!res.ok) throw new Error(await erroDoServidor(res, "CPF ou senha incorretos."));
+export async function entrarCliente(email: string, senha: string): Promise<void> {
+  const res = await fetch("/api/cliente/login", POST_JSON({ email, senha }));
+  if (!res.ok) throw new Error(await erroDoServidor(res, "E-mail ou senha incorretos."));
 }
 
 export async function sairCliente(): Promise<void> {
   await fetch("/api/cliente/logout", { method: "POST" });
 }
 
-/** Pede o código de redefinição; devolve o e-mail mascarado quando dá certo. */
-export async function pedirCodigoSenha(cpf: string): Promise<{ email?: string }> {
-  const res = await fetch("/api/cliente/recuperar", POST_JSON({ cpf }));
+/**
+ * Pede o código de redefinição. A resposta é sempre a mesma, exista a conta
+ * ou não — é o que impede alguém de descobrir quem tem cadastro aqui testando
+ * endereços de e-mail.
+ */
+export async function pedirCodigoSenha(email: string): Promise<void> {
+  const res = await fetch("/api/cliente/recuperar", POST_JSON({ email }));
   if (!res.ok) {
     throw new Error(await erroDoServidor(res, "Não foi possível enviar o código."));
   }
-  return res.json();
 }
 
 export async function redefinirSenha(dados: {
-  cpf: string;
+  email: string;
   codigo: string;
   senha: string;
   confirmarSenha: string;
@@ -461,7 +459,7 @@ export async function redefinirSenha(dados: {
 }
 
 /** Cliente logado, ou null se a sessão não existir mais. */
-export async function getClienteLogado(): Promise<(Cliente & { email?: string }) | null> {
+export async function getClienteLogado(): Promise<Cliente | null> {
   const res = await fetch("/api/cliente/eu", { cache: "no-store" });
   if (!res.ok) return null;
   return res.json();

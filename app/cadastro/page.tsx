@@ -4,16 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import CherryDivider from "@/components/CherryDivider";
 import { buscarEnderecoPorCep, cadastrarCliente, geocodificarEndereco } from "@/lib/api";
-import { formatarCep, formatarCpf, formatarTelefone } from "@/lib/formato";
+import { formatarCep, formatarTelefone } from "@/lib/formato";
 import { getEnderecoVisitante, sincronizarCarrinhoAposLogin } from "@/lib/store";
 import { useDestinoDeVolta } from "@/lib/voltar";
-import { apenasDigitos, cpfValido, emailValido, telefoneValido } from "@/lib/validacoes";
+import { apenasDigitos, emailValido, telefoneValido } from "@/lib/validacoes";
 import { SENHA_MINIMA } from "@/lib/senha-regras";
 
 export default function CadastroPage() {
   const [form, setForm] = useState({
     nome: "",
-    cpf: "",
     email: "",
     telefone: "",
     rua: "",
@@ -52,7 +51,6 @@ export default function CadastroPage() {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
     const mascaras: Record<string, (v: string) => string> = {
-      cpf: formatarCpf,
       telefone: formatarTelefone,
       cep: formatarCep,
     };
@@ -95,9 +93,8 @@ export default function CadastroPage() {
   /** Devolve a primeira mensagem de erro do formulário, ou null se está tudo certo. */
   function validar(): string | null {
     if (!form.nome.trim()) return "Informe seu nome completo.";
-    if (!cpfValido(form.cpf)) return "CPF inválido. Confira os números.";
     if (!emailValido(form.email))
-      return "Informe um e-mail válido — é por ele que você recupera a senha.";
+      return "Informe um e-mail válido — é com ele que você entra no site.";
     if (!telefoneValido(form.telefone)) return "Informe um telefone com DDD.";
     if (!form.rua.trim() || !form.numero.trim() || !form.cep.trim())
       return "Preencha o endereço (rua, número e CEP).";
@@ -131,7 +128,6 @@ export default function CadastroPage() {
     try {
       await cadastrarCliente({
         nome: form.nome,
-        cpf: form.cpf,
         email: form.email,
         telefone: form.telefone,
         senha: form.senha,
@@ -173,24 +169,14 @@ export default function CadastroPage() {
       <form onSubmit={handleSubmit} method="post" action="#" className="grid gap-4">
         <Campo label="Nome completo *" name="nome" value={form.nome} onChange={handleChange} autoComplete="name" />
         <Campo
-          label="CPF *"
-          name="cpf"
-          value={form.cpf}
-          onChange={handleChange}
-          placeholder="000.000.000-00"
-          autoComplete="username"
-          inputMode="numeric"
-          dica="Você vai usar o CPF para entrar no site."
-        />
-        <Campo
           label="E-mail *"
           name="email"
           type="email"
           value={form.email}
           onChange={handleChange}
           placeholder="voce@email.com"
-          autoComplete="email"
-          dica="É para cá que enviamos o código se você esquecer a senha."
+          autoComplete="username"
+          dica="É com ele que você entra no site — e é pra cá que vai o código se esquecer a senha."
         />
         <Campo label="Telefone *" name="telefone" value={form.telefone} onChange={handleChange} placeholder="(43) 99999-9999" autoComplete="tel" inputMode="numeric" />
 

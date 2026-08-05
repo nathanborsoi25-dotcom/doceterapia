@@ -51,7 +51,8 @@ export interface SaborDoDoce {
 export interface Cliente {
   id: string;
   nome: string;
-  cpf: string;
+  /** É com ele que a pessoa entra no site. Sempre em minúsculas. */
+  email: string;
   endereco: {
     rua: string;
     numero: string;

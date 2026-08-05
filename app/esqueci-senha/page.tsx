@@ -4,19 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import CherryDivider from "@/components/CherryDivider";
 import { pedirCodigoSenha, redefinirSenha } from "@/lib/api";
-import { formatarCpf } from "@/lib/formato";
 import { linkWhatsApp } from "@/lib/contato";
 import { SENHA_MINIMA } from "@/lib/senha-regras";
 
 /**
- * Recuperação de senha em dois passos na mesma tela: primeiro o CPF (o código
- * vai para o e-mail cadastrado), depois o código e a senha nova. No fim,
- * manda de volta para o login.
+ * Recuperação de senha em dois passos na mesma tela: primeiro o e-mail (é pra
+ * ele que o código vai), depois o código e a senha nova. No fim, manda de
+ * volta para o login.
  */
 export default function EsqueciSenhaPage() {
   const [passo, setPasso] = useState<1 | 2 | 3>(1);
-  const [cpf, setCpf] = useState("");
-  const [emailMascarado, setEmailMascarado] = useState("");
+  const [email, setEmail] = useState("");
   const [codigo, setCodigo] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
@@ -28,8 +26,7 @@ export default function EsqueciSenhaPage() {
     setErro("");
     setCarregando(true);
     try {
-      const r = await pedirCodigoSenha(cpf);
-      setEmailMascarado(r.email ?? "");
+      await pedirCodigoSenha(email);
       setPasso(2);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível enviar o código.");
@@ -52,7 +49,7 @@ export default function EsqueciSenhaPage() {
     setErro("");
     setCarregando(true);
     try {
-      await redefinirSenha({ cpf, codigo, senha, confirmarSenha });
+      await redefinirSenha({ email, codigo, senha, confirmarSenha });
       setPasso(3);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível redefinir a senha.");
@@ -71,20 +68,20 @@ export default function EsqueciSenhaPage() {
       {passo === 1 && (
         <>
           <p className="text-center text-ink/70 mt-2 font-body text-sm">
-            Informe seu CPF que enviamos um código para o e-mail do seu cadastro.
+            Informe o e-mail do seu cadastro que enviamos um código pra ele.
           </p>
           <CherryDivider />
           <form onSubmit={pedirCodigo} className="grid gap-4">
             <label className="grid gap-1 text-sm font-body text-ink/80">
-              CPF
+              E-mail
               <input
                 name="username"
+                type="email"
                 autoComplete="username"
-                inputMode="numeric"
                 required
-                value={cpf}
-                onChange={(e) => setCpf(formatarCpf(e.target.value))}
-                placeholder="000.000.000-00"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="voce@email.com"
                 className="w-full border border-cherryLight/60 rounded-xl px-4 py-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
               />
             </label>
@@ -103,10 +100,9 @@ export default function EsqueciSenhaPage() {
       {passo === 2 && (
         <>
           <p className="text-center text-ink/70 mt-2 font-body text-sm">
-            {emailMascarado
-              ? `Enviamos um código para ${emailMascarado}.`
-              : "Se este CPF tiver uma conta, o código foi enviado para o e-mail cadastrado."}
-            {" "}Ele vale por 15 minutos.
+            Se <strong className="text-ink/80">{email}</strong> tiver uma conta aqui,
+            o código já está a caminho. Ele vale por 15 minutos — dá uma olhada no
+            spam se não aparecer.
           </p>
           <CherryDivider />
           <form onSubmit={trocarSenha} className="grid gap-4">

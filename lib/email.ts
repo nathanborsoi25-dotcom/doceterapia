@@ -57,14 +57,6 @@ export async function enviarEmail(opcoes: {
   }
 }
 
-/** Esconde o meio do e-mail: "maria@gmail.com" -> "ma***@gmail.com". */
-export function mascararEmail(email: string): string {
-  const [usuario, dominio] = (email ?? "").split("@");
-  if (!usuario || !dominio) return "seu e-mail";
-  const visivel = usuario.slice(0, Math.min(2, usuario.length));
-  return `${visivel}${"*".repeat(3)}@${dominio}`;
-}
-
 /** Moldura comum dos e-mails, pra todos saírem com a cara da loja. */
 function moldura(conteudo: string): string {
   return `<div style="font-family:Nunito,Segoe UI,Arial,sans-serif;background:#fdf0ea;padding:32px 16px">

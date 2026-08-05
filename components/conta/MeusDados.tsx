@@ -7,18 +7,17 @@ import {
   getClienteLogado,
   salvarMeusDados,
 } from "@/lib/api";
-import { formatarCep, formatarCpf, formatarTelefone } from "@/lib/formato";
+import { formatarCep, formatarTelefone } from "@/lib/formato";
 import { apenasDigitos } from "@/lib/validacoes";
 
 /**
  * "Meus dados": o cliente arruma o próprio cadastro sem precisar chamar a
- * Camily. O CPF aparece travado de propósito — é com ele que a pessoa entra
- * no site, e trocar isso sozinho viraria confusão.
+ * Camily. O e-mail pode ser trocado aqui, e trocá-lo troca o login — por isso
+ * o aviso embaixo do campo.
  */
 export default function MeusDados() {
   const [form, setForm] = useState({
     nome: "",
-    cpf: "",
     email: "",
     telefone: "",
     rua: "",
@@ -41,8 +40,7 @@ export default function MeusDados() {
         if (!c) return;
         setForm({
           nome: c.nome,
-          cpf: formatarCpf(c.cpf),
-          email: c.email ?? "",
+          email: c.email,
           telefone: formatarTelefone(c.telefone),
           rua: c.endereco.rua,
           numero: c.endereco.numero,
@@ -131,25 +129,13 @@ export default function MeusDados() {
     <form onSubmit={salvar} className="grid gap-4">
       <Campo label="Nome completo" valor={form.nome} onChange={(v) => mudar("nome", v)} autoComplete="name" />
 
-      <label className="grid gap-1 text-sm font-body text-ink/80">
-        CPF
-        <input
-          value={form.cpf}
-          disabled
-          className="w-full border border-cherryLight/40 rounded-xl px-4 py-2.5 bg-blush/40 text-ink/50"
-        />
-        <span className="text-xs text-ink/50">
-          É com ele que você entra no site, por isso não muda por aqui.
-        </span>
-      </label>
-
       <Campo
         label="E-mail"
         valor={form.email}
         onChange={(v) => mudar("email", v)}
         tipo="email"
         autoComplete="email"
-        dica="É para cá que vai o código se você esquecer a senha."
+        dica="É com ele que você entra no site. Se trocar aqui, o login passa a ser o novo."
       />
       <Campo
         label="Telefone"
