@@ -37,32 +37,70 @@ export default function PoliticaPage() {
 
       <Secao titulo="Cancelamento do pedido">
         <p>
-          Você pode cancelar o pedido sozinha, aqui pelo site, em{" "}
-          <Link href="/conta" className="text-cherryDark underline">
-            Minha conta
-          </Link>
-          , enquanto ele estiver como <strong>&ldquo;Aguardando
-          pagamento&rdquo;</strong> ou <strong>&ldquo;Pagamento
-          confirmado&rdquo;</strong>.
+          A regra é uma só, e ela acompanha o caminho dos seus doces:{" "}
+          <strong>
+            dá pra cancelar e receber o dinheiro de volta enquanto o pedido não
+            saiu da minha cozinha
+          </strong>
+          . Depois que ele sai, não.
         </p>
-        <p>
-          A partir de <strong>&ldquo;Em preparo&rdquo;</strong> o cancelamento
-          passa por mim: os ingredientes já foram usados e os doces já estão
-          sendo feitos. Me chame no WhatsApp que a gente resolve junto — nunca
-          deixei ninguém na mão até hoje.
-        </p>
-        <p>
-          Doces são alimentos perecíveis e feitos sob medida, então não há
-          troca ou devolução depois da entrega. Se algo chegar diferente do
-          combinado, me mande uma foto no mesmo dia que eu resolvo.
-        </p>
+
+        <div className="grid gap-3 mt-1">
+          <Etapa titulo="Aguardando pagamento ou Pagamento confirmado">
+            Você cancela sozinha, na hora, em{" "}
+            <Link href="/conta" className="text-cherryDark underline">
+              Minha conta
+            </Link>
+            . Se já tinha pago, o valor volta inteiro.
+          </Etapa>
+
+          <Etapa titulo="Em preparo">
+            Os doces já estão sendo feitos, então o cancelamento passa por mim —
+            mas ainda dá.{" "}
+            <a
+              href={linkWhatsApp(
+                "Oi, Camily! Preciso cancelar um pedido que ainda está em preparo. Consegue me ajudar?"
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cherryDark underline"
+            >
+              Me chame no WhatsApp
+            </a>{" "}
+            que eu cancelo e devolvo o valor.
+          </Etapa>
+
+          <Etapa titulo="A caminho ou Entregue" ultimo>
+            <strong>A caminho</strong> quer dizer que o pedido saiu para entrega
+            — ou que já está pronto esperando você buscar. Daqui em diante não
+            há mais cancelamento nem devolução: é alimento fresco, feito sob
+            medida pra você, e depois que sai da minha mão eu não consigo
+            aproveitar de novo.
+            <br />
+            Mas se chegou alguma coisa errada, estragada ou fora do que a gente
+            combinou,{" "}
+            <a
+              href={linkWhatsApp(
+                "Oi, Camily! Recebi meu pedido e tem uma coisa que não ficou certa. Posso te mostrar?"
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cherryDark underline"
+            >
+              <strong>me chame no mesmo dia com uma foto</strong>
+            </a>
+            . Eu olho cada caso com você e a gente acerta — nunca deixei ninguém
+            na mão até hoje.
+          </Etapa>
+        </div>
       </Secao>
 
       <Secao titulo="Devolução do dinheiro">
         <p>
-          Quando um pedido pago é cancelado, o estorno é pedido ao Mercado Pago
-          na mesma hora, pelo valor total (doces + entrega, menos o desconto que
-          tiver sido usado).
+          Nos casos acima em que o cancelamento vale, o estorno é pedido ao
+          Mercado Pago na mesma hora, pelo <strong>valor total</strong> (doces +
+          entrega, menos o desconto que tiver sido usado). Você não precisa
+          pedir nada: sai junto com o cancelamento.
         </p>
         <ul className="list-disc pl-5 grid gap-1">
           <li>
@@ -72,7 +110,7 @@ export default function PoliticaPage() {
           <li>
             <strong>Cartão de crédito:</strong> o estorno aparece na fatura —
             dependendo da data de fechamento, pode ser só na fatura seguinte.
-            Quem define esse prazo é o banco, não a loja.
+            Quem define esse prazo é o banco, não eu.
           </li>
           <li>
             <strong>Cartão de débito:</strong> costuma voltar para a conta em
@@ -82,16 +120,6 @@ export default function PoliticaPage() {
         <p>
           Se por algum motivo o estorno automático não sair, eu sou avisada na
           hora e falo com você pelo WhatsApp pra devolver por Pix.
-        </p>
-      </Secao>
-
-      <Secao titulo="Prazo de arrependimento (compras online)">
-        <p>
-          O Código de Defesa do Consumidor dá 7 dias para desistir de uma compra
-          feita fora da loja física (art. 49). Esse direito vale aqui — mas, por
-          se tratar de <strong>alimento perecível e feito sob encomenda</strong>,
-          ele precisa ser exercido <strong>antes de eu começar a preparar</strong>,
-          que é exatamente a regra de cancelamento explicada acima.
         </p>
       </Secao>
 
@@ -169,6 +197,40 @@ export default function PoliticaPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+/**
+ * Uma etapa do caminho do pedido, na regra de cancelamento.
+ *
+ * Vira uma linha do tempo de propósito: o que decide se dá pra cancelar é
+ * ONDE o pedido está, e ver as três fases em ordem responde a pergunta mais
+ * rápido do que três parágrafos seguidos. A cereja marca o ponto de cada
+ * etapa, e o fiozinho liga uma na outra (o último não tem, senão o traço
+ * fica sobrando no ar).
+ */
+function Etapa({
+  titulo,
+  children,
+  ultimo,
+}: {
+  titulo: string;
+  children: React.ReactNode;
+  ultimo?: boolean;
+}) {
+  return (
+    <div className="flex gap-3">
+      <div className="flex flex-col items-center pt-1 shrink-0">
+        <span aria-hidden className="text-sm leading-none">
+          🍒
+        </span>
+        {!ultimo && <span className="w-px flex-1 bg-cherryLight/50 mt-1" />}
+      </div>
+      <div className={`min-w-0 ${ultimo ? "" : "pb-1"}`}>
+        <p className="font-display text-base text-cherryDark">{titulo}</p>
+        <p className="mt-0.5">{children}</p>
+      </div>
+    </div>
   );
 }
 
