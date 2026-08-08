@@ -22,7 +22,7 @@ import {
 import type { Cliente } from "@/lib/types";
 import { calcularFretePorEndereco } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
-import { linkWhatsApp } from "@/lib/contato";
+import { useSobre } from "@/lib/usar-sobre";
 import type { ConfiguracaoFrete, FormaPagamento, TipoEntrega } from "@/lib/types";
 
 export default function CheckoutPage() {
@@ -508,6 +508,7 @@ export default function CheckoutPage() {
 }
 
 function BotaoWhatsApp({ mensagem }: { mensagem: string }) {
+  const { linkWhatsApp } = useSobre();
   return (
     <a
       href={linkWhatsApp(mensagem)}

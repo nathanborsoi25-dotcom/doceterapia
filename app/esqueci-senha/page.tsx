@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import CherryDivider from "@/components/CherryDivider";
 import { pedirCodigoSenha, redefinirSenha } from "@/lib/api";
-import { linkWhatsApp } from "@/lib/contato";
+import { useSobre } from "@/lib/usar-sobre";
 import { SENHA_MINIMA } from "@/lib/senha-regras";
 
 /**
@@ -13,6 +13,7 @@ import { SENHA_MINIMA } from "@/lib/senha-regras";
  * volta para o login.
  */
 export default function EsqueciSenhaPage() {
+  const { linkWhatsApp } = useSobre();
   const [passo, setPasso] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState("");
   const [codigo, setCodigo] = useState("");

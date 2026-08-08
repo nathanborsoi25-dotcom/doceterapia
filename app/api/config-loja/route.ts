@@ -25,17 +25,41 @@ export async function PUT(req: Request) {
 
   const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
+  /**
+   * Cada tela do painel salva por esta mesma rota mandando SÓ os campos dela:
+   * "Sobre mim" manda foto e telefone, fidelidade manda os pontos, promoções
+   * manda o banner. Por isso o que não veio no pedido continua como está —
+   * antes, salvar a foto zeraria os pontos por real e apagaria o banner.
+   */
+  const atual = await getConfigLoja();
+  function manter<T>(valor: unknown, antigo: T, converter: (v: unknown) => T): T {
+    return valor === undefined ? antigo : converter(valor);
+  }
+
   const valores = {
     id: ID_CONFIG,
-    pontosPorReal: Math.max(0, Number(b.pontosPorReal) || 0),
-    pontosPorAvaliacao: Math.max(0, Math.floor(Number(b.pontosPorAvaliacao) || 0)),
-    pontosPorStory: Math.max(0, Math.floor(Number(b.pontosPorStory) || 0)),
-    bannerAtivo: Boolean(b.bannerAtivo),
-    bannerTitulo: texto(b.bannerTitulo, 80),
-    bannerDescricao: texto(b.bannerDescricao, 200),
-    bannerSelo: texto(b.bannerSelo, 40),
-    bannerImagem: texto(b.bannerImagem, 500),
-    bannerLink: texto(b.bannerLink, 200) || "/catalogo",
+    sobreFoto: manter(b.sobreFoto, atual.sobreFoto, (v) => texto(v, 500)),
+    sobreTexto: manter(b.sobreTexto, atual.sobreTexto, (v) => texto(v, 600)),
+    telefone: manter(b.telefone, atual.telefone, (v) => texto(v, 30)),
+    pontosPorReal: manter(b.pontosPorReal, atual.pontosPorReal, (v) =>
+      Math.max(0, Number(v) || 0)
+    ),
+    pontosPorAvaliacao: manter(b.pontosPorAvaliacao, atual.pontosPorAvaliacao, (v) =>
+      Math.max(0, Math.floor(Number(v) || 0))
+    ),
+    pontosPorStory: manter(b.pontosPorStory, atual.pontosPorStory, (v) =>
+      Math.max(0, Math.floor(Number(v) || 0))
+    ),
+    bannerAtivo: manter(b.bannerAtivo, atual.bannerAtivo, Boolean),
+    bannerTitulo: manter(b.bannerTitulo, atual.bannerTitulo, (v) => texto(v, 80)),
+    bannerDescricao: manter(b.bannerDescricao, atual.bannerDescricao, (v) => texto(v, 200)),
+    bannerSelo: manter(b.bannerSelo, atual.bannerSelo, (v) => texto(v, 40)),
+    bannerImagem: manter(b.bannerImagem, atual.bannerImagem, (v) => texto(v, 500)),
+    bannerLink: manter(
+      b.bannerLink,
+      atual.bannerLink,
+      (v) => texto(v, 200) || "/catalogo"
+    ),
   };
 
   const { id: _id, ...atualizacao } = valores;

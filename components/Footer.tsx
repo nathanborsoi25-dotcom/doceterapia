@@ -1,26 +1,50 @@
+"use client";
+
 import Link from "next/link";
 import CherryDivider from "./CherryDivider";
-import { TELEFONE_EXIBICAO } from "@/lib/contato";
+import { useSobre } from "@/lib/usar-sobre";
 
+/**
+ * O "quem faz" do site: a foto da Camily, o recado dela e o telefone.
+ *
+ * Tudo vem do painel (`/admin/sobre`), então ela troca a foto, reescreve o
+ * texto e muda de número sem precisar de programador. O telefone é um link
+ * que abre o WhatsApp — é o caminho que a cliente mais procura, e escrever o
+ * número pra ela copiar à mão era pedir demais no celular.
+ */
 export default function Footer() {
+  const { foto, texto, telefone, linkWhatsApp } = useSobre();
+
   return (
     <footer className="mt-20 px-6 md:px-12 py-12 bg-blush/60">
       <CherryDivider />
       <div className="max-w-2xl mx-auto text-center">
-        {/*
-          TODO(Camily): troque o div abaixo por sua foto real, ex:
-          <img src="/sua-foto.jpg" alt="Camily Vilasboa" className="w-28 h-28 rounded-full mx-auto object-cover" />
-        */}
-        <div className="w-28 h-28 rounded-full mx-auto bg-cherryLight/40 flex items-center justify-center text-4xl">
-          🍒
+        <div className="w-28 h-28 rounded-full mx-auto bg-cherryLight/40 overflow-hidden flex items-center justify-center text-4xl">
+          {foto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={foto}
+              alt="Camily Vilasboa"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            "🍒"
+          )}
         </div>
         <h3 className="font-display text-xl mt-4 text-cherryDark">Camily Vilasboa</h3>
-        <p className="font-body text-sm text-ink/70 mt-2 max-w-md mx-auto">
-          Feito à mão, com carinho, para adoçar o seu dia. Cada doce da
-          Doceterapia carrega um pouquinho de mim — obrigada por fazer parte
-          dessa história.
+        <p className="font-body text-sm text-ink/70 mt-2 max-w-md mx-auto whitespace-pre-line">
+          {texto}
         </p>
-        <p className="font-body text-sm text-cherryMid mt-3">{TELEFONE_EXIBICAO}</p>
+
+        <a
+          href={linkWhatsApp("Oi, Camily! Vi o site da Doceterapia e queria falar com você.")}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 mt-4 font-body text-sm text-cherryDark bg-white/70 border border-cherryLight/50 rounded-full px-5 py-3 hover:bg-white transition-colors"
+        >
+          <span aria-hidden>💬</span>
+          {telefone}
+        </a>
 
         {/* As regras da loja ficam a um toque de qualquer tela do cliente —
             é onde ele procura quando bate a dúvida de "e se eu desistir?". */}

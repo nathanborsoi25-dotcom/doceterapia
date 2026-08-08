@@ -1,6 +1,14 @@
 import Link from "next/link";
 import CherryDivider from "@/components/CherryDivider";
-import { TELEFONE_EXIBICAO, linkWhatsApp } from "@/lib/contato";
+import { linkWhatsAppNumero } from "@/lib/contato";
+import { getConfigLoja, sobreDaLoja } from "@/lib/config-loja";
+
+/**
+ * Sem isto o Next congela a página no build, com o telefone que existia
+ * naquele minuto — e trocar o número pelo painel não mudaria nada aqui até o
+ * próximo deploy.
+ */
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Política de cancelamento e reembolso — Doceterapia",
@@ -15,7 +23,12 @@ export const metadata = {
  * O texto foi escrito com a Camily falando na primeira pessoa, que é como ela
  * conversa com as clientes no WhatsApp.
  */
-export default function PoliticaPage() {
+export default async function PoliticaPage() {
+  // O telefone vem do painel: se a Camily trocar de número, a política troca
+  // junto — em vez de virar um número velho escrito na pedra.
+  const { telefone } = sobreDaLoja(await getConfigLoja());
+  const linkWhatsApp = (mensagem?: string) => linkWhatsAppNumero(telefone, mensagem);
+
   return (
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-2xl mx-auto">
       <Link
@@ -30,8 +43,16 @@ export default function PoliticaPage() {
       </h1>
       <p className="font-body text-ink/60 text-sm mt-2">
         Aqui está tudo combinado por escrito, pra você comprar tranquila. Se
-        ficar qualquer dúvida, me chame no WhatsApp {TELEFONE_EXIBICAO} — eu
-        respondo pessoalmente.
+        ficar qualquer dúvida,{" "}
+        <a
+          href={linkWhatsApp("Oi, Camily! Tenho uma dúvida sobre a política da loja.")}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-cherryDark underline"
+        >
+          me chame no WhatsApp {telefone}
+        </a>{" "}
+        — eu respondo pessoalmente.
       </p>
       <CherryDivider />
 

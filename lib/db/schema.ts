@@ -337,6 +337,17 @@ export const recompensas = pgTable("recompensas", {
  */
 export const configLoja = pgTable("config_loja", {
   id: text("id").primaryKey(),
+  /**
+   * O "quem faz" do rodapé: foto da Camily, o recadinho dela e o telefone.
+   *
+   * Ficam aqui, e não escritos no código, porque são as coisas que mudam sem
+   * avisar — ela troca de foto, reescreve o texto, muda de número — e nada
+   * disso pode depender de programador.
+   */
+  sobreFoto: text("sobre_foto").notNull().default(""),
+  sobreTexto: text("sobre_texto").notNull().default(""),
+  /** Telefone do WhatsApp, como ela digita: "(43) 99634-7895". */
+  telefone: text("telefone").notNull().default(""),
   /** Pontos ganhos por real gasto (ex: 1 ponto por R$ 1,00). */
   pontosPorReal: doublePrecision("pontos_por_real").notNull().default(1),
   /** Pontos ganhos ao avaliar um doce. */

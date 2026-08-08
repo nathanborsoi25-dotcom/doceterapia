@@ -177,6 +177,11 @@ async function main() {
     END $$
   `;
 
+  console.log("6) Foto, recadinho e telefone da Camily no painel...");
+  await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS sobre_foto text NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS sobre_texto text NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS telefone text NOT NULL DEFAULT ''`;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns
@@ -203,6 +208,14 @@ async function main() {
     const existe = await sql`SELECT to_regclass(${"public." + t}) AS t`;
     console.log(`  tabela ${t}:`, existe[0].t ?? "NÃO CRIADA");
   }
+
+  const sobre = await sql`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'config_loja'
+      AND column_name IN ('sobre_foto', 'sobre_texto', 'telefone')
+    ORDER BY column_name
+  `;
+  console.log("  config_loja (sobre):", sobre.map((c) => c.column_name).join(", ") || "NÃO CRIADAS");
 
   const emailUnico = await sql`SELECT to_regclass('public.clientes_email_idx') AS i`;
   console.log("  clientes.email único:", emailUnico[0].i ? "ok" : "NÃO CRIADO");
