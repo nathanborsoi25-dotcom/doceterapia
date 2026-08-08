@@ -56,7 +56,7 @@ export default function AdminMetricasPage() {
         <VoltarAoPainel />
       </div>
 
-      <div className="flex gap-2 mt-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex gap-2 mt-4 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
         {PERIODOS.map((p) => (
           <button
             key={p.valor}

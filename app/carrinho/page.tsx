@@ -111,9 +111,9 @@ export default function CarrinhoPage() {
               return (
                 <div
                   key={chave}
-                  className="min-w-0 bg-white/70 rounded-xl px-3 sm:px-4 py-3 border border-cherryLight/30"
+                  className="min-w-0 bg-white/70 rounded-xl px-3 sm:px-4 py-3 border border-cherryLight/30 sm:flex sm:items-center sm:gap-4"
                 >
-                  <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex items-start gap-3 min-w-0 sm:flex-1">
                     <div className="w-14 h-14 shrink-0 rounded-lg bg-blush overflow-hidden flex items-center justify-center text-xl">
                       {foto ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -141,18 +141,33 @@ export default function CarrinhoPage() {
                       <p className="text-sm text-ink/60 font-body">
                         {reais(item.precoUnitario)} cada
                       </p>
+
+                      {(acabou || passouDoEstoque) && (
+                        <p className="text-xs font-body font-semibold text-cherryDark mt-1">
+                          {acabou
+                            ? "Esgotou — tire do carrinho para continuar"
+                            : `Restam só ${max} — ajuste a quantidade`}
+                        </p>
+                      )}
+
+                      {/* No computador o "Remover" fica junto do nome; no
+                          celular ele vai pro fim do card, longe do "−". */}
+                      <button
+                        onClick={() => remover(item)}
+                        className="hidden sm:inline-flex text-xs font-body text-ink/50 underline items-center min-h-[44px] hover:text-cherryDark"
+                      >
+                        Remover
+                      </button>
                     </div>
                   </div>
 
-                  {(acabou || passouDoEstoque) && (
-                    <p className="text-xs font-body font-semibold text-cherryDark mt-2">
-                      {acabou
-                        ? "Esgotou — tire do carrinho para continuar"
-                        : `Restam só ${max} — ajuste a quantidade`}
-                    </p>
-                  )}
-
-                  <div className="flex items-center justify-between gap-2 mt-3">
+                  {/*
+                   * Celular: contador e valor numa faixa embaixo do nome, que
+                   * é o que impede o card de estourar em 320px. Da largura de
+                   * tablet pra cima eles voltam pra mesma linha do doce, senão
+                   * sobra um vão enorme no meio do card.
+                   */}
+                  <div className="flex items-center justify-between gap-2 mt-3 sm:mt-0 sm:gap-4 sm:shrink-0">
                     {/* Botões de 44px: tamanho confortável para o dedo */}
                     <div className="flex items-center gap-1 font-body shrink-0">
                       <button
@@ -175,14 +190,14 @@ export default function CarrinhoPage() {
 
                     {/* Quanto esta linha está custando: sem isso a cliente
                         precisava multiplicar de cabeça pra conferir a conta. */}
-                    <span className="font-display text-ink tabular-nums">
+                    <span className="font-display text-ink tabular-nums sm:w-24 sm:text-right">
                       {reais(item.precoUnitario * item.quantidade)}
                     </span>
                   </div>
 
                   <button
                     onClick={() => remover(item)}
-                    className="text-xs font-body text-ink/50 underline inline-flex items-center min-h-[44px] hover:text-cherryDark"
+                    className="sm:hidden text-xs font-body text-ink/50 underline inline-flex items-center min-h-[44px] hover:text-cherryDark"
                   >
                     Remover
                   </button>

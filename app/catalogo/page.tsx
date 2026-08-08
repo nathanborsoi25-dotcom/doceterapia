@@ -59,7 +59,7 @@ export default function CatalogoPage() {
 
         {/* Categorias: rolam na horizontal no celular, sem espremer. */}
         {categorias.length > 1 && (
-          <div className="max-w-5xl mx-auto flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 mb-5">
+          <div className="max-w-5xl mx-auto flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 mb-5">
             {categorias.map((c) => {
               const ativa = categoria === c;
               return (

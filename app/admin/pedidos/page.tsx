@@ -186,7 +186,11 @@ export default function AdminPedidosPage() {
       </p>
 
       {/* Filtros: rolam na horizontal no celular, sem espremer os botões */}
-      <div className="flex gap-2 mt-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+      {/* No celular a fileira rola de lado; da largura de tablet pra cima ela
+          quebra em linhas. Sem isso os filtros da direita ficavam escondidos
+          fora da tela, e agora que a barra de rolagem some ninguém adivinha
+          que existe mais coisa ali. */}
+      <div className="flex gap-2 mt-4 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
         {filtros.map((f) => (
           <button
             key={f.valor}

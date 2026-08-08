@@ -169,7 +169,7 @@ export default function AdminProdutosPage() {
           className="w-full border border-cherryLight/50 rounded-xl px-4 py-2.5 bg-white/80 font-body text-sm focus:outline-none focus:ring-2 focus:ring-cherryDark"
         />
 
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-1">
           <select
             value={categoria}
             onChange={(e) => setCategoria(e.target.value)}
