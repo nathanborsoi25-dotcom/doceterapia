@@ -24,6 +24,21 @@ export function emailConfigurado(): boolean {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_REMETENTE);
 }
 
+/**
+ * O endereço de resposta, só se for utilizável.
+ *
+ * Aceita tanto "fulano@casa.com" quanto "Camily <fulano@casa.com>", que é
+ * como as pessoas costumam escrever. Qualquer outra coisa é ignorada em
+ * silêncio: melhor um e-mail sem "responder" do que nenhum e-mail.
+ */
+function enderecoDeResposta(): string | null {
+  const bruto = (process.env.EMAIL_RESPOSTA ?? "").trim();
+  if (!bruto) return null;
+  const dentroDosSinais = bruto.match(/<([^>]+)>/)?.[1]?.trim();
+  const endereco = dentroDosSinais || bruto;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(endereco) ? endereco : null;
+}
+
 export async function enviarEmail(opcoes: {
   para: string;
   assunto: string;
@@ -50,11 +65,11 @@ export async function enviarEmail(opcoes: {
         subject: opcoes.assunto,
         html: opcoes.html,
         text: opcoes.texto,
-        // Só vai se estiver configurado: apontar "responder" pra um endereço
-        // que ninguém lê seria pior do que não ter.
-        ...(process.env.EMAIL_RESPOSTA
-          ? { reply_to: process.env.EMAIL_RESPOSTA }
-          : {}),
+        // Só vai se estiver configurado E parecer um e-mail de verdade.
+        // Este campo é enfeite; o e-mail em si é o que importa — e um valor
+        // torto aqui fazia o Resend recusar a mensagem inteira, derrubando
+        // até a recuperação de senha. Aconteceu em 08/08/2026.
+        ...(enderecoDeResposta() ? { reply_to: enderecoDeResposta() } : {}),
       }),
     });
 
