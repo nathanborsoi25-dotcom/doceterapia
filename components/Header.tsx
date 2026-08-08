@@ -43,7 +43,16 @@ export default function Header() {
   }
 
   return (
-    <header className="w-full py-4 sm:py-6 px-4 sm:px-6 md:px-12 flex items-center justify-between gap-2">
+    /*
+     * `flex-wrap` em vez de esconder link.
+     *
+     * Numa tela de 375px (o iPhone mais comum) sobram uns 80px depois do logo
+     * e do carrinho — não cabe "Cardápio" e "Sair" na mesma linha. A primeira
+     * tentativa foi escondê-los no celular, e o resultado foi pior: os botões
+     * simplesmente sumiam pra quem mais usa o site. Agora, quando não cabe, o
+     * menu desce pra segunda linha e continua tudo à mão.
+     */
+    <header className="w-full py-3 sm:py-6 px-4 sm:px-6 md:px-12 flex flex-wrap items-center justify-between gap-x-2">
       <Link
         href="/catalogo"
         className="font-display text-xl sm:text-2xl md:text-3xl tracking-tight shrink-0 py-2"
@@ -52,14 +61,10 @@ export default function Header() {
         <span className="text-cherryLight">terapia</span>
       </Link>
       {/* py-3/px-2 dá área de toque confortável no dedo sem mudar o visual */}
-      <nav className="flex gap-1 sm:gap-3 text-sm font-body text-ink/80 items-center">
-        {/* Em telas estreitas este link some: o próprio logo já leva ao
-            catálogo, e assim o cabeçalho não estoura. O corte é em 400px
-            porque com o contador do carrinho ao lado do texto o nav ficou
-            mais largo — em 375px ele passava da tela por uns 4px. */}
+      <nav className="flex flex-wrap gap-x-1 sm:gap-x-3 text-sm font-body text-ink/80 items-center ml-auto">
         <Link
           href="/catalogo"
-          className="hidden min-[400px]:inline-block px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
+          className="px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
         >
           Cardápio
         </Link>
@@ -95,13 +100,9 @@ export default function Header() {
               <span className="hidden min-[420px]:inline">Minha conta</span>
               <span className="min-[420px]:hidden">Conta</span>
             </Link>
-            {/* Em tela estreita o "Sair" sai do cabeçalho: com o contador do
-                carrinho e o link da conta, os quatro itens não cabiam em
-                320px. Quem quiser sair encontra o botão dentro de
-                "Minha conta", que é onde se mexe na conta mesmo. */}
             <button
               onClick={sair}
-              className="hidden min-[400px]:block px-2 py-3 rounded-lg text-ink/50 hover:text-cherryDark hover:bg-blush/60 transition-colors"
+              className="px-2 py-3 rounded-lg text-ink/50 hover:text-cherryDark hover:bg-blush/60 transition-colors"
             >
               Sair
             </button>
