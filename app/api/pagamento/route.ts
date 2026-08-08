@@ -44,6 +44,17 @@ function texto(valor: unknown, limite: number): string {
   return typeof valor === "string" ? valor.trim().slice(0, limite) : "";
 }
 
+/**
+ * Telefone do jeito que o Mercado Pago espera: DDD e número separados.
+ * Devolve null quando não dá pra separar com confiança — melhor mandar sem
+ * telefone do que mandar errado.
+ */
+function dddETelefone(telefone: string | null | undefined) {
+  const d = (telefone ?? "").replace(/\D/g, "");
+  if (d.length !== 10 && d.length !== 11) return null;
+  return { area_code: d.slice(0, 2), number: d.slice(2) };
+}
+
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as Partial<Corpo> & {
     cupom?: string;
@@ -402,6 +413,23 @@ export async function POST(req: Request) {
             ],
           }
         : {}),
+      /**
+       * Quem está comprando, já preenchido.
+       *
+       * Sem isto o Mercado Pago abre pedindo o e-mail de novo, no meio do
+       * pagamento — a cliente acabou de entrar na conta dela e tem que
+       * digitar tudo outra vez, e o comprovante corre o risco de ir parar num
+       * e-mail diferente do cadastro. Os dados saem da SESSÃO, nunca do que o
+       * navegador mandou.
+       */
+      payer: {
+        name: cliente.nome.split(" ")[0],
+        surname: cliente.nome.split(" ").slice(1).join(" ") || undefined,
+        email: cliente.email,
+        ...(dddETelefone(cliente.telefone)
+          ? { phone: dddETelefone(cliente.telefone)! }
+          : {}),
+      },
       external_reference: id,
       back_urls: {
         success: `${origin}/pedido/sucesso`,
