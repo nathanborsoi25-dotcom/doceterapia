@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import CherryDivider from "./CherryDivider";
+import IconeWhatsApp from "./IconeWhatsApp";
 import { useSobre } from "@/lib/usar-sobre";
 
 /**
@@ -42,7 +43,9 @@ export default function Footer() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 mt-4 font-body text-sm text-cherryDark bg-white/70 border border-cherryLight/50 rounded-full px-5 py-3 hover:bg-white transition-colors"
         >
-          <span aria-hidden>💬</span>
+          {/* O símbolo do WhatsApp no verde da marca: é ele que faz a cliente
+              reconhecer, de relance, que tocar ali abre a conversa. */}
+          <IconeWhatsApp className="w-5 h-5 text-[#25D366]" />
           {telefone}
         </a>
 

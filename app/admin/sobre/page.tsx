@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import EscolherFoto from "@/components/EscolherFoto";
+import IconeWhatsApp from "@/components/IconeWhatsApp";
 import VoltarAoPainel from "@/components/VoltarAoPainel";
 import { SOBRE_PADRAO } from "@/lib/config-loja";
 import { linkWhatsAppNumero } from "@/lib/contato";
@@ -110,7 +111,7 @@ export default function AdminSobrePage() {
           {textoNaTela}
         </p>
         <span className="inline-flex items-center gap-2 mt-3 font-body text-sm text-cherryDark bg-white/70 border border-cherryLight/50 rounded-full px-5 py-2.5">
-          <span aria-hidden>💬</span>
+          <IconeWhatsApp className="w-5 h-5 text-[#25D366]" />
           {telefoneNaTela}
         </span>
         <p className="font-body text-xs text-ink/45 mt-2">
