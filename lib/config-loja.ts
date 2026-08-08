@@ -24,6 +24,7 @@ export const CONFIG_PADRAO: ConfigLoja = {
   sobreTexto: "",
   telefone: "",
   politica: {},
+  pontosRetirada: [],
   pontosPorReal: 1,
   pontosPorAvaliacao: 10,
   pontosPorStory: 15,

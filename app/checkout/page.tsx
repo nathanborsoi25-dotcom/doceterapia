@@ -16,7 +16,7 @@ import {
   validarCupom,
 } from "@/lib/api";
 import { prazoMaximoEmDias } from "@/lib/prazo";
-import { PONTOS_RETIRADA } from "@/lib/retirada";
+import { pontosDaLoja, type PontoRetirada } from "@/lib/retirada";
 import type { Cliente, ItemPedido } from "@/lib/types";
 import { calcularFretePorEndereco } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
@@ -27,6 +27,8 @@ export default function CheckoutPage() {
   const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>("entrega");
   /** Qual dos pontos a cliente escolheu pra buscar (só na retirada). */
   const [pontoRetirada, setPontoRetirada] = useState("");
+  /** Os endereços de retirada que a Camily configurou no painel. */
+  const [pontos, setPontos] = useState<PontoRetirada[]>([]);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("pix");
   const [frete, setFrete] = useState<{ distanciaKm: number; valor: number | null } | null>(null);
   const [config, setConfig] = useState<ConfiguracaoFrete | null>(null);
@@ -71,6 +73,12 @@ export default function CheckoutPage() {
   const [prazoDias, setPrazoDias] = useState(0);
 
   useEffect(() => {
+    // Os endereços de retirada saem do painel: se a Camily mudar de ponto,
+    // a tela muda junto, sem precisar de deploy.
+    fetch("/api/config-loja", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => setPontos(pontosDaLoja(c?.pontosRetirada)))
+      .catch(() => setPontos(pontosDaLoja(null)));
     getConfiguracaoFrete()
       .then(setConfig)
       .catch(() => setConfig(null));
@@ -436,7 +444,7 @@ export default function CheckoutPage() {
               <p className="text-sm font-body text-ink/80">
                 Onde você prefere buscar? *
               </p>
-              {PONTOS_RETIRADA.map((ponto) => {
+              {pontos.map((ponto) => {
                 const escolhido = pontoRetirada === ponto.id;
                 return (
                   <button

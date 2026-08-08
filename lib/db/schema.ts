@@ -9,6 +9,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { Cliente, ConfiguracaoFrete, FaixaFrete, ItemPedido } from "../types";
+import type { PontoRetirada } from "../retirada";
 
 // Catálogo de doces (gerenciado pelo admin, exibido no cardápio).
 export const produtos = pgTable("produtos", {
@@ -364,6 +365,14 @@ export const configLoja = pgTable("config_loja", {
    * que ela reescreveu fica aqui; o resto vem do padrão.
    */
   politica: jsonb("politica").$type<Record<string, string>>().notNull().default({}),
+  /**
+   * Endereços onde a cliente pode buscar o pedido, com os horários de cada um
+   * (ver `lib/retirada.ts`). Lista vazia cai no padrão.
+   */
+  pontosRetirada: jsonb("pontos_retirada")
+    .$type<PontoRetirada[]>()
+    .notNull()
+    .default([]),
   /** Pontos ganhos por real gasto (ex: 1 ponto por R$ 1,00). */
   pontosPorReal: doublePrecision("pontos_por_real").notNull().default(1),
   /** Pontos ganhos ao avaliar um doce. */

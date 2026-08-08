@@ -84,7 +84,11 @@ export default function AdminPoliticaPage() {
       <p className="font-body text-sm text-ink/60 mt-1">
         É a página que a cliente lê antes de comprar, com as regras de
         cancelamento, entrega e pagamento.{" "}
-        <Link href="/politica" target="_blank" className="text-cherryDark underline">
+        <Link
+          href="/politica"
+          target="_blank"
+          className="text-cherryDark underline inline-flex items-center min-h-[44px] px-1"
+        >
           Ver como está no site
         </Link>
       </p>

@@ -9,7 +9,8 @@ import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shippin
 import { checarAreaEntrega } from "@/lib/area-entrega";
 import { geocodificar } from "@/lib/geocode";
 import { dataMinimaRetirada, prazoMaximoEmDias } from "@/lib/prazo";
-import { descricaoDoPonto, pontoRetiradaPorId } from "@/lib/retirada";
+import { descricaoDoPonto, pontoRetiradaPorId, pontosDaLoja } from "@/lib/retirada";
+import { getConfigLoja } from "@/lib/config-loja";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
 import { prazoDoSabor } from "@/lib/sabores";
@@ -280,7 +281,8 @@ export async function POST(req: Request) {
    */
   let pontoRetirada: string | null = null;
   if (tipoEntrega === "retirada") {
-    const ponto = pontoRetiradaPorId(texto(body.pontoRetirada, 40));
+    const pontos = pontosDaLoja((await getConfigLoja()).pontosRetirada);
+    const ponto = pontoRetiradaPorId(pontos, texto(body.pontoRetirada, 40));
     if (!ponto) {
       return NextResponse.json(
         { error: "Escolha onde você prefere buscar o pedido." },

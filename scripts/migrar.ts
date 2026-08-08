@@ -191,6 +191,12 @@ async function main() {
     ADD COLUMN IF NOT EXISTS politica jsonb NOT NULL DEFAULT '{}'::jsonb
   `;
 
+  console.log("9) Pontos de retirada editáveis pelo painel...");
+  await sql`
+    ALTER TABLE config_loja
+    ADD COLUMN IF NOT EXISTS pontos_retirada jsonb NOT NULL DEFAULT '[]'::jsonb
+  `;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns

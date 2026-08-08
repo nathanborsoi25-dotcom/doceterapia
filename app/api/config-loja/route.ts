@@ -4,6 +4,7 @@ import { configLoja } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { getConfigLoja, ID_CONFIG } from "@/lib/config-loja";
 import { CAMPOS_POLITICA } from "@/lib/politica";
+import { limparPontos } from "@/lib/retirada";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ export async function PUT(req: Request) {
     sobreTexto: manter(b.sobreTexto, atual.sobreTexto, (v) => texto(v, 600)),
     telefone: manter(b.telefone, atual.telefone, (v) => texto(v, 30)),
     politica: manter(b.politica, atual.politica, textosDaPolitica_),
+    pontosRetirada: manter(b.pontosRetirada, atual.pontosRetirada, limparPontos),
     pontosPorReal: manter(b.pontosPorReal, atual.pontosPorReal, (v) =>
       Math.max(0, Number(v) || 0)
     ),

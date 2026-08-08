@@ -18,6 +18,7 @@ const atalhos = [
   { href: "/admin/clientes", label: "Meus clientes", desc: "Quem já fez cadastro no site" },
   { href: "/admin/sobre", label: "Sobre mim", desc: "Sua foto, seu recado e seu WhatsApp no site" },
   { href: "/admin/politica", label: "Regras da loja", desc: "Cancelamento, entrega e pagamento em palavras suas" },
+  { href: "/admin/retirada", label: "Onde a cliente busca", desc: "Endereços e horários de retirada" },
 ];
 
 export default function AdminHome() {
