@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Payment } from "mercadopago";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { pedidos } from "@/lib/db/schema";
 import { getMpClient } from "@/lib/mercadopago";
@@ -74,9 +74,6 @@ export async function POST(req: Request) {
 
     if (pedidoId && novoStatus) {
       const db = getDb();
-      // Só avisa se a situação realmente mudou: o Mercado Pago manda a
-      // mesma notificação mais de uma vez, e o cliente não pode receber
-      // três e-mails iguais dizendo que o pagamento foi confirmado.
       const [antes] = await db
         .select({ status: pedidos.status, pagamentoId: pedidos.pagamentoId })
         .from(pedidos)
@@ -100,42 +97,52 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
 
-      if (antes && antes.status !== novoStatus) {
-        // Estorno feito pela Camily direto no site do Mercado Pago: o
-        // cancelamento tem que desfazer pontos e cupom aqui também.
-        if (novoStatus === "cancelado") {
-          await registrarCancelamentoDoMercadoPago(pedidoId, {
-            reembolsado: info.status === "refunded" || info.status === "charged_back",
-          });
-          return NextResponse.json({ ok: true });
-        }
+      // Estorno feito pela Camily direto no site do Mercado Pago: o
+      // cancelamento tem que desfazer pontos e cupom aqui também.
+      if (novoStatus === "cancelado") {
+        await registrarCancelamentoDoMercadoPago(pedidoId, {
+          reembolsado: info.status === "refunded" || info.status === "charged_back",
+        });
+        return NextResponse.json({ ok: true });
+      }
 
-        await db
-          .update(pedidos)
-          .set({ status: novoStatus })
-          .where(eq(pedidos.id, pedidoId));
-        await avisarMudancaDeStatus(pedidoId, novoStatus);
+      /**
+       * Quem decide se esta notificação vale é o BANCO, não uma leitura feita
+       * antes: o UPDATE só pega a linha se a situação ainda for a antiga.
+       *
+       * O Mercado Pago repete a mesma notificação, e em 08/08/2026 duas
+       * chegaram com 1 segundo de diferença: as duas leram "ainda não
+       * processado" antes de qualquer uma gravar, e o pedido creditou pontos
+       * em dobro e baixou o estoque duas vezes. Com a condição dentro do
+       * próprio UPDATE, só a primeira encontra linha pra alterar — a segunda
+       * volta vazia e para aqui.
+       */
+      const mudou = await db
+        .update(pedidos)
+        .set({ status: novoStatus })
+        .where(and(eq(pedidos.id, pedidoId), ne(pedidos.status, novoStatus)))
+        .returning({ id: pedidos.id });
 
-        // Pagamento confirmado: agora sim o cliente ganha os pontos e o
-        // estoque baixa. Fazer isso na criação do pedido daria pontos por
-        // compra nunca paga e seguraria doce de carrinho abandonado.
-        if (novoStatus === "pago") {
-          const [p] = await db
-            .select()
-            .from(pedidos)
-            .where(eq(pedidos.id, pedidoId));
-          if (p) await baixarEstoque(p.itens);
-          if (p?.clienteId) {
-            const subtotal = p.itens.reduce(
-              (a, i) => a + i.precoUnitario * i.quantidade,
-              0
-            );
-            await creditarPontosDoPedido(
-              p.clienteId,
-              p.id,
-              Math.max(0, subtotal - p.desconto)
-            );
-          }
+      if (mudou.length === 0) return NextResponse.json({ ok: true });
+
+      await avisarMudancaDeStatus(pedidoId, novoStatus);
+
+      // Pagamento confirmado: agora sim o cliente ganha os pontos e o
+      // estoque baixa. Fazer isso na criação do pedido daria pontos por
+      // compra nunca paga e seguraria doce de carrinho abandonado.
+      if (novoStatus === "pago") {
+        const [p] = await db.select().from(pedidos).where(eq(pedidos.id, pedidoId));
+        if (p) await baixarEstoque(p.itens);
+        if (p?.clienteId) {
+          const subtotal = p.itens.reduce(
+            (a, i) => a + i.precoUnitario * i.quantidade,
+            0
+          );
+          await creditarPontosDoPedido(
+            p.clienteId,
+            p.id,
+            Math.max(0, subtotal - p.desconto)
+          );
         }
       }
     }

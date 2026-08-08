@@ -1,5 +1,5 @@
 import { PaymentRefund } from "mercadopago";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { cupons, pedidos, pontos } from "./db/schema";
 import { getMpClient } from "./mercadopago";
@@ -133,7 +133,40 @@ export async function cancelarPedido(
     };
   }
 
-  // 1) Dinheiro primeiro: só faz sentido estornar o que entrou.
+  /**
+   * 1) Marca como cancelado ANTES de mexer no dinheiro, com a condição dentro
+   * do próprio update.
+   *
+   * Essa ordem é de propósito: é o que garante que dois cliques no botão
+   * (ou a cliente cancelando enquanto a Camily cancela) não peçam DOIS
+   * estornos do mesmo pagamento nem devolvam o estoque duas vezes. Quem não
+   * encontra linha pra alterar já perdeu a corrida e sai com o que está
+   * gravado.
+   */
+  const mudou = await db
+    .update(pedidos)
+    .set({
+      status: "cancelado",
+      canceladoPor: opcoes.por,
+      motivoCancelamento: (opcoes.motivo ?? "").slice(0, 300) || null,
+      canceladoEm: new Date(),
+    })
+    .where(and(eq(pedidos.id, pedidoId), ne(pedidos.status, "cancelado")))
+    .returning({ id: pedidos.id });
+
+  if (mudou.length === 0) {
+    const [agora] = await db.select().from(pedidos).where(eq(pedidos.id, pedidoId));
+    return {
+      ok: true,
+      reembolso: (agora?.statusReembolso as StatusReembolso) ?? "nao_precisa",
+      valorReembolsado: agora?.valorReembolsado ?? 0,
+    };
+  }
+
+  // 2) Agora o dinheiro: só faz sentido estornar o que entrou. O pedido já
+  // está cancelado mesmo se o estorno falhar — a decisão de cancelar já foi
+  // tomada. O "falhou" fica gravado e aparece em vermelho no painel, com um
+  // botão pra tentar de novo.
   let reembolso: StatusReembolso = "nao_precisa";
   let valorReembolsado = 0;
 
@@ -148,19 +181,9 @@ export async function cancelarPedido(
     }
   }
 
-  // 2) O pedido é cancelado mesmo se o estorno falhar — a decisão de cancelar
-  // já foi tomada. O "falhou" fica gravado e aparece em vermelho no painel,
-  // com um botão pra tentar de novo.
   await db
     .update(pedidos)
-    .set({
-      status: "cancelado",
-      canceladoPor: opcoes.por,
-      motivoCancelamento: (opcoes.motivo ?? "").slice(0, 300) || null,
-      canceladoEm: new Date(),
-      statusReembolso: reembolso,
-      valorReembolsado,
-    })
+    .set({ statusReembolso: reembolso, valorReembolsado })
     .where(eq(pedidos.id, pedidoId));
 
   // 3) Desfaz o que a compra tinha rendido.
@@ -193,7 +216,14 @@ export async function registrarCancelamentoDoMercadoPago(
   const [pedido] = await db.select().from(pedidos).where(eq(pedidos.id, pedidoId));
   if (!pedido || pedido.status === "cancelado") return;
 
-  await db
+  /**
+   * A condição vai DENTRO do update, e não numa leitura feita antes: o
+   * Mercado Pago repete a mesma notificação, e duas chegando juntas
+   * conseguiam passar as duas pela checagem acima — o estoque voltava em
+   * dobro e os pontos eram estornados duas vezes. Só quem encontra a linha
+   * pra alterar segue adiante.
+   */
+  const mudou = await db
     .update(pedidos)
     .set({
       status: "cancelado",
@@ -202,7 +232,10 @@ export async function registrarCancelamentoDoMercadoPago(
       motivoCancelamento: "Cancelado pelo Mercado Pago",
       statusReembolso: opcoes.reembolsado ? "concluido" : "nao_precisa",
     })
-    .where(eq(pedidos.id, pedidoId));
+    .where(and(eq(pedidos.id, pedidoId), ne(pedidos.status, "cancelado")))
+    .returning({ id: pedidos.id });
+
+  if (mudou.length === 0) return;
 
   if (pedido.clienteId) await estornarPontosDoPedido(pedidoId, pedido.clienteId);
   if (pedido.cupomCodigo) await liberarUsoDoCupom(pedido.cupomCodigo);
