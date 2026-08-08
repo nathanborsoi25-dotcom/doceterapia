@@ -271,7 +271,7 @@ export default function CheckoutPage() {
         <CherryDivider />
 
         {!area.atendido && (
-          <div className="bg-blush/70 border border-cherryLight/60 rounded-cherry p-5 mb-6 text-center">
+          <div className="bg-blush/70 border border-cherryLight/60 rounded-2xl p-5 mb-6 text-center">
             <p className="font-display text-lg text-cherryDark">
               Não entregamos no seu endereço
             </p>

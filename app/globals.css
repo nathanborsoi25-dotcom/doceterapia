@@ -61,6 +61,21 @@ body {
   overflow-x: clip;
 }
 
+/*
+ * Fileiras que rolam de lado (abas da conta, filtros do painel, categorias do
+ * cardápio) escondem a barra de rolagem: no computador ela aparecia como um
+ * risco cinza grosso logo abaixo das abas, feio e sem função — quem está no
+ * celular arrasta com o dedo, e quem está no computador tem a roda do mouse.
+ * A rolagem continua funcionando; só o risco some.
+ */
+.overflow-x-auto {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
 /* Animações da gaveta do doce: ela sobe de baixo no celular e aparece
    suavemente no computador. Curtas de propósito — animação longa em tela de
    compra passa sensação de site travando. */

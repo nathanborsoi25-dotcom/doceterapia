@@ -19,9 +19,13 @@ module.exports = {
         display: ["var(--font-display)"],
         body: ["var(--font-body)"],
       },
-      borderRadius: {
-        cherry: "999px 999px 999px 4px", // leve assimetria orgânica p/ cards
-      },
+      /*
+       * Não existe mais um raio "cherry" (999px em três cantos): num card com
+       * texto ele virava uma bolha, e as palavras ficavam POR FORA do fundo
+       * branco — apareceu no celular, em "Meus pedidos". O arco continua sendo
+       * a assinatura da casa, mas só no card do cardápio, onde a FOTO preenche
+       * a curva (`rounded-t-[999px]`). Card com conteúdo usa `rounded-2xl`.
+       */
     },
   },
   plugins: [],

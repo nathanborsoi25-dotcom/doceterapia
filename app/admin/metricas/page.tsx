@@ -143,7 +143,10 @@ export default function AdminMetricasPage() {
               {dados.topProdutos.map((p, i) => (
                 <li
                   key={p.produtoId}
-                  className="flex items-center gap-2 sm:gap-3 bg-white/70 border border-cherryLight/30 rounded-xl px-3 py-2.5 font-body text-sm"
+                  /* min-w-0 no próprio item: dentro de um grid ele nasce com
+                     min-width auto e se recusa a encolher, então em tela de
+                     320px o nome do doce empurrava o valor pra fora. */
+                  className="min-w-0 flex items-center gap-2 sm:gap-3 bg-white/70 border border-cherryLight/30 rounded-xl px-3 py-2.5 font-body text-sm"
                 >
                   <span
                     className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -200,7 +203,7 @@ function Cartao({
   const ruim = inverterCores ? subiu : caiu;
 
   return (
-    <div className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4">
+    <div className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4">
       <p className="text-xs font-body text-ink/55">{titulo}</p>
       <p className="font-display text-xl sm:text-2xl text-cherryDark mt-1 break-words">
         {valor}

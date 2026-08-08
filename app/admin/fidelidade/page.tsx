@@ -106,7 +106,7 @@ export default function AdminFidelidadePage() {
         Como o cliente ganha pontos
       </h2>
 
-      <div className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4 mt-3 grid gap-3">
+      <div className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 mt-3 grid gap-3">
         <label className="grid gap-1 text-sm font-body text-ink/80">
           Pontos por real gasto
           <CampoNumero
@@ -167,7 +167,7 @@ export default function AdminFidelidadePage() {
 
       <form
         onSubmit={criarRecompensa}
-        className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4 mt-3 grid gap-3"
+        className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 mt-3 grid gap-3"
       >
         <label className="grid gap-1 text-sm font-body text-ink/80">
           Nome do prêmio *

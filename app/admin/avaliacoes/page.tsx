@@ -48,7 +48,7 @@ export default function AdminAvaliacoesPage() {
       </div>
 
       {!carregando && lista.length > 0 && (
-        <div className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4 mt-4 flex flex-wrap items-center justify-between gap-3 font-body">
+        <div className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 mt-4 flex flex-wrap items-center justify-between gap-3 font-body">
           <div>
             <p className="text-xs text-ink/50">Média da loja</p>
             <div className="flex items-center gap-2">
@@ -88,7 +88,7 @@ export default function AdminAvaliacoesPage() {
         {visiveis.map((a) => (
           <div
             key={a.id}
-            className={`border rounded-cherry p-4 grid gap-2 font-body text-sm ${
+            className={`border rounded-2xl p-4 grid gap-2 font-body text-sm ${
               a.visivel
                 ? "bg-white/70 border-cherryLight/30"
                 : "bg-ink/5 border-ink/10 opacity-75"

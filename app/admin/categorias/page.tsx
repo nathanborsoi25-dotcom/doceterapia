@@ -98,7 +98,7 @@ export default function AdminCategoriasPage() {
 
       <form
         onSubmit={adicionar}
-        className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4 mt-5 grid gap-2"
+        className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 mt-5 grid gap-2"
       >
         <label className="grid gap-1 text-sm font-body text-ink/80">
           Nova categoria

@@ -50,7 +50,7 @@ export default function AdminHome() {
           <Link
             key={a.href}
             href={a.href}
-            className="bg-white/70 border border-cherryLight/30 rounded-cherry p-5 hover:border-cherryDark transition-colors"
+            className="bg-white/70 border border-cherryLight/30 rounded-2xl p-5 hover:border-cherryDark transition-colors"
           >
             <h2 className="font-display text-lg text-cherryDark">{a.label}</h2>
             <p className="text-sm text-ink/60 font-body mt-1">{a.desc}</p>

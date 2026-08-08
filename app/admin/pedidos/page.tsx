@@ -229,7 +229,7 @@ export default function AdminPedidosPage() {
           {abandonados.map((c) => (
             <div
               key={c.clienteId}
-              className="bg-white/70 border border-cherryLight/30 rounded-cherry p-3 sm:p-4 grid gap-2 font-body text-sm"
+              className="bg-white/70 border border-cherryLight/30 rounded-2xl p-3 sm:p-4 grid gap-2 font-body text-sm"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-ink/80">
@@ -291,7 +291,7 @@ export default function AdminPedidosPage() {
             return (
               <div
                 key={p.id}
-                className={`bg-white/70 border rounded-cherry p-3 sm:p-4 grid gap-2 font-body text-sm ${
+                className={`bg-white/70 border rounded-2xl p-3 sm:p-4 grid gap-2 font-body text-sm ${
                   prazo?.vencido ? "border-cherryDark border-2" : "border-cherryLight/30"
                 }`}
               >

@@ -108,7 +108,7 @@ function CartaoPedido({
   }
 
   return (
-    <div className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4 grid gap-3 font-body text-sm">
+    <div className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 grid gap-3 font-body text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${situacao.cor}`}>
           {situacao.rotulo}

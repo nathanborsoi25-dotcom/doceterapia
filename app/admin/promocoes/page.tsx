@@ -150,7 +150,7 @@ export default function AdminPromocoesPage() {
       </p>
 
       {banner && (
-        <div className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4 mt-3 grid gap-3">
+        <div className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 mt-3 grid gap-3">
           <label className="flex items-center gap-2 font-body text-sm">
             <input
               type="checkbox"
@@ -199,7 +199,7 @@ export default function AdminPromocoesPage() {
 
       <form
         onSubmit={criarCupom}
-        className="bg-white/70 border border-cherryLight/30 rounded-cherry p-4 mt-3 grid gap-3"
+        className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 mt-3 grid gap-3"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Campo

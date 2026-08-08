@@ -45,7 +45,7 @@ export default function PontosECupons() {
 
   return (
     <div className="grid gap-6 font-body text-sm">
-      <div className="bg-cherryDark text-white rounded-cherry p-5 text-center">
+      <div className="bg-cherryDark text-white rounded-2xl p-5 text-center">
         <p className="text-white/70 text-xs uppercase tracking-wide">Seus pontos</p>
         <p className="font-display text-4xl mt-1">{conta.saldoPontos}</p>
         <p className="text-white/70 text-xs mt-1">

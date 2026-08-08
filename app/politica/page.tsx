@@ -134,7 +134,7 @@ export default async function PoliticaPage() {
         <Paragrafos texto={texto.avaliacoes} />
       </Secao>
 
-      <div className="bg-white/70 border border-cherryLight/30 rounded-cherry p-5 mt-8 text-center font-body">
+      <div className="bg-white/70 border border-cherryLight/30 rounded-2xl p-5 mt-8 text-center font-body">
         <p className="text-ink/70 text-sm">
           Ficou com dúvida sobre alguma coisa daqui?
         </p>

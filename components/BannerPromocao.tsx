@@ -31,7 +31,7 @@ export default function BannerPromocao() {
   return (
     <Link
       href={banner.bannerLink || "/catalogo"}
-      className="block max-w-5xl mx-auto mb-8 bg-white/70 border border-cherryLight/40 rounded-cherry overflow-hidden hover:border-cherryDark transition-colors"
+      className="block max-w-5xl mx-auto mb-8 bg-white/70 border border-cherryLight/40 rounded-2xl overflow-hidden hover:border-cherryDark transition-colors"
     >
       {banner.bannerImagem && (
         // eslint-disable-next-line @next/next/no-img-element
