@@ -2,12 +2,20 @@
  * Envio de e-mail pelo Resend, chamando a API HTTP direto (sem SDK, pra não
  * carregar mais uma dependência).
  *
- * Precisa de duas variáveis de ambiente:
+ * Variáveis de ambiente:
  *   RESEND_API_KEY  — a chave da conta
- *   EMAIL_REMETENTE — de onde o e-mail sai, ex: "Doceterapia <nao-responda@seudominio.com.br>"
+ *   EMAIL_REMETENTE — de onde o e-mail sai, ex: "Doceterapia <contato@seudominio.com.br>"
+ *   EMAIL_RESPOSTA  — (opcional) pra onde vai a resposta, quando a cliente
+ *                     aperta "responder"
  *
  * O Resend só entrega a partir de um domínio verificado, por isso o
  * remetente precisa ser do domínio próprio da loja.
+ *
+ * Sobre cair no spam: em 08/08/2026 os avisos foram parar na lixeira do
+ * Outlook. O que pesa contra, em ordem: faltar DMARC no DNS, remetente do
+ * tipo "nao-responda@" (filtro desconfia de endereço que não aceita
+ * resposta), e domínio novo, ainda sem reputação. Por isso o `reply_to` —
+ * um endereço que responde de verdade conta a favor.
  */
 
 export type ResultadoEnvio = { enviado: boolean; motivo?: string };
@@ -42,6 +50,11 @@ export async function enviarEmail(opcoes: {
         subject: opcoes.assunto,
         html: opcoes.html,
         text: opcoes.texto,
+        // Só vai se estiver configurado: apontar "responder" pra um endereço
+        // que ninguém lê seria pior do que não ter.
+        ...(process.env.EMAIL_RESPOSTA
+          ? { reply_to: process.env.EMAIL_RESPOSTA }
+          : {}),
       }),
     });
 
