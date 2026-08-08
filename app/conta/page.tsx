@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CherryDivider from "@/components/CherryDivider";
 import MeusPedidos from "@/components/conta/MeusPedidos";
 import MeusDados from "@/components/conta/MeusDados";
 import PontosECupons from "@/components/conta/PontosECupons";
+import { sairCliente } from "@/lib/api";
+import { limparCarrinho } from "@/lib/store";
 
 /**
  * "Minha conta": pedidos, pontos/cupons e dados cadastrais.
@@ -26,6 +28,26 @@ type Aba = (typeof ABAS)[number]["id"];
 export default function ContaPage() {
   const [aba, setAba] = useState<Aba>("pedidos");
 
+  /** Mesma saída do cabeçalho: encerra a sessão e limpa o carrinho local. */
+  async function sair() {
+    await sairCliente();
+    limparCarrinho();
+    window.location.assign("/catalogo");
+  }
+
+  /**
+   * `?aba=dados` abre direto na aba dos dados. É o que faz o "Mudar meu
+   * endereço fixo" do checkout cair no formulário certo — antes ele largava a
+   * cliente em "Meus pedidos" e ela tinha que adivinhar onde continuar.
+   *
+   * Lido depois de montar, e não durante a renderização, pra o servidor e o
+   * navegador não desenharem abas diferentes.
+   */
+  useEffect(() => {
+    const pedida = new URLSearchParams(window.location.search).get("aba");
+    if (ABAS.some((a) => a.id === pedida)) setAba(pedida as Aba);
+  }, []);
+
   return (
     <>
       <Header />
@@ -40,7 +62,7 @@ export default function ContaPage() {
             <button
               key={a.id}
               onClick={() => setAba(a.id)}
-              className={`shrink-0 px-4 py-2.5 rounded-full text-sm font-body border transition-colors ${
+              className={`shrink-0 px-4 py-3 rounded-full text-sm font-body border transition-colors ${
                 aba === a.id
                   ? "bg-cherryDark text-white border-cherryDark"
                   : "bg-white/70 text-ink/70 border-cherryLight/50 hover:border-cherryDark"
@@ -55,6 +77,17 @@ export default function ContaPage() {
           {aba === "pedidos" && <MeusPedidos />}
           {aba === "pontos" && <PontosECupons />}
           {aba === "dados" && <MeusDados />}
+        </div>
+
+        {/* Sair fica aqui embaixo, discreto: no celular o cabeçalho não tem
+            espaço pra ele, e este é o lugar onde a pessoa mexe na conta. */}
+        <div className="text-center mt-10">
+          <button
+            onClick={sair}
+            className="font-body text-sm text-ink/50 underline inline-flex items-center min-h-[44px] px-2 hover:text-cherryDark"
+          >
+            Sair da minha conta
+          </button>
         </div>
       </main>
       <Footer />

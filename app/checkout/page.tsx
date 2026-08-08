@@ -13,13 +13,11 @@ import {
   getConfiguracaoFrete,
   getProdutos,
   iniciarPagamento,
+  validarCupom,
 } from "@/lib/api";
-import {
-  dataMinimaRetirada,
-  paraInputDataHora,
-  prazoMaximoEmDias,
-} from "@/lib/prazo";
-import type { Cliente } from "@/lib/types";
+import { prazoMaximoEmDias } from "@/lib/prazo";
+import { PONTOS_RETIRADA } from "@/lib/retirada";
+import type { Cliente, ItemPedido } from "@/lib/types";
 import { calcularFretePorEndereco } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
 import { useSobre } from "@/lib/usar-sobre";
@@ -27,13 +25,21 @@ import type { ConfiguracaoFrete, FormaPagamento, TipoEntrega } from "@/lib/types
 
 export default function CheckoutPage() {
   const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>("entrega");
-  const [dataAgendada, setDataAgendada] = useState("");
+  /** Qual dos pontos a cliente escolheu pra buscar (só na retirada). */
+  const [pontoRetirada, setPontoRetirada] = useState("");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("pix");
   const [frete, setFrete] = useState<{ distanciaKm: number; valor: number | null } | null>(null);
   const [config, setConfig] = useState<ConfiguracaoFrete | null>(null);
   const [finalizando, setFinalizando] = useState(false);
 
-  const carrinho = useMemo(() => getCarrinho(), []);
+  /**
+   * O carrinho mora no navegador, então o servidor não tem como conhecê-lo:
+   * ele é lido DEPOIS de montar. Ler durante a renderização faria o servidor
+   * desenhar a lista vazia e o navegador desenhar os doces — e o React
+   * reclamaria da diferença bem na tela de pagar.
+   */
+  const [carrinho, setCarrinho] = useState<ItemPedido[]>([]);
+  useEffect(() => setCarrinho(getCarrinho()), []);
   // O cliente vem da sessão no servidor, não do navegador: assim o endereço
   // usado no frete é o que está de fato cadastrado na conta.
   const [cliente, setCliente] = useState<Cliente | null>(null);
@@ -42,6 +48,16 @@ export default function CheckoutPage() {
   // entregar em outro lugar (presente, casa da mãe, trabalho).
   const [enderecoVisitante, setEnderecoVisitante] = useState<EnderecoDeVisitante | null>(null);
   const [outroEndereco, setOutroEndereco] = useState(false);
+
+  // Cupom de desconto.
+  const [mostrarCupom, setMostrarCupom] = useState(false);
+  const [codigoCupom, setCodigoCupom] = useState("");
+  const [conferindoCupom, setConferindoCupom] = useState(false);
+  const [erroCupom, setErroCupom] = useState("");
+  const [cupomAplicado, setCupomAplicado] = useState<{
+    codigo: string;
+    desconto: number;
+  } | null>(null);
 
   // Presente e bilhete.
   const [ehPresente, setEhPresente] = useState(false);
@@ -80,11 +96,6 @@ export default function CheckoutPage() {
       })
       .catch(() => setPrazoDias(0));
   }, [carrinho]);
-
-  const minimoRetirada = useMemo(
-    () => paraInputDataHora(dataMinimaRetirada(prazoDias)),
-    [prazoDias]
-  );
 
   /**
    * O endereço que vale nesta tela: o do cadastro quando a pessoa está
@@ -156,7 +167,35 @@ export default function CheckoutPage() {
   const compraBloqueada = tipoEntrega === "entrega" && (!area.atendido || freteIndisponivel);
 
   const valorFrete = tipoEntrega === "retirada" ? 0 : frete?.valor ?? 0;
-  const total = subtotal + valorFrete;
+  // O desconto nunca come o frete: ele abate o valor dos doces, e no máximo
+  // até zerá-los. Quem confere isso de verdade é o servidor.
+  const desconto = Math.min(cupomAplicado?.desconto ?? 0, subtotal);
+  const total = subtotal - desconto + valorFrete;
+
+  async function aplicarCupom() {
+    setErroCupom("");
+    setConferindoCupom(true);
+    try {
+      const r = await validarCupom(codigoCupom, carrinho);
+      setCupomAplicado({ codigo: r.codigo, desconto: r.desconto });
+      setMostrarCupom(false);
+    } catch (e) {
+      setErroCupom(
+        e instanceof Error && e.message
+          ? e.message
+          : "Não consegui conferir esse cupom agora."
+      );
+    } finally {
+      setConferindoCupom(false);
+    }
+  }
+
+  function tirarCupom() {
+    setCupomAplicado(null);
+    setCodigoCupom("");
+    setErroCupom("");
+    setMostrarCupom(false);
+  }
 
   async function handleFinalizar() {
     if (carrinho.length === 0) {
@@ -179,7 +218,7 @@ export default function CheckoutPage() {
         clienteId: cliente?.id ?? "",
         itens: carrinho,
         tipoEntrega,
-        dataAgendada,
+        pontoRetirada: tipoEntrega === "retirada" ? pontoRetirada : "",
         // Entregando em outro lugar, o endereço vai junto — o servidor
         // confere a área e recalcula o frete a partir dele.
         entregarEmOutroEndereco: outroEndereco,
@@ -194,6 +233,7 @@ export default function CheckoutPage() {
         ehPresente,
         nomeQuemRecebe: ehPresente ? nomeQuemRecebe : "",
         bilhete: querBilhete ? bilhete : "",
+        cupom: cupomAplicado?.codigo ?? "",
       });
       if (url) {
         // Redireciona para o checkout seguro do Mercado Pago (Pix/cartão).
@@ -238,6 +278,39 @@ export default function CheckoutPage() {
           </div>
         )}
 
+        {/* O que ela está levando, logo no começo: antes a tela pedia
+            endereço e cartão sem mostrar em momento nenhum quais doces
+            estavam sendo comprados. */}
+        <section className="bg-white/60 border border-cherryLight/30 rounded-xl px-4 py-3 mb-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-display text-base text-ink">Seu pedido</h2>
+            <a
+              href="/carrinho"
+              className="text-xs font-body text-cherryDark underline inline-flex items-center min-h-[44px] px-1"
+            >
+              Mudar
+            </a>
+          </div>
+          <ul className="grid gap-1 mt-1 font-body text-sm text-ink/75">
+            {carrinho.map((i) => (
+              <li
+                key={`${i.produtoId}-${i.saborId ?? ""}`}
+                className="flex justify-between gap-3"
+              >
+                <span className="min-w-0">
+                  {i.quantidade}× {i.nome}
+                  {i.saborNome && (
+                    <span className="text-cherryMid"> · {i.saborNome}</span>
+                  )}
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  {reais(i.precoUnitario * i.quantidade)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         <section className="grid gap-3">
           <h2 className="font-display text-lg text-ink">Como você quer receber?</h2>
           <div className="flex gap-3">
@@ -268,11 +341,17 @@ export default function CheckoutPage() {
                   <div className="flex flex-wrap gap-x-4">
                     <button
                       onClick={() => setOutroEndereco(true)}
-                      className="text-sm text-cherryDark underline py-2"
+                      className="text-sm text-cherryDark underline inline-flex items-center min-h-[44px]"
                     >
                       Entregar em outro endereço
                     </button>
-                    <a href="/conta" className="text-sm text-ink/60 underline py-2">
+                    {/* Vai direto na aba dos dados e volta pra cá depois de
+                        salvar — não adianta despejar a cliente em "Meus
+                        pedidos" no meio de uma compra. */}
+                    <a
+                      href="/conta?aba=dados&voltar=%2Fcheckout"
+                      className="text-sm text-ink/60 underline inline-flex items-center min-h-[44px]"
+                    >
                       Mudar meu endereço fixo
                     </a>
                   </div>
@@ -285,7 +364,7 @@ export default function CheckoutPage() {
                     </p>
                     <button
                       onClick={() => setOutroEndereco(false)}
-                      className="text-sm text-cherryDark underline py-2"
+                      className="text-sm text-cherryDark underline inline-flex items-center min-h-[44px]"
                     >
                       Usar meu endereço
                     </button>
@@ -346,26 +425,66 @@ export default function CheckoutPage() {
               </p>
             ) : null)}
 
-          {/* Só a RETIRADA é agendada pelo cliente. Na entrega quem marca a
-              data é a Camily, então aqui a gente só avisa o prazo. */}
+          {/*
+           * Retirada: a cliente escolhe ONDE buscar, e o dia e a hora ela
+           * combina com a Camily. O campo de data que existia aqui marcava
+           * horário sem ninguém do outro lado confirmar, e isso só gerava
+           * desencontro na porta.
+           */}
           {tipoEntrega === "retirada" ? (
-            <>
-              <label className="grid gap-1 text-sm font-body text-ink/80 mt-2">
-                Quando você vem buscar? *
-                <input
-                  type="datetime-local"
-                  value={dataAgendada}
-                  min={minimoRetirada}
-                  onChange={(e) => setDataAgendada(e.target.value)}
-                  className="w-full border border-cherryLight/60 rounded-xl px-4 py-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
-                />
-              </label>
-              <p className="text-xs text-ink/50 -mt-1">
-                {prazoDias > 0
-                  ? `Um dos doces do seu carrinho é feito sob encomenda e precisa de ${prazoDias} ${prazoDias === 1 ? "dia" : "dias"} de preparo, então a retirada começa em ${new Date(minimoRetirada).toLocaleDateString("pt-BR")}.`
-                  : "Tudo do seu carrinho é pronta entrega — você já pode buscar hoje."}
+            <div className="grid gap-2 mt-2">
+              <p className="text-sm font-body text-ink/80">
+                Onde você prefere buscar? *
               </p>
-            </>
+              {PONTOS_RETIRADA.map((ponto) => {
+                const escolhido = pontoRetirada === ponto.id;
+                return (
+                  <button
+                    key={ponto.id}
+                    type="button"
+                    onClick={() => setPontoRetirada(ponto.id)}
+                    aria-pressed={escolhido}
+                    className={`text-left rounded-xl border-2 px-4 py-3 transition-colors ${
+                      escolhido
+                        ? "border-cherryDark bg-blush/50"
+                        : "border-cherryLight/40 bg-white/60 hover:border-cherryMid"
+                    }`}
+                  >
+                    <span className="flex items-start gap-2.5">
+                      {/* Bolinha desenhada à mão: um radio de verdade fica
+                          pequeno demais pro dedo e não aceita a cor da casa. */}
+                      <span
+                        aria-hidden
+                        className={`mt-0.5 w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                          escolhido ? "border-cherryDark" : "border-cherryLight"
+                        }`}
+                      >
+                        {escolhido && (
+                          <span className="w-2.5 h-2.5 rounded-full bg-cherryDark" />
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-body font-semibold text-ink/85">
+                          {ponto.endereco}
+                        </span>
+                        {ponto.horarios.map((h) => (
+                          <span key={h} className="block text-xs font-body text-ink/60">
+                            {h}
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+              <p className="text-sm font-body text-ink/70 bg-white/60 border border-cherryLight/30 rounded-xl px-4 py-3">
+                {prazoDias > 0
+                  ? `Um dos doces do seu carrinho é feito sob encomenda e precisa de ${prazoDias} ${prazoDias === 1 ? "dia" : "dias"} de preparo. `
+                  : ""}
+                O dia e o horário você combina com a Camily pelo WhatsApp, assim
+                que o pagamento for confirmado. 🍒
+              </p>
+            </div>
           ) : (
             <p className="text-sm font-body text-ink/70 bg-white/60 border border-cherryLight/30 rounded-xl px-4 py-3 mt-2">
               {prazoDias > 0
@@ -462,25 +581,90 @@ export default function CheckoutPage() {
 
         <CherryDivider />
 
+        {/* Cupom: a Camily já criava cupons no painel, mas não havia onde
+            digitar o código — eles não serviam pra nada. Fica recolhido
+            porque a maioria das compras não usa um. */}
+        <section className="grid gap-2">
+          {!mostrarCupom && !cupomAplicado ? (
+            <button
+              onClick={() => setMostrarCupom(true)}
+              className="text-sm font-body text-cherryDark underline justify-self-start inline-flex items-center min-h-[44px]"
+            >
+              Tenho um cupom de desconto
+            </button>
+          ) : cupomAplicado ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              <span className="font-body text-sm text-green-800">
+                Cupom <strong>{cupomAplicado.codigo}</strong> aplicado — você
+                economizou {reais(cupomAplicado.desconto)}. 🍒
+              </span>
+              <button
+                onClick={tirarCupom}
+                className="font-body text-xs text-ink/50 underline inline-flex items-center min-h-[44px]"
+              >
+                Tirar
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <label className="grid gap-1 text-sm font-body text-ink/80">
+                Código do cupom
+                <div className="flex gap-2">
+                  <input
+                    value={codigoCupom}
+                    onChange={(e) => {
+                      setCodigoCupom(e.target.value.toUpperCase());
+                      setErroCupom("");
+                    }}
+                    placeholder="EX: DOCE10"
+                    autoCapitalize="characters"
+                    className="min-w-0 flex-1 border border-cherryLight/60 rounded-xl px-4 py-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
+                  />
+                  <button
+                    onClick={aplicarCupom}
+                    disabled={conferindoCupom || !codigoCupom.trim()}
+                    className="shrink-0 bg-cherryDark text-white rounded-full px-5 py-3 font-body font-semibold text-sm disabled:opacity-40"
+                  >
+                    {conferindoCupom ? "..." : "Aplicar"}
+                  </button>
+                </div>
+              </label>
+              {erroCupom && (
+                <p className="text-sm font-body text-cherryDark">{erroCupom}</p>
+              )}
+            </div>
+          )}
+        </section>
+
+        <CherryDivider />
+
         <div className="grid gap-1 font-body">
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-3">
             <span>Subtotal</span>
-            <span>{reais(subtotal)}</span>
+            <span className="tabular-nums">{reais(subtotal)}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Frete</span>
-            <span>{reais(valorFrete)}</span>
+          {cupomAplicado && (
+            <div className="flex justify-between gap-3 text-green-700">
+              <span>Desconto ({cupomAplicado.codigo})</span>
+              <span className="tabular-nums">− {reais(cupomAplicado.desconto)}</span>
+            </div>
+          )}
+          <div className="flex justify-between gap-3">
+            <span>{tipoEntrega === "retirada" ? "Retirada" : "Frete"}</span>
+            <span className="tabular-nums">
+              {tipoEntrega === "retirada" ? "Grátis" : reais(valorFrete)}
+            </span>
           </div>
-          <div className="flex justify-between font-display text-lg mt-2">
+          <div className="flex justify-between gap-3 font-display text-lg mt-2">
             <span>Total</span>
-            <span>{reais(total)}</span>
+            <span className="tabular-nums">{reais(total)}</span>
           </div>
         </div>
 
         <button
           onClick={handleFinalizar}
           disabled={
-            (tipoEntrega === "retirada" && !dataAgendada) ||
+            (tipoEntrega === "retirada" && !pontoRetirada) ||
             finalizando ||
             compraBloqueada
           }

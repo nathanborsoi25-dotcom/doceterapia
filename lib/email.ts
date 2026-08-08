@@ -109,6 +109,8 @@ export function emailStatusPedido(dados: {
   prazoEm?: string | null;
   /** Link de acompanhamento da entrega, quando a Camily informou. */
   linkRastreio?: string | null;
+  /** Onde a cliente vai buscar, quando o pedido é retirada. */
+  pontoRetirada?: string | null;
   /** Como ficou a devolução do dinheiro, quando o pedido foi cancelado. */
   reembolso?: "nao_precisa" | "concluido" | "falhou" | null;
   formaPagamento?: string;
@@ -150,7 +152,11 @@ export function emailStatusPedido(dados: {
       titulo: ehEntrega ? "Saiu para entrega!" : "Pronto para retirada!",
       corpo: ehEntrega
         ? "Seu pedido acabou de sair e está a caminho do seu endereço. Fique de olho!"
-        : "Seus doces estão prontinhos esperando por você. É só vir buscar no horário combinado.",
+        : // Na retirada este é o e-mail que manda a pessoa sair de casa, então
+          // o endereço vai junto — procurar no site nessa hora é atrito à toa.
+          `Seus doces estão prontinhos esperando por você.${
+            dados.pontoRetirada ? ` Você busca em <strong>${dados.pontoRetirada}</strong>.` : ""
+          } É só combinar o horário com a Camily pelo WhatsApp.`,
     },
     concluido: {
       assunto: "Obrigada pelo seu pedido! 💗",

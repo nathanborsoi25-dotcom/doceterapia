@@ -15,21 +15,27 @@ export default function CarrinhoPage() {
   const [itens, setItens] = useState<ItemPedido[]>([]);
   /** Estoque de cada doce agora — o carrinho pode ser de ontem. */
   const [estoques, setEstoques] = useState<Map<string, number | null>>(new Map());
+  /** Foto de cada doce, pra cliente reconhecer o que comprou de relance. */
+  const [fotos, setFotos] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     setItens(getCarrinho());
     getProdutos()
       .then((lista) => {
         // Um mapa só, com a mesma chave usada no carrinho: o doce sozinho e
-        // cada recheio dele têm estoques diferentes.
-        const mapa = new Map<string, number | null>();
+        // cada recheio dele têm estoque e foto diferentes.
+        const porEstoque = new Map<string, number | null>();
+        const porFoto = new Map<string, string>();
         for (const p of lista) {
-          mapa.set(chaveDoItem(p.id), p.estoque ?? null);
+          porEstoque.set(chaveDoItem(p.id), p.estoque ?? null);
+          porFoto.set(chaveDoItem(p.id), p.fotoUrl || p.fotos?.[0] || "");
           for (const s of p.sabores ?? []) {
-            mapa.set(chaveDoItem(p.id, s.id), s.estoque ?? null);
+            porEstoque.set(chaveDoItem(p.id, s.id), s.estoque ?? null);
+            porFoto.set(chaveDoItem(p.id, s.id), s.fotoUrl || p.fotoUrl || "");
           }
         }
-        setEstoques(mapa);
+        setEstoques(porEstoque);
+        setFotos(porFoto);
       })
       .catch(() => {});
   }, []);
@@ -40,6 +46,14 @@ export default function CarrinhoPage() {
    */
   function limite(item: ItemPedido): number | null {
     return estoques.get(chaveDoItem(item.produtoId, item.saborId)) ?? null;
+  }
+
+  /** Tira o doce do carrinho de uma vez — com 12 unidades, ninguém vai tocar 12 vezes no "−". */
+  function remover(item: ItemPedido) {
+    const chave = chaveDoItem(item.produtoId, item.saborId);
+    const novos = itens.filter((i) => chaveDoItem(i.produtoId, i.saborId) !== chave);
+    setItens(novos);
+    salvarCarrinho(novos);
   }
 
   function atualizarQuantidade(item: ItemPedido, delta: number) {
@@ -81,56 +95,104 @@ export default function CarrinhoPage() {
           </p>
         ) : (
           <div className="grid gap-4">
-            {itens.map((item) => (
-              <div
-                key={chaveDoItem(item.produtoId, item.saborId)}
-                className="flex items-center justify-between gap-3 bg-white/70 rounded-xl px-3 sm:px-4 py-3 border border-cherryLight/30"
-              >
-                <div className="min-w-0">
-                  <p className="font-display text-ink truncate">{item.nome}</p>
-                  {item.saborNome && (
-                    <p className="text-xs text-cherryMid font-body">
-                      Recheio: {item.saborNome}
+            {/*
+             * Duas faixas por item — nome em cima, contador embaixo — em vez
+             * de tudo numa linha só. Numa tela de 320px o nome do doce e o
+             * contador disputavam a mesma linha, e o card inteiro estourava
+             * pra fora da tela levando junto o subtotal e o botão de pagar.
+             */}
+            {itens.map((item) => {
+              const chave = chaveDoItem(item.produtoId, item.saborId);
+              const foto = fotos.get(chave);
+              const max = limite(item);
+              const acabou = max === 0;
+              const passouDoEstoque = max != null && item.quantidade > max;
+
+              return (
+                <div
+                  key={chave}
+                  className="min-w-0 bg-white/70 rounded-xl px-3 sm:px-4 py-3 border border-cherryLight/30"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-14 h-14 shrink-0 rounded-lg bg-blush overflow-hidden flex items-center justify-center text-xl">
+                      {foto ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={foto}
+                          alt=""
+                          className={`w-full h-full object-cover ${acabou ? "opacity-40 grayscale" : ""}`}
+                        />
+                      ) : (
+                        "🍰"
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      {/* Sem truncar: nome de doce cortado no meio não ajuda
+                          ninguém a saber o que está comprando. */}
+                      <p className="font-display text-ink leading-tight break-words">
+                        {item.nome}
+                      </p>
+                      {item.saborNome && (
+                        <p className="text-xs text-cherryMid font-body mt-0.5">
+                          Recheio: {item.saborNome}
+                        </p>
+                      )}
+                      <p className="text-sm text-ink/60 font-body">
+                        {reais(item.precoUnitario)} cada
+                      </p>
+                    </div>
+                  </div>
+
+                  {(acabou || passouDoEstoque) && (
+                    <p className="text-xs font-body font-semibold text-cherryDark mt-2">
+                      {acabou
+                        ? "Esgotou — tire do carrinho para continuar"
+                        : `Restam só ${max} — ajuste a quantidade`}
                     </p>
                   )}
-                  <p className="text-sm text-ink/60 font-body">
-                    {reais(item.precoUnitario)} cada
-                  </p>
-                  {limite(item) === 0 ? (
-                    <p className="text-xs font-body font-semibold text-cherryDark">
-                      Esgotou — tire do carrinho para continuar
-                    </p>
-                  ) : limite(item) != null && item.quantidade > (limite(item) ?? 0) ? (
-                    <p className="text-xs font-body font-semibold text-cherryDark">
-                      Restam só {limite(item)} — ajuste a quantidade
-                    </p>
-                  ) : null}
-                </div>
-                {/* Botões de 44px: tamanho confortável para o dedo */}
-                <div className="flex items-center gap-1 font-body shrink-0">
-                  <button
-                    onClick={() => atualizarQuantidade(item, -1)}
-                    aria-label={`Tirar um ${item.nome}`}
-                    className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform"
-                  >
-                    −
-                  </button>
-                  <span className="w-8 text-center tabular-nums">{item.quantidade}</span>
-                  <button
-                    onClick={() => atualizarQuantidade(item, 1)}
-                    aria-label={`Adicionar um ${item.nome}`}
-                    disabled={limite(item) != null && item.quantidade >= (limite(item) ?? 0)}
-                    className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-35 disabled:active:scale-100"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            ))}
 
-            <div className="flex justify-between font-display text-lg mt-4">
+                  <div className="flex items-center justify-between gap-2 mt-3">
+                    {/* Botões de 44px: tamanho confortável para o dedo */}
+                    <div className="flex items-center gap-1 font-body shrink-0">
+                      <button
+                        onClick={() => atualizarQuantidade(item, -1)}
+                        aria-label={`Tirar um ${item.nome}`}
+                        className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center tabular-nums">{item.quantidade}</span>
+                      <button
+                        onClick={() => atualizarQuantidade(item, 1)}
+                        aria-label={`Adicionar um ${item.nome}`}
+                        disabled={max != null && item.quantidade >= max}
+                        className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-35 disabled:active:scale-100"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {/* Quanto esta linha está custando: sem isso a cliente
+                        precisava multiplicar de cabeça pra conferir a conta. */}
+                    <span className="font-display text-ink tabular-nums">
+                      {reais(item.precoUnitario * item.quantidade)}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => remover(item)}
+                    className="text-xs font-body text-ink/50 underline inline-flex items-center min-h-[44px] hover:text-cherryDark"
+                  >
+                    Remover
+                  </button>
+                </div>
+              );
+            })}
+
+            <div className="flex justify-between gap-3 font-display text-lg mt-4">
               <span>Subtotal</span>
-              <span>{reais(total)}</span>
+              <span className="tabular-nums">{reais(total)}</span>
             </div>
             <p className="text-xs text-ink/50 font-body -mt-2">
               O frete é calculado na próxima etapa, de acordo com a distância

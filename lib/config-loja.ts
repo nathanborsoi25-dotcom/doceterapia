@@ -23,6 +23,7 @@ export const CONFIG_PADRAO: ConfigLoja = {
   sobreFoto: "",
   sobreTexto: "",
   telefone: "",
+  politica: {},
   pontosPorReal: 1,
   pontosPorAvaliacao: 10,
   pontosPorStory: 15,

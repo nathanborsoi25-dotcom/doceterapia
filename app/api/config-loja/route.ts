@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { configLoja } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { getConfigLoja, ID_CONFIG } from "@/lib/config-loja";
+import { CAMPOS_POLITICA } from "@/lib/politica";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,22 @@ export async function GET() {
 
 function texto(v: unknown, limite: number): string {
   return typeof v === "string" ? v.trim().slice(0, limite) : "";
+}
+
+/**
+ * Textos da política: só aceita as chaves que a página conhece, cada uma com
+ * texto puro e tamanho limitado. Sem essa peneira, o painel viraria porta pra
+ * gravar qualquer coisa no jsonb.
+ */
+function textosDaPolitica_(v: unknown): Record<string, string> {
+  if (!v || typeof v !== "object") return {};
+  const entrada = v as Record<string, unknown>;
+  const limpo: Record<string, string> = {};
+  for (const { chave } of CAMPOS_POLITICA) {
+    const valor = texto(entrada[chave], 2000);
+    if (valor) limpo[chave] = valor;
+  }
+  return limpo;
 }
 
 export async function PUT(req: Request) {
@@ -41,6 +58,7 @@ export async function PUT(req: Request) {
     sobreFoto: manter(b.sobreFoto, atual.sobreFoto, (v) => texto(v, 500)),
     sobreTexto: manter(b.sobreTexto, atual.sobreTexto, (v) => texto(v, 600)),
     telefone: manter(b.telefone, atual.telefone, (v) => texto(v, 30)),
+    politica: manter(b.politica, atual.politica, textosDaPolitica_),
     pontosPorReal: manter(b.pontosPorReal, atual.pontosPorReal, (v) =>
       Math.max(0, Number(v) || 0)
     ),

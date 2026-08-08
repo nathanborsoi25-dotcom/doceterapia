@@ -2,6 +2,7 @@ import type {
   Avaliacao,
   Cliente,
   ConfiguracaoFrete,
+  ItemPedido,
   Pedido,
   PedidoDoCliente,
   PedidoDoPainel,
@@ -170,7 +171,7 @@ export type NovoPedido = Pick<
   | "clienteId"
   | "itens"
   | "tipoEntrega"
-  | "dataAgendada"
+  | "pontoRetirada"
   | "enderecoEntrega"
   | "valorFrete"
   | "formaPagamento"
@@ -180,7 +181,25 @@ export type NovoPedido = Pick<
   ehPresente?: boolean;
   nomeQuemRecebe?: string;
   bilhete?: string;
+  /** Código do cupom; o desconto quem calcula é o servidor. */
+  cupom?: string;
 };
+
+/**
+ * Confere o cupom que a cliente digitou e devolve o desconto. Só serve pra
+ * mostrar na tela: o valor que vale é o que o servidor recalcula na hora de
+ * fechar o pedido.
+ */
+export async function validarCupom(
+  codigo: string,
+  itens: ItemPedido[]
+): Promise<{ codigo: string; descricao: string; desconto: number }> {
+  const res = await fetch("/api/cupons/validar", POST_JSON({ codigo, itens }));
+  if (!res.ok) {
+    throw new Error(await erroDoServidor(res, "Não consegui conferir esse cupom."));
+  }
+  return res.json();
+}
 
 /**
  * Cria o pedido e inicia o pagamento no Mercado Pago. Retorna a URL do

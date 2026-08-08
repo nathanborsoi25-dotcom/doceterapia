@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import { formatarCep, formatarTelefone } from "@/lib/formato";
 import { apenasDigitos } from "@/lib/validacoes";
+import { caminhoInternoSeguro } from "@/lib/voltar";
 
 /**
  * "Meus dados": o cliente arruma o próprio cadastro sem precisar chamar a
@@ -33,6 +34,16 @@ export default function MeusDados() {
   const [salvo, setSalvo] = useState(false);
   const [avisoCep, setAvisoCep] = useState("");
   const numeroRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * De onde a cliente veio, quando veio de algum lugar (hoje, do checkout
+   * clicando em "Mudar meu endereço fixo"). Só aparece depois de salvar.
+   */
+  const [voltarPara, setVoltarPara] = useState("");
+  useEffect(() => {
+    const parametro = new URLSearchParams(window.location.search).get("voltar");
+    if (parametro) setVoltarPara(caminhoInternoSeguro(parametro));
+  }, []);
 
   useEffect(() => {
     getClienteLogado()
@@ -187,9 +198,21 @@ export default function MeusDados() {
 
       {erro && <p className="text-sm text-cherryDark font-body">{erro}</p>}
       {salvo && (
-        <p className="text-sm font-body text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5">
-          Prontinho, seus dados foram salvos. 🍒
-        </p>
+        <div className="grid gap-2">
+          <p className="text-sm font-body text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5">
+            Prontinho, seus dados foram salvos. 🍒
+          </p>
+          {/* Quem chegou aqui do meio de uma compra volta pro pedido em um
+              toque, em vez de ter que achar o caminho de novo. */}
+          {voltarPara && (
+            <a
+              href={voltarPara}
+              className="text-center bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors"
+            >
+              Voltar para o meu pedido
+            </a>
+          )}
+        </div>
       )}
 
       <button

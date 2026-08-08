@@ -1,11 +1,10 @@
 /**
  * Regras de prazo dos pedidos.
  *
- * Doce sob encomenda precisa de dias para ficar pronto, então:
- *  - na RETIRADA, o cliente só pode agendar a partir de hoje + o maior prazo
- *    entre os doces do carrinho;
- *  - na ENTREGA, o cliente não agenda (quem marca é a Camily), e o prazo do
- *    pedido é a data da compra mais esse mesmo número de dias.
+ * Doce sob encomenda precisa de dias para ficar pronto, então o prazo do
+ * pedido é sempre a data da compra mais o maior prazo entre os doces do
+ * carrinho — na entrega e na retirada. Ninguém marca dia nem hora pelo site:
+ * quem combina isso com a cliente é a Camily, pelo WhatsApp.
  */
 
 /** Dias de encomenda de um pedido: o maior prazo entre os itens. */
@@ -25,19 +24,11 @@ function inicioDoDia(data: Date): Date {
   return d;
 }
 
-/** Primeira data possível para retirada, a partir de hoje. */
+/** Primeiro dia em que o pedido pode estar pronto, contando de hoje. */
 export function dataMinimaRetirada(prazoDias: number, hoje = new Date()): Date {
   const d = inicioDoDia(hoje);
   d.setDate(d.getDate() + prazoDias);
   return d;
-}
-
-/** Formato aceito pelo input datetime-local: "2026-08-05T09:00". */
-export function paraInputDataHora(data: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${data.getFullYear()}-${p(data.getMonth() + 1)}-${p(data.getDate())}T${p(
-    data.getHours()
-  )}:${p(data.getMinutes())}`;
 }
 
 export type SituacaoPrazo = {

@@ -38,6 +38,7 @@ export async function avisarMudancaDeStatus(
       total,
       prazoEm: linha.pedido.prazoEm?.toISOString() ?? null,
       linkRastreio: linha.pedido.linkRastreio,
+      pontoRetirada: linha.pedido.pontoRetirada,
       reembolso: linha.pedido.statusReembolso as
         | "nao_precisa"
         | "concluido"

@@ -182,6 +182,15 @@ async function main() {
   await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS sobre_texto text NOT NULL DEFAULT ''`;
   await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS telefone text NOT NULL DEFAULT ''`;
 
+  console.log("7) Ponto de retirada escolhido no pedido...");
+  await sql`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS ponto_retirada text`;
+
+  console.log("8) Textos da política editáveis pelo painel...");
+  await sql`
+    ALTER TABLE config_loja
+    ADD COLUMN IF NOT EXISTS politica jsonb NOT NULL DEFAULT '{}'::jsonb
+  `;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns

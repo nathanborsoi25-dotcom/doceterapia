@@ -279,7 +279,7 @@ export default function ProductCard({ produto }: { produto: Produto }) {
 
         <Link
           href={`/doce/${slugDoProduto(produto)}`}
-          className="text-xs text-cherryDark underline font-body py-2 justify-self-start"
+          className="text-xs text-cherryDark underline font-body inline-flex items-center min-h-[44px] justify-self-start"
         >
           {sabores.length > 1
             ? `Ver detalhes e ${sabores.length} recheios`

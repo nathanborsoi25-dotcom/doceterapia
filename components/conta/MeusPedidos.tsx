@@ -128,6 +128,16 @@ function CartaoPedido({
 
       <p className="text-ink/70">{situacao.explicacao}</p>
 
+      {/* Onde buscar, pra cliente não precisar caçar no e-mail. */}
+      {pedido.pontoRetirada && (
+        <p className="text-xs bg-white/80 border border-cherryLight/40 rounded-xl px-3 py-2 text-ink/75">
+          📍 <strong>Você busca em:</strong> {pedido.pontoRetirada}
+          <span className="block text-ink/55 mt-0.5">
+            O horário você combina com a Camily pelo WhatsApp.
+          </span>
+        </p>
+      )}
+
       {pedido.ehPresente && (
         <p className="text-xs bg-blush/60 border border-cherryLight/40 rounded-xl px-3 py-2 text-ink/70">
           🎁 Presente{pedido.nomeQuemRecebe ? ` para ${pedido.nomeQuemRecebe}` : ""}

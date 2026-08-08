@@ -357,6 +357,14 @@ export default function AdminPedidosPage() {
                   {p.valorFrete > 0 && ` · Frete ${reais(p.valorFrete)}`}
                 </p>
 
+                {/* Onde ela escolheu buscar: é o que a Camily precisa saber
+                    pra combinar o horário no WhatsApp. */}
+                {p.pontoRetirada && (
+                  <p className="bg-white/80 border border-cherryLight/40 rounded-xl px-3 py-2 text-ink/80">
+                    📍 <strong>Busca em:</strong> {p.pontoRetirada}
+                  </p>
+                )}
+
                 {/* Presente e bilhete em destaque: mudam o que ela faz na
                     entrega e o que escreve no cartão. */}
                 {p.ehPresente && (

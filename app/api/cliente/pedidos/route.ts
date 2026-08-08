@@ -41,6 +41,7 @@ export async function GET() {
       itens: p.itens,
       tipoEntrega: p.tipoEntrega as PedidoDoCliente["tipoEntrega"],
       dataAgendada: p.dataAgendada,
+      pontoRetirada: p.pontoRetirada,
       enderecoEntrega: p.enderecoEntrega ?? undefined,
       valorFrete: p.valorFrete,
       formaPagamento: p.formaPagamento as PedidoDoCliente["formaPagamento"],

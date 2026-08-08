@@ -141,7 +141,18 @@ export const pedidos = pgTable("pedidos", {
   clienteId: text("cliente_id"),
   itens: jsonb("itens").$type<ItemPedido[]>().notNull(),
   tipoEntrega: text("tipo_entrega").notNull(),
+  /**
+   * Sobra de quando a cliente marcava dia e hora da retirada no site. Hoje ela
+   * escolhe ONDE buscar (`pontoRetirada`) e combina o horário com a Camily
+   * pelo WhatsApp — a coluna fica pelos pedidos antigos, que ainda têm data.
+   */
   dataAgendada: text("data_agendada").notNull().default(""),
+  /**
+   * Onde a cliente vai buscar, já escrito por extenso (endereço + horários).
+   * Guardar o texto, e não só o código do ponto, mantém o pedido fiel ao que
+   * ela leu na hora de comprar, mesmo que os horários mudem depois.
+   */
+  pontoRetirada: text("ponto_retirada"),
   enderecoEntrega: jsonb("endereco_entrega").$type<Cliente["endereco"] | null>(),
   valorFrete: doublePrecision("valor_frete").notNull().default(0),
   /**
@@ -348,6 +359,11 @@ export const configLoja = pgTable("config_loja", {
   sobreTexto: text("sobre_texto").notNull().default(""),
   /** Telefone do WhatsApp, como ela digita: "(43) 99634-7895". */
   telefone: text("telefone").notNull().default(""),
+  /**
+   * Textos da página de política, um por bloco (ver `lib/politica.ts`). Só o
+   * que ela reescreveu fica aqui; o resto vem do padrão.
+   */
+  politica: jsonb("politica").$type<Record<string, string>>().notNull().default({}),
   /** Pontos ganhos por real gasto (ex: 1 ponto por R$ 1,00). */
   pontosPorReal: doublePrecision("pontos_por_real").notNull().default(1),
   /** Pontos ganhos ao avaliar um doce. */

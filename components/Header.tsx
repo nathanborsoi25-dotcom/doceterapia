@@ -53,22 +53,30 @@ export default function Header() {
       </Link>
       {/* py-3/px-2 dá área de toque confortável no dedo sem mudar o visual */}
       <nav className="flex gap-1 sm:gap-3 text-sm font-body text-ink/80 items-center">
-        {/* Em telas bem estreitas (iPhone SE) este link some: o próprio logo
-            já leva ao catálogo, e assim o cabeçalho não estoura. */}
+        {/* Em telas estreitas este link some: o próprio logo já leva ao
+            catálogo, e assim o cabeçalho não estoura. O corte é em 400px
+            porque com o contador do carrinho ao lado do texto o nav ficou
+            mais largo — em 375px ele passava da tela por uns 4px. */}
         <Link
           href="/catalogo"
-          className="hidden min-[360px]:inline-block px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
+          className="hidden min-[400px]:inline-block px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
         >
           Cardápio
         </Link>
+        {/*
+         * O número fica AO LADO da palavra, não flutuando por cima dela.
+         * Como bolinha absoluta no canto, ele montava em cima do texto e do
+         * botão vizinho em tela de 320px — justamente onde o cabeçalho tem
+         * menos espaço.
+         */}
         <Link
           href="/carrinho"
-          className="relative px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
+          className="flex items-center gap-1.5 px-2 py-3 rounded-lg hover:text-cherryDark hover:bg-blush/60 transition-colors"
         >
           Carrinho
           {itens > 0 && (
             <span
-              className="absolute top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-cherryDark text-white text-[11px] font-semibold flex items-center justify-center tabular-nums"
+              className="min-w-[20px] h-5 px-1 rounded-full bg-cherryDark text-white text-[11px] font-semibold flex items-center justify-center tabular-nums shrink-0"
               aria-label={`${itens} ${itens === 1 ? "item" : "itens"} no carrinho`}
             >
               {itens}
@@ -87,9 +95,13 @@ export default function Header() {
               <span className="hidden min-[420px]:inline">Minha conta</span>
               <span className="min-[420px]:hidden">Conta</span>
             </Link>
+            {/* Em tela estreita o "Sair" sai do cabeçalho: com o contador do
+                carrinho e o link da conta, os quatro itens não cabiam em
+                320px. Quem quiser sair encontra o botão dentro de
+                "Minha conta", que é onde se mexe na conta mesmo. */}
             <button
               onClick={sair}
-              className="px-2 py-3 rounded-lg text-ink/50 hover:text-cherryDark hover:bg-blush/60 transition-colors"
+              className="hidden min-[400px]:block px-2 py-3 rounded-lg text-ink/50 hover:text-cherryDark hover:bg-blush/60 transition-colors"
             >
               Sair
             </button>
@@ -99,7 +111,7 @@ export default function Header() {
         {logado === false && (
           <Link
             href="/entrar"
-            className="bg-cherryDark text-white rounded-full px-4 py-2.5 font-semibold hover:bg-cherryMid transition-colors"
+            className="bg-cherryDark text-white rounded-full px-3 sm:px-4 py-3 font-semibold hover:bg-cherryMid transition-colors shrink-0"
           >
             Entrar
           </Link>

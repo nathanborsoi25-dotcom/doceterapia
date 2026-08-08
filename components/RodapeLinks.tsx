@@ -15,14 +15,14 @@ export default function RodapeLinks() {
   return (
     <footer className="mt-10 pb-8 px-4 text-center font-body text-xs text-ink/50">
       <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-        <Link href="/politica" className="underline py-2 hover:text-cherryDark">
+        <Link href="/politica" className="underline inline-flex items-center min-h-[44px] px-1 hover:text-cherryDark">
           Cancelamento e reembolso
         </Link>
         <a
           href={linkWhatsApp("Oi, Camily! Tenho uma dúvida sobre o site da Doceterapia.")}
           target="_blank"
           rel="noopener noreferrer"
-          className="underline py-2 hover:text-cherryDark"
+          className="underline inline-flex items-center min-h-[44px] px-1 hover:text-cherryDark"
         >
           Falar com a Camily
         </a>

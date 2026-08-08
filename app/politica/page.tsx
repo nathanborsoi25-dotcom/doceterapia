@@ -2,11 +2,12 @@ import Link from "next/link";
 import CherryDivider from "@/components/CherryDivider";
 import { linkWhatsAppNumero } from "@/lib/contato";
 import { getConfigLoja, sobreDaLoja } from "@/lib/config-loja";
+import { textosDaPolitica } from "@/lib/politica";
 
 /**
- * Sem isto o Next congela a página no build, com o telefone que existia
- * naquele minuto — e trocar o número pelo painel não mudaria nada aqui até o
- * próximo deploy.
+ * Sem isto o Next congela a página no build, com o telefone e os textos que
+ * existiam naquele minuto — e o que a Camily mudasse no painel não apareceria
+ * até o próximo deploy.
  */
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,14 @@ export const metadata = {
  * Página pública com as regras da loja. Fica fora do middleware de login de
  * propósito: quem ainda não tem conta precisa poder ler antes de comprar.
  *
- * O texto foi escrito com a Camily falando na primeira pessoa, que é como ela
- * conversa com as clientes no WhatsApp.
+ * O texto é a Camily falando na primeira pessoa, que é como ela conversa com
+ * as clientes no WhatsApp — e ela edita tudo em `/admin/politica`. Aqui só
+ * mora a estrutura e os links.
  */
 export default async function PoliticaPage() {
-  // O telefone vem do painel: se a Camily trocar de número, a política troca
-  // junto — em vez de virar um número velho escrito na pedra.
-  const { telefone } = sobreDaLoja(await getConfigLoja());
+  const config = await getConfigLoja();
+  const { telefone } = sobreDaLoja(config);
+  const texto = textosDaPolitica(config.politica);
   const linkWhatsApp = (mensagem?: string) => linkWhatsAppNumero(telefone, mensagem);
 
   return (
@@ -41,164 +43,95 @@ export default async function PoliticaPage() {
       <h1 className="font-display text-2xl sm:text-3xl text-cherryDark mt-2">
         Política de cancelamento, reembolso e entrega
       </h1>
-      <p className="font-body text-ink/60 text-sm mt-2">
-        Aqui está tudo combinado por escrito, pra você comprar tranquila. Se
-        ficar qualquer dúvida,{" "}
-        <a
-          href={linkWhatsApp("Oi, Camily! Tenho uma dúvida sobre a política da loja.")}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-cherryDark underline"
-        >
-          me chame no WhatsApp {telefone}
-        </a>{" "}
-        — eu respondo pessoalmente.
-      </p>
+      <div className="font-body text-ink/60 text-sm mt-2 grid gap-2">
+        <Paragrafos texto={texto.intro} />
+        <p>
+          Se ficar qualquer dúvida,{" "}
+          <a
+            href={linkWhatsApp("Oi, Camily! Tenho uma dúvida sobre a política da loja.")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-cherryDark underline"
+          >
+            me chame no WhatsApp {telefone}
+          </a>
+          . Eu respondo pessoalmente.
+        </p>
+      </div>
       <CherryDivider />
 
       <Secao titulo="Cancelamento do pedido">
-        <p>
-          A regra é uma só, e ela acompanha o caminho dos seus doces:{" "}
-          <strong>
-            dá pra cancelar e receber o dinheiro de volta enquanto o pedido não
-            saiu da minha cozinha
-          </strong>
-          . Depois que ele sai, não.
-        </p>
+        <Paragrafos texto={texto.cancelamentoIntro} />
 
         <div className="grid gap-3 mt-1">
           <Etapa titulo="Aguardando pagamento ou Pagamento confirmado">
-            Você cancela sozinha, na hora, em{" "}
-            <Link href="/conta" className="text-cherryDark underline">
-              Minha conta
-            </Link>
-            . Se já tinha pago, o valor volta inteiro.
+            <Paragrafos texto={texto.etapaAguardando} />
+            <p className="mt-1">
+              É só ir em{" "}
+              <Link href="/conta" className="text-cherryDark underline">
+                Minha conta
+              </Link>
+              .
+            </p>
           </Etapa>
 
           <Etapa titulo="Em preparo">
-            Os doces já estão sendo feitos, então o cancelamento passa por mim —
-            mas ainda dá.{" "}
-            <a
-              href={linkWhatsApp(
-                "Oi, Camily! Preciso cancelar um pedido que ainda está em preparo. Consegue me ajudar?"
-              )}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cherryDark underline"
-            >
-              Me chame no WhatsApp
-            </a>{" "}
-            que eu cancelo e devolvo o valor.
+            <Paragrafos texto={texto.etapaPreparo} />
+            <p className="mt-1">
+              <a
+                href={linkWhatsApp(
+                  "Oi, Camily! Preciso cancelar um pedido que ainda está em preparo. Consegue me ajudar?"
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cherryDark underline"
+              >
+                Falar com a Camily no WhatsApp
+              </a>
+            </p>
           </Etapa>
 
           <Etapa titulo="A caminho ou Entregue" ultimo>
-            <strong>A caminho</strong> quer dizer que o pedido saiu para entrega
-            — ou que já está pronto esperando você buscar. Daqui em diante não
-            há mais cancelamento nem devolução: é alimento fresco, feito sob
-            medida pra você, e depois que sai da minha mão eu não consigo
-            aproveitar de novo.
-            <br />
-            Mas se chegou alguma coisa errada, estragada ou fora do que a gente
-            combinou,{" "}
-            <a
-              href={linkWhatsApp(
-                "Oi, Camily! Recebi meu pedido e tem uma coisa que não ficou certa. Posso te mostrar?"
-              )}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cherryDark underline"
-            >
-              <strong>me chame no mesmo dia com uma foto</strong>
-            </a>
-            . Eu olho cada caso com você e a gente acerta — nunca deixei ninguém
-            na mão até hoje.
+            <Paragrafos texto={texto.etapaEntregue} />
+            <p className="mt-1">
+              <a
+                href={linkWhatsApp(
+                  "Oi, Camily! Recebi meu pedido e tem uma coisa que não ficou certa. Posso te mostrar?"
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cherryDark underline"
+              >
+                Me chamar no WhatsApp
+              </a>
+            </p>
           </Etapa>
         </div>
       </Secao>
 
       <Secao titulo="Devolução do dinheiro">
-        <p>
-          Nos casos acima em que o cancelamento vale, o estorno é pedido ao
-          Mercado Pago na mesma hora, pelo <strong>valor total</strong> (doces +
-          entrega, menos o desconto que tiver sido usado). Você não precisa
-          pedir nada: sai junto com o cancelamento.
-        </p>
-        <ul className="list-disc pl-5 grid gap-1">
-          <li>
-            <strong>Pix:</strong> o valor costuma voltar para a sua conta em
-            minutos, e no máximo em alguns dias úteis.
-          </li>
-          <li>
-            <strong>Cartão de crédito:</strong> o estorno aparece na fatura —
-            dependendo da data de fechamento, pode ser só na fatura seguinte.
-            Quem define esse prazo é o banco, não eu.
-          </li>
-          <li>
-            <strong>Cartão de débito:</strong> costuma voltar para a conta em
-            poucos dias úteis.
-          </li>
-        </ul>
-        <p>
-          Se por algum motivo o estorno automático não sair, eu sou avisada na
-          hora e falo com você pelo WhatsApp pra devolver por Pix.
-        </p>
+        <Paragrafos texto={texto.devolucao} />
+        <Paragrafos texto={texto.prazosDoEstorno} />
       </Secao>
 
       <Secao titulo="Entrega e retirada">
-        <p>
-          <strong>Entrega:</strong> por enquanto entrego somente em{" "}
-          <strong>Arapongas-PR</strong> (CEPs de 86700-000 a 86709-999). O valor
-          da entrega é calculado pela distância entre a minha cozinha e o seu
-          endereço, e aparece no carrinho antes de você pagar. A entrega é feita
-          por aplicativo, e a data e o horário eu combino com você pelo WhatsApp.
-        </p>
-        <p>
-          <strong>Retirada:</strong> quem é de fora de Arapongas (ou prefere
-          buscar) escolhe a opção Retirada e marca o dia e a hora no site,
-          respeitando o prazo dos doces sob encomenda. Não tem custo.
-        </p>
+        <Paragrafos texto={texto.entregaRetirada} />
       </Secao>
 
       <Secao titulo="Doces sob encomenda">
-        <p>
-          Cada doce mostra no cardápio se é <strong>pronta entrega</strong> ou{" "}
-          <strong>sob encomenda</strong>, e nesse caso quantos dias eu preciso
-          pra fazer. Se o seu carrinho tiver mais de um doce sob encomenda, vale
-          o maior prazo entre eles — porque tudo sai junto.
-        </p>
+        <Paragrafos texto={texto.sobEncomenda} />
       </Secao>
 
       <Secao titulo="Formas de pagamento">
-        <p>
-          O pagamento é pelo Mercado Pago, com <strong>Pix</strong>,{" "}
-          <strong>cartão de crédito à vista</strong> ou{" "}
-          <strong>cartão de débito</strong>. Não trabalho com boleto nem com
-          parcelamento. Os dados do seu cartão são digitados no ambiente do
-          Mercado Pago — eu não vejo e não guardo nada disso.
-        </p>
-        <p>
-          O pedido só entra na fila depois que o pagamento é confirmado. Você
-          recebe um e-mail a cada mudança: pagamento confirmado, em preparo, a
-          caminho e entregue.
-        </p>
+        <Paragrafos texto={texto.pagamento} />
       </Secao>
 
       <Secao titulo="Seus dados">
-        <p>
-          Guardo apenas o necessário pra vender e entregar: nome, e-mail,
-          telefone e endereço. Não peço CPF. Sua senha fica guardada de forma
-          embaralhada (nem eu consigo ver). Não vendo nem compartilho seus dados
-          com ninguém. Se quiser que eu apague seu cadastro, é só pedir.
-        </p>
+        <Paragrafos texto={texto.dados} />
       </Secao>
 
       <Secao titulo="Avaliações">
-        <p>
-          Só quem comprou e recebeu o pedido pode avaliar, e a nota é por doce.
-          Sua avaliação aparece no cardápio na hora, com o seu primeiro nome.
-          Eu não apago avaliação por ser negativa — só escondo mensagem
-          ofensiva ou que não tem a ver com o pedido.
-        </p>
+        <Paragrafos texto={texto.avaliacoes} />
       </Secao>
 
       <div className="bg-white/70 border border-cherryLight/30 rounded-cherry p-5 mt-8 text-center font-body">
@@ -219,6 +152,57 @@ export default async function PoliticaPage() {
       </div>
     </main>
   );
+}
+
+/**
+ * Transforma o texto que a Camily digitou em parágrafos — e em lista quando
+ * as linhas começam com "- ". É o mínimo de formatação que ela precisa sem
+ * ter que aprender nada: linha em branco separa parágrafo, traço vira item.
+ */
+function Paragrafos({ texto }: { texto: string }) {
+  const blocos = texto
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+
+  return (
+    <>
+      {blocos.map((bloco, i) => {
+        const linhas = bloco.split("\n").map((l) => l.trim()).filter(Boolean);
+        const ehLista = linhas.every((l) => l.startsWith("- "));
+
+        if (ehLista) {
+          return (
+            <ul key={i} className="list-disc pl-5 grid gap-1">
+              {linhas.map((l, j) => (
+                <li key={j}>{destacarInicio(l.slice(2))}</li>
+              ))}
+            </ul>
+          );
+        }
+        return <p key={i}>{destacarInicio(bloco)}</p>;
+      })}
+    </>
+  );
+}
+
+/**
+ * Deixa em negrito o comecinho de linhas escritas como "Rótulo: explicação"
+ * — é o que dá ritmo em "Pix: cai em minutos" e "Entrega: só em Arapongas".
+ * Só vale para rótulo curto, senão uma frase com dois-pontos no meio sairia
+ * metade em negrito.
+ */
+function destacarInicio(texto: string) {
+  const corte = texto.indexOf(":");
+  if (corte > 0 && corte <= 28 && !texto.slice(0, corte).includes(" ,")) {
+    return (
+      <>
+        <strong>{texto.slice(0, corte + 1)}</strong>
+        {texto.slice(corte + 1)}
+      </>
+    );
+  }
+  return texto;
 }
 
 /**
@@ -247,9 +231,9 @@ function Etapa({
         </span>
         {!ultimo && <span className="w-px flex-1 bg-cherryLight/50 mt-1" />}
       </div>
-      <div className={`min-w-0 ${ultimo ? "" : "pb-1"}`}>
+      <div className={`min-w-0 grid gap-2 ${ultimo ? "" : "pb-1"}`}>
         <p className="font-display text-base text-cherryDark">{titulo}</p>
-        <p className="mt-0.5">{children}</p>
+        {children}
       </div>
     </div>
   );

@@ -99,7 +99,10 @@ export interface Pedido {
   itens: ItemPedido[];
   tipoEntrega: TipoEntrega;
   /** Data/hora escolhida pelo cliente — só existe na RETIRADA. */
+  /** Só nos pedidos antigos, de quando a retirada era agendada no site. */
   dataAgendada: string;
+  /** Onde a cliente vai buscar (endereço + horários), quando é retirada. */
+  pontoRetirada?: string | null;
   enderecoEntrega?: Cliente["endereco"];
   valorFrete: number;
   formaPagamento: FormaPagamento;

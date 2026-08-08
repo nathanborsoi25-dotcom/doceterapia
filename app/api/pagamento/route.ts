@@ -9,6 +9,7 @@ import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shippin
 import { checarAreaEntrega } from "@/lib/area-entrega";
 import { geocodificar } from "@/lib/geocode";
 import { dataMinimaRetirada, prazoMaximoEmDias } from "@/lib/prazo";
+import { descricaoDoPonto, pontoRetiradaPorId } from "@/lib/retirada";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
 import { prazoDoSabor } from "@/lib/sabores";
@@ -22,7 +23,6 @@ type Corpo = Pick<
   | "clienteId"
   | "itens"
   | "tipoEntrega"
-  | "dataAgendada"
   | "enderecoEntrega"
   | "valorFrete"
   | "formaPagamento"
@@ -32,6 +32,8 @@ type Corpo = Pick<
 > & {
   /** A cliente pediu para entregar em endereço diferente do cadastro. */
   entregarEmOutroEndereco?: boolean;
+  /** Código do ponto onde ela vai buscar (só na retirada). */
+  pontoRetirada?: string;
 };
 
 /** Limite de segurança: ninguém pede 500 brigadeiros por engano. */
@@ -269,39 +271,30 @@ export async function POST(req: Request) {
     valorFrete = calculo.valor;
   }
 
-  // 4) Prazo do pedido. Na retirada vale a data que o cliente escolheu, que
-  // precisa respeitar o tempo de encomenda; na entrega quem marca a data é a
-  // Camily, então o prazo é a data da compra mais o tempo de encomenda.
-  const agora = new Date();
-  let prazoEm: Date;
-
+  /**
+   * 4) Onde a cliente vai buscar, quando é retirada.
+   *
+   * Só o CÓDIGO do ponto vem do navegador; o endereço e os horários que ficam
+   * gravados no pedido são montados aqui, a partir da lista do servidor. Se
+   * viessem prontos da tela, daria pra gravar qualquer endereço no pedido.
+   */
+  let pontoRetirada: string | null = null;
   if (tipoEntrega === "retirada") {
-    const escolhida = new Date(texto(body.dataAgendada, 40));
-    if (Number.isNaN(escolhida.getTime())) {
+    const ponto = pontoRetiradaPorId(texto(body.pontoRetirada, 40));
+    if (!ponto) {
       return NextResponse.json(
-        { error: "Escolha a data e a hora da retirada." },
+        { error: "Escolha onde você prefere buscar o pedido." },
         { status: 400 }
       );
     }
-    // Compara por dia (o cliente pode escolher qualquer hora do dia liberado).
-    const minimo = dataMinimaRetirada(prazoDias, agora);
-    const escolhidaNoDia = new Date(escolhida);
-    escolhidaNoDia.setHours(0, 0, 0, 0);
-    if (escolhidaNoDia < minimo) {
-      return NextResponse.json(
-        {
-          error:
-            prazoDias > 0
-              ? `Um dos doces do seu carrinho é feito sob encomenda e precisa de ${prazoDias} ${prazoDias === 1 ? "dia" : "dias"}. Escolha uma data a partir de ${minimo.toLocaleDateString("pt-BR")}.`
-              : "Escolha uma data a partir de hoje.",
-        },
-        { status: 400 }
-      );
-    }
-    prazoEm = escolhida;
-  } else {
-    prazoEm = dataMinimaRetirada(prazoDias, agora);
+    pontoRetirada = descricaoDoPonto(ponto);
   }
+
+  // 4b) Quando o pedido precisa estar pronto. Nos dois casos é a data da
+  // compra mais o tempo de encomenda: a cliente não marca mais dia nem hora
+  // no site — isso ela combina com a Camily pelo WhatsApp.
+  const agora = new Date();
+  const prazoEm = dataMinimaRetirada(prazoDias, agora);
 
   // 5) Cupom de desconto, se o cliente informou. A regra e o valor saem do
   // banco: o desconto que vier do navegador é ignorado.
@@ -340,8 +333,9 @@ export async function POST(req: Request) {
     clienteId: cliente.id,
     itens,
     tipoEntrega,
-    // Na entrega o cliente nao agenda: quem marca a data e a Camily.
-    dataAgendada: tipoEntrega === "retirada" ? texto(body.dataAgendada, 40) : "",
+    // Ninguém agenda dia e hora pelo site: quem combina é a Camily.
+    dataAgendada: "",
+    pontoRetirada,
     prazoEm,
     // Endereço congelado no momento da compra — se a cliente mudar de casa
     // depois, o pedido antigo mantém o endereço certo.
