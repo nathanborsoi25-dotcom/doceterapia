@@ -4,13 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Estrelas from "./Estrelas";
 import {
-  adicionarAoCarrinho,
+  definirQuantidadeNoCarrinho,
   EVENTO_CARRINHO,
-  getCarrinho,
-  salvarCarrinho,
+  quantidadeNoCarrinho,
 } from "@/lib/store";
 import {
-  chaveDoItem,
   disponibilidadeDoSabor,
   doceEsgotado,
   estoqueDoSabor,
@@ -29,14 +27,26 @@ import type { Produto } from "@/lib/types";
  *
  * A foto e o nome levam pra página do doce (que abre como gaveta por dentro
  * do site e como página inteira quando o link chega pelo Instagram). Já a
- * parte de baixo é de ação: depois de adicionar, o botão vira contador, pra
- * quem quer três brigadeiros não precisar abrir o carrinho pra isso.
+ * parte de baixo é de ação.
+ *
+ * O contador NÃO mexe no carrinho enquanto a pessoa escolhe: ela ajusta o
+ * número à vontade e só confirma quando estiver decidida. Antes cada toque no
+ * "+" já ia direto pro carrinho, então errar a mão significava ver o pedido
+ * mudar sozinho e ter que desfazer no dedo. É o mesmo jeito da página do doce.
  */
 export default function ProductCard({ produto }: { produto: Produto }) {
   const sabores = saboresVisiveis(produto);
   const fotos = fotosDoProduto(produto);
   const [foto, setFoto] = useState(0);
-  const [quantidade, setQuantidade] = useState(0);
+
+  /** Quantas unidades já estão no carrinho (só leitura — vem do carrinho). */
+  const [noCarrinho, setNoCarrinho] = useState(0);
+  /** O contador está aberto? Enquanto estiver, nada foi pro carrinho ainda. */
+  const [escolhendo, setEscolhendo] = useState(false);
+  /** Número que a pessoa está escolhendo agora, ainda sem valer. */
+  const [quantidade, setQuantidade] = useState(1);
+  /** Confirmação rápida depois de confirmar, pra ela ver que deu certo. */
+  const [confirmado, setConfirmado] = useState(false);
 
   /**
    * Recheio escolhido. Começa no primeiro que ainda tem — não adianta abrir o
@@ -59,19 +69,20 @@ export default function ProductCard({ produto }: { produto: Produto }) {
   const poucasUnidades = estoque != null && estoque > 0 && estoque <= 3;
 
   /**
+   * Até onde o "−" desce. Zero só faz sentido para quem JÁ tem o doce no
+   * carrinho — é assim que ela tira de lá sem precisar abrir o carrinho. Quem
+   * ainda não tem para em 1: zerar não significaria nada.
+   */
+  const minimo = noCarrinho > 0 ? 0 : 1;
+
+  /**
    * O card mostra o que existe no carrinho de verdade — inclusive quando a
    * cliente adiciona pela gaveta do doce ou mexe no carrinho em outra aba.
    * Sem escutar o aviso, o card ficaria dizendo "Adicionar" para um doce que
    * já está lá dentro.
    */
   useEffect(() => {
-    const atualizar = () => {
-      const chave = chaveDoItem(produto.id, saborId);
-      const noCarrinho = getCarrinho().find(
-        (i) => chaveDoItem(i.produtoId, i.saborId) === chave
-      );
-      setQuantidade(noCarrinho?.quantidade ?? 0);
-    };
+    const atualizar = () => setNoCarrinho(quantidadeNoCarrinho(produto.id, saborId));
     atualizar();
     window.addEventListener(EVENTO_CARRINHO, atualizar);
     window.addEventListener("storage", atualizar);
@@ -82,22 +93,30 @@ export default function ProductCard({ produto }: { produto: Produto }) {
     // Trocar de recheio mostra a quantidade DAQUELE recheio no carrinho.
   }, [produto.id, saborId]);
 
-  function adicionar() {
+  /**
+   * Trocar de recheio fecha o contador: o número que ela tinha escolhido era
+   * do sabor anterior, e levá-lo adiante confirmaria a quantidade no doce
+   * errado.
+   */
+  useEffect(() => {
+    setEscolhendo(false);
+    setConfirmado(false);
+  }, [saborId]);
+
+  /** Abre o contador já no número que faz sentido continuar de onde parou. */
+  function abrirContador() {
     if (esgotado) return;
-    adicionarAoCarrinho(produto, sabor);
-    setQuantidade((q) => q + 1);
+    setQuantidade(noCarrinho > 0 ? noCarrinho : 1);
+    setConfirmado(false);
+    setEscolhendo(true);
   }
 
-  /** Mexe direto no carrinho salvo, pra tela e carrinho nunca divergirem. */
-  function mudarQuantidade(nova: number) {
-    const chave = chaveDoItem(produto.id, saborId);
-    const itens = getCarrinho()
-      .map((i) =>
-        chaveDoItem(i.produtoId, i.saborId) === chave ? { ...i, quantidade: nova } : i
-      )
-      .filter((i) => i.quantidade > 0);
-    salvarCarrinho(itens);
-    setQuantidade(nova);
+  /** Só aqui o carrinho muda — é o toque de confirmar. */
+  function confirmar() {
+    definirQuantidadeNoCarrinho(produto, sabor, quantidade);
+    setEscolhendo(false);
+    setConfirmado(true);
+    setTimeout(() => setConfirmado(false), 2000);
   }
 
   return (
@@ -267,46 +286,82 @@ export default function ProductCard({ produto }: { produto: Produto }) {
             : `Ver detalhes${fotos.length > 1 ? ` e ${fotos.length} fotos` : ""}`}
         </Link>
 
-        <div className="flex items-center justify-between gap-2 mt-1">
-          <span className="font-display text-lg text-ink shrink-0">
-            {reais(preco)}
-          </span>
+        <div className="grid gap-2 mt-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-display text-lg text-ink shrink-0">
+              {reais(preco)}
+            </span>
 
-          {esgotado ? (
-            <button
-              disabled
-              className="text-sm rounded-full px-5 py-3 font-body font-semibold bg-ink/15 text-ink/45 cursor-not-allowed"
-            >
-              Esgotado
-            </button>
-          ) : quantidade === 0 ? (
-            <button
-              onClick={adicionar}
-              className="text-sm rounded-full px-5 py-3 font-body font-semibold bg-cherryDark text-white hover:bg-cherryMid active:scale-95 transition-all"
-            >
-              Adicionar
-            </button>
-          ) : (
-            <div className="flex items-center gap-1 border border-cherryDark/30 rounded-full bg-blush/50">
+            {esgotado ? (
               <button
-                onClick={() => mudarQuantidade(quantidade - 1)}
-                aria-label={`Tirar um ${produto.nome}`}
-                className="w-11 h-11 rounded-full text-cherryDark text-lg active:scale-90 transition-transform"
+                disabled
+                className="text-sm rounded-full px-5 py-3 font-body font-semibold bg-ink/15 text-ink/45 cursor-not-allowed"
               >
-                −
+                Esgotado
               </button>
-              <span className="w-6 text-center font-display text-lg tabular-nums text-cherryDark">
-                {quantidade}
+            ) : escolhendo ? (
+              /* Escolhendo: o número muda aqui e o carrinho fica intacto. */
+              <div className="flex items-center gap-1 border border-cherryDark/30 rounded-full bg-blush/50">
+                <button
+                  onClick={() => setQuantidade((q) => Math.max(minimo, q - 1))}
+                  disabled={quantidade <= minimo}
+                  aria-label={`Diminuir a quantidade de ${produto.nome}`}
+                  className="w-11 h-11 rounded-full text-cherryDark text-lg active:scale-90 transition-transform disabled:opacity-30"
+                >
+                  −
+                </button>
+                <span
+                  aria-live="polite"
+                  className="w-6 text-center font-display text-lg tabular-nums text-cherryDark"
+                >
+                  {quantidade}
+                </span>
+                <button
+                  onClick={() => setQuantidade((q) => Math.min(limite, q + 1))}
+                  disabled={quantidade >= limite}
+                  aria-label={`Aumentar a quantidade de ${produto.nome}`}
+                  className="w-11 h-11 rounded-full text-cherryDark text-lg active:scale-90 transition-transform disabled:opacity-30"
+                >
+                  +
+                </button>
+              </div>
+            ) : confirmado ? (
+              <span className="text-sm rounded-full px-5 py-3 font-body font-semibold bg-green-600 text-white">
+                No carrinho ✓
               </span>
+            ) : noCarrinho > 0 ? (
+              /* Já está no carrinho: o toque reabre o contador pra alterar. */
               <button
-                onClick={() => mudarQuantidade(quantidade + 1)}
-                disabled={quantidade >= limite}
-                aria-label={`Adicionar mais um ${produto.nome}`}
-                className="w-11 h-11 rounded-full text-cherryDark text-lg active:scale-90 transition-transform disabled:opacity-30"
+                onClick={abrirContador}
+                aria-label={`Alterar a quantidade de ${produto.nome} no carrinho`}
+                className="text-sm rounded-full px-5 py-3 font-body font-semibold bg-blush border border-cherryDark/30 text-cherryDark hover:bg-cherryLight/40 active:scale-95 transition-all"
               >
-                +
+                {noCarrinho} no carrinho
               </button>
-            </div>
+            ) : (
+              <button
+                onClick={abrirContador}
+                className="text-sm rounded-full px-5 py-3 font-body font-semibold bg-cherryDark text-white hover:bg-cherryMid active:scale-95 transition-all"
+              >
+                Adicionar
+              </button>
+            )}
+          </div>
+
+          {/* O botão de confirmar ocupa a linha inteira: é a ação principal, e
+              no celular ele fica longe do "−" e do "+", evitando o toque
+              errado bem na hora de decidir. */}
+          {escolhendo && (
+            <button
+              onClick={confirmar}
+              className="w-full rounded-full py-3 font-body font-semibold text-sm bg-cherryDark text-white hover:bg-cherryMid active:scale-[0.98] transition-all"
+            >
+              {quantidade === 0
+                ? "Tirar do carrinho"
+                : `${noCarrinho > 0 ? "Atualizar" : "Adicionar"} · ${reais(
+                    preco * quantidade
+                  )}`}
+            </button>
           )}
         </div>
       </div>

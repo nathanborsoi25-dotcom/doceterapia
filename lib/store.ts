@@ -79,28 +79,66 @@ export function totalDeItens(): number {
 }
 
 /**
- * Põe o doce no carrinho. Quando ele tem recheios, o sabor escolhido vai
- * junto — e passa a fazer parte da identidade do item: uma torta de Nutella e
- * uma de ninho são duas linhas, não uma torta de quantidade 2.
+ * Quantos deste doce já estão no carrinho. Com recheios, conta só o recheio
+ * pedido — uma torta de Nutella e uma de ninho são itens diferentes.
  */
-export function adicionarAoCarrinho(produto: Produto, sabor?: SaborDoDoce | null) {
-  const itens = getCarrinho();
+export function quantidadeNoCarrinho(
+  produtoId: string,
+  saborId?: string | null
+): number {
+  const chave = chaveDoItem(produtoId, saborId);
+  const item = getCarrinho().find((i) => chaveDoItem(i.produtoId, i.saborId) === chave);
+  return item?.quantidade ?? 0;
+}
+
+/**
+ * Deixa o carrinho com EXATAMENTE esta quantidade do doce. Zero tira ele de lá.
+ *
+ * Quando o doce tem recheios, o sabor escolhido faz parte da identidade do
+ * item: uma torta de Nutella e uma de ninho são duas linhas, não uma torta de
+ * quantidade 2.
+ *
+ * É uma gravação só, mesmo para cinco unidades — cada `salvarCarrinho` avisa a
+ * tela e manda o carrinho pro banco, então somar de um em um renderia cinco
+ * idas à rede para uma única decisão da cliente.
+ */
+export function definirQuantidadeNoCarrinho(
+  produto: Produto,
+  sabor: SaborDoDoce | null | undefined,
+  quantidade: number
+) {
   const chave = chaveDoItem(produto.id, sabor?.id);
+  const desejada = Math.max(0, Math.floor(quantidade));
+  const itens = getCarrinho();
   const existente = itens.find((i) => chaveDoItem(i.produtoId, i.saborId) === chave);
 
   if (existente) {
-    existente.quantidade += 1;
-  } else {
+    existente.quantidade = desejada;
+  } else if (desejada > 0) {
     itens.push({
       produtoId: produto.id,
       nome: produto.nome,
       precoUnitario: precoDoSabor(produto, sabor),
-      quantidade: 1,
+      quantidade: desejada,
       saborId: sabor?.id,
       saborNome: sabor?.nome,
     });
   }
-  salvarCarrinho(itens);
+
+  salvarCarrinho(itens.filter((i) => i.quantidade > 0));
+}
+
+/** Soma esta quantidade ao que já houver no carrinho. */
+export function adicionarAoCarrinho(
+  produto: Produto,
+  sabor?: SaborDoDoce | null,
+  quantidade = 1
+) {
+  definirQuantidadeNoCarrinho(
+    produto,
+    sabor,
+    quantidadeNoCarrinho(produto.id, sabor?.id) + quantidade
+  );
 }
 
 export function limparCarrinho() {

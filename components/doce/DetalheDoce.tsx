@@ -68,7 +68,7 @@ export default function DetalheDoce({
 
   function adicionar() {
     if (esgotado) return;
-    for (let i = 0; i < quantidade; i++) adicionarAoCarrinho(produto, sabor);
+    adicionarAoCarrinho(produto, sabor, quantidade);
     setAdicionado(true);
     setTimeout(() => setAdicionado(false), 2500);
   }
