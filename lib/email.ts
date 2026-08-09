@@ -117,14 +117,22 @@ export async function enviarEmail(opcoes: {
   }
 }
 
-/** Moldura comum dos e-mails, pra todos saírem com a cara da loja. */
+/**
+ * Moldura comum dos e-mails, pra todos saírem com a cara da loja.
+ *
+ * O rodapé CONVIDA a responder de propósito. Antes dizia "este e-mail é
+ * automático, não precisa responder" — o que virou mentira quando passou a
+ * existir um endereço de resposta de verdade, e é exatamente o padrão que
+ * filtro de spam associa a disparo em massa. Conversa que tem volta pesa a
+ * favor de quem manda.
+ */
 function moldura(conteudo: string): string {
   return `<div style="font-family:Nunito,Segoe UI,Arial,sans-serif;background:#fdf0ea;padding:32px 16px">
   <div style="max-width:480px;margin:0 auto;background:#fffaf7;border:1px solid #f0c9d3;border-radius:20px;padding:32px;text-align:center">
     <p style="font-size:26px;margin:0 0 4px;color:#a3243c;font-weight:700">doce<span style="color:#e2879b;font-weight:400">terapia</span></p>
     ${conteudo}
     <p style="color:#3b1a1f;opacity:.45;font-size:12px;margin:28px 0 0;border-top:1px solid #f0c9d3;padding-top:16px">
-      Doceterapia — doces artesanais da Camily Vilasboa, em Arapongas-PR.<br>Este e-mail é automático, não precisa responder.
+      Doceterapia — doces artesanais da Camily Vilasboa, em Arapongas-PR.<br>Precisa de alguma coisa? É só responder este e-mail que eu leio.
     </p>
   </div>
 </div>`;
