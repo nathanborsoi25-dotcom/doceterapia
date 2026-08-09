@@ -25,6 +25,13 @@ export function emailConfigurado(): boolean {
 }
 
 /**
+ * Um endereço solto, sem nome. Os sinais `<` e `>` ficam de fora de
+ * propósito: sem isso, "<contato@casa.com>" passava como se fosse um e-mail
+ * puro e ia torto pro Resend — foi assim que o site ficou mudo.
+ */
+const PARECE_EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/;
+
+/**
  * O endereço de resposta, só se for utilizável.
  *
  * Aceita tanto "fulano@casa.com" quanto "Camily <fulano@casa.com>", que é
@@ -36,7 +43,32 @@ function enderecoDeResposta(): string | null {
   if (!bruto) return null;
   const dentroDosSinais = bruto.match(/<([^>]+)>/)?.[1]?.trim();
   const endereco = dentroDosSinais || bruto;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(endereco) ? endereco : null;
+  return PARECE_EMAIL.test(endereco) ? endereco : null;
+}
+
+/**
+ * O remetente no formato que o Resend exige: "e-mail" ou "Nome <e-mail>".
+ *
+ * Em 08/08/2026 a variável foi salva como "<contato@doceterapia.net.br>" — os
+ * sinais sem o nome antes — e o Resend recusou TODOS os envios com
+ * "Invalid `from` field", derrubando até a recuperação de senha. Como o nome
+ * da loja é sempre o mesmo, dá pra remontar em vez de deixar o site mudo por
+ * causa de um "<" sobrando.
+ */
+function remetenteValido(bruto: string): string | null {
+  const valor = bruto.trim();
+  if (!valor) return null;
+
+  // Já está certo: "fulano@casa.com" ou "Nome <fulano@casa.com>".
+  if (PARECE_EMAIL.test(valor)) return valor;
+  if (/^[^<>]+<[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}>$/.test(valor)) return valor;
+
+  // Sobrou só o endereço entre sinais: devolve com o nome da loja na frente.
+  const dentroDosSinais = valor.match(/<([^>]+)>/)?.[1]?.trim();
+  if (dentroDosSinais && PARECE_EMAIL.test(dentroDosSinais)) {
+    return `Doceterapia <${dentroDosSinais}>`;
+  }
+  return null;
 }
 
 export async function enviarEmail(opcoes: {
@@ -46,7 +78,7 @@ export async function enviarEmail(opcoes: {
   texto: string;
 }): Promise<ResultadoEnvio> {
   const chave = process.env.RESEND_API_KEY;
-  const remetente = process.env.EMAIL_REMETENTE;
+  const remetente = remetenteValido(process.env.EMAIL_REMETENTE ?? "");
 
   if (!chave || !remetente) {
     return { enviado: false, motivo: "E-mail ainda não configurado no servidor." };
