@@ -81,8 +81,9 @@ precisa dele para vender nem para entregar, e guardar documento à toa só cria 
 
 ### Pagamento
 
-Checkout Pro do Mercado Pago, com **Pix, crédito à vista e débito** (boleto foi
-removido de propósito). O pedido nasce como `aguardando_pagamento` e o
+Checkout Pro do Mercado Pago, com **Pix e crédito à vista** (boleto foi removido
+de propósito; o débito não existe no Checkout Pro, só na maquininha e no Tap, e
+por isso saiu da tela). O pedido nasce como `aguardando_pagamento` e o
 **webhook** (`/api/pagamento/webhook`) atualiza a situação quando o Mercado Pago
 avisa — buscando o pagamento na API deles, nunca confiando no que veio no corpo
 da chamada.

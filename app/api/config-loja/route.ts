@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { configLoja } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { getConfigLoja, ID_CONFIG } from "@/lib/config-loja";
+import { limparBanners } from "@/lib/banners";
 import { CAMPOS_POLITICA } from "@/lib/politica";
 import { limparPontos } from "@/lib/retirada";
 
@@ -70,6 +71,7 @@ export async function PUT(req: Request) {
     pontosPorStory: manter(b.pontosPorStory, atual.pontosPorStory, (v) =>
       Math.max(0, Math.floor(Number(v) || 0))
     ),
+    banners: manter(b.banners, atual.banners, limparBanners),
     bannerAtivo: manter(b.bannerAtivo, atual.bannerAtivo, Boolean),
     bannerTitulo: manter(b.bannerTitulo, atual.bannerTitulo, (v) => texto(v, 80)),
     bannerDescricao: manter(b.bannerDescricao, atual.bannerDescricao, (v) => texto(v, 200)),

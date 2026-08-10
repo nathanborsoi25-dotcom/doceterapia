@@ -4,7 +4,8 @@ import { getDb } from "@/lib/db";
 import { clientes, pedidos, produtos, sabores } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { calcularPeriodo, variacao, type NomePeriodo } from "@/lib/periodo";
-import type { ItemPedido, StatusPedido } from "@/lib/types";
+import { taxaMercadoPago, totalCobrado } from "@/lib/taxas-mp";
+import type { FormaPagamento, ItemPedido, StatusPedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,19 @@ type Resumo = {
   lucro: number;
   cancelados: number;
   ticketMedio: number;
+  /** Quanto o Mercado Pago ficou, já descontado do lucro. */
+  taxasMp: number;
 };
 
 function vazio(): Resumo {
-  return { pedidos: 0, faturamento: 0, lucro: 0, cancelados: 0, ticketMedio: 0 };
+  return {
+    pedidos: 0,
+    faturamento: 0,
+    lucro: 0,
+    cancelados: 0,
+    ticketMedio: 0,
+    taxasMp: 0,
+  };
 }
 
 export async function GET(req: Request) {
@@ -86,7 +96,20 @@ export async function GET(req: Request) {
           : custoPorId.get(i.produtoId) ?? 0;
         return a + custo * i.quantidade;
       }, 0);
-      r.lucro += subtotal - custoItens;
+
+      /*
+       * A taxa do Mercado Pago é custo de verdade: sai da conta da Camily em
+       * toda venda. Ela incide sobre o TOTAL cobrado — doces mais frete,
+       * menos o cupom —, então no crédito ela também perde ~5% do frete que
+       * repassa inteiro ao entregador. Sem descontar isso aqui, "Meus
+       * números" mostrava um lucro que nunca chegou na conta.
+       */
+      const taxa = taxaMercadoPago(
+        p.formaPagamento as FormaPagamento,
+        totalCobrado(subtotal, p.valorFrete, p.desconto ?? 0)
+      );
+      r.taxasMp += taxa;
+      r.lucro += subtotal - custoItens - taxa;
 
       for (const i of itens) {
         const atual = porProduto.get(i.produtoId) ?? {
@@ -140,6 +163,7 @@ export async function GET(req: Request) {
           lucro: variacao(atual.resumo.lucro, anterior.lucro),
           cancelados: variacao(atual.resumo.cancelados, anterior.cancelados),
           ticketMedio: variacao(atual.resumo.ticketMedio, anterior.ticketMedio),
+          taxasMp: variacao(atual.resumo.taxasMp, anterior.taxasMp),
         }
       : null,
     clientes: { total: totalClientes, novos: novosClientes },

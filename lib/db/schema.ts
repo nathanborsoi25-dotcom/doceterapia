@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { Cliente, ConfiguracaoFrete, FaixaFrete, ItemPedido } from "../types";
 import type { PontoRetirada } from "../retirada";
+import type { BannerDaLoja } from "../banners";
 
 // Catálogo de doces (gerenciado pelo admin, exibido no cardápio).
 export const produtos = pgTable("produtos", {
@@ -241,6 +242,15 @@ export const cupons = pgTable("cupons", {
   pedidoMinimo: doublePrecision("pedido_minimo").notNull().default(0),
   /** Nulo = qualquer cliente pode usar. */
   clienteId: text("cliente_id"),
+  /**
+   * Cupom que só vale pagando no Pix.
+   *
+   * Existe porque o Pix custa 0,99% e o crédito 4,98%: dar 4% de desconto no
+   * Pix ainda sai mais barato para a Camily do que receber no cartão. Quando
+   * é `true`, o Checkout Pro passa a oferecer SÓ Pix — senão bastaria marcar
+   * Pix no site e trocar para cartão na tela do Mercado Pago.
+   */
+  somentePix: boolean("somente_pix").notNull().default(false),
   /** Nulo = sem prazo. */
   expiraEm: timestamp("expira_em", { withTimezone: true }),
   /** Zero = uso ilimitado. */
@@ -379,6 +389,15 @@ export const configLoja = pgTable("config_loja", {
   pontosPorAvaliacao: integer("pontos_por_avaliacao").notNull().default(10),
   /** Pontos ganhos ao postar o doce nos stories (depois da Camily aprovar). */
   pontosPorStory: integer("pontos_por_story").notNull().default(15),
+  /**
+   * Os destaques do topo do cardápio, em carrossel (ver `lib/banners.ts`).
+   * Lista vazia cai no banner único das colunas antigas, logo abaixo.
+   */
+  banners: jsonb("banners").$type<BannerDaLoja[]>().notNull().default([]),
+  /**
+   * O destaque antigo, de quando só cabia um. Mantido para o que a Camily já
+   * havia configurado não sumir — `bannersDaLoja()` converte na hora de ler.
+   */
   bannerAtivo: boolean("banner_ativo").notNull().default(false),
   bannerTitulo: text("banner_titulo").notNull().default(""),
   bannerDescricao: text("banner_descricao").notNull().default(""),

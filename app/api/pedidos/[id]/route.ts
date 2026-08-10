@@ -33,6 +33,8 @@ export async function PATCH(
     status?: StatusPedido;
     linkRastreio?: string;
     motivo?: string;
+    /** Quanto devolver ao cancelar. Ausente = o valor inteiro do pedido. */
+    valorReembolso?: number;
   };
 
   const db = getDb();
@@ -44,6 +46,9 @@ export async function PATCH(
     const r = await cancelarPedido(params.id, {
       por: "loja",
       motivo: body.motivo,
+      valorReembolso: Number.isFinite(body.valorReembolso)
+        ? Number(body.valorReembolso)
+        : undefined,
     });
     if (!r.ok) return NextResponse.json({ error: r.erro }, { status: 400 });
     return NextResponse.json({

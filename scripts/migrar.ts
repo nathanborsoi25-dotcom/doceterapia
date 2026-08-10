@@ -197,6 +197,34 @@ async function main() {
     ADD COLUMN IF NOT EXISTS pontos_retirada jsonb NOT NULL DEFAULT '[]'::jsonb
   `;
 
+  console.log("10) Carrossel de banners no topo do cardápio...");
+  await sql`
+    ALTER TABLE config_loja
+    ADD COLUMN IF NOT EXISTS banners jsonb NOT NULL DEFAULT '[]'::jsonb
+  `;
+  // O destaque único que já existia vira o primeiro banner da lista, pra
+  // Camily não precisar cadastrar de novo o que já estava no ar.
+  await sql`
+    UPDATE config_loja
+    SET banners = jsonb_build_array(jsonb_build_object(
+      'id', 'banner-antigo',
+      'ativo', banner_ativo,
+      'titulo', banner_titulo,
+      'descricao', banner_descricao,
+      'selo', banner_selo,
+      'imagem', banner_imagem,
+      'link', coalesce(nullif(banner_link, ''), '/catalogo')
+    ))
+    WHERE banners = '[]'::jsonb
+      AND (coalesce(banner_titulo, '') <> '' OR coalesce(banner_imagem, '') <> '')
+  `;
+
+  console.log("11) Cupom que só vale no Pix...");
+  await sql`
+    ALTER TABLE cupons
+    ADD COLUMN IF NOT EXISTS somente_pix boolean NOT NULL DEFAULT false
+  `;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns

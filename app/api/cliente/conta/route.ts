@@ -60,6 +60,7 @@ export async function GET() {
       tipo: c.tipo,
       valor: c.valor,
       pedidoMinimo: c.pedidoMinimo,
+      somentePix: c.somentePix,
       expiraEm: c.expiraEm ? c.expiraEm.toISOString() : null,
       exclusivo: Boolean(c.clienteId),
     })),

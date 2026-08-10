@@ -575,13 +575,16 @@ export default function CheckoutPage() {
 
         <section className="grid gap-3">
           <h2 className="font-display text-lg text-ink">Forma de pagamento</h2>
+          {/* Só Pix e crédito. O débito saiu daqui porque o Mercado Pago não
+              o oferece no Checkout — só na maquininha e no Tap —, e a tela
+              não pode prometer uma forma que a cobrança pode não aceitar. */}
           <div className="flex gap-3 flex-wrap">
-            {(["pix", "credito", "debito"] as FormaPagamento[]).map((forma) => (
+            {(["pix", "credito"] as FormaPagamento[]).map((forma) => (
               <OpcaoBotao
                 key={forma}
                 ativo={formaPagamento === forma}
                 onClick={() => setFormaPagamento(forma)}
-                label={forma === "pix" ? "Pix" : forma === "credito" ? "Crédito à vista" : "Débito"}
+                label={forma === "pix" ? "Pix" : "Crédito à vista"}
               />
             ))}
           </div>

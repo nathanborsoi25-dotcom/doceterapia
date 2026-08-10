@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CampoNumero from "@/components/CampoNumero";
 import VoltarAoPainel from "@/components/VoltarAoPainel";
 import EscolherFoto from "@/components/EscolherFoto";
+import {
+  bannerVazio,
+  bannersDaLoja,
+  MAXIMO_BANNERS,
+  type BannerDaLoja,
+} from "@/lib/banners";
 import type { Cliente } from "@/lib/types";
 
 type Cupom = {
@@ -15,26 +21,24 @@ type Cupom = {
   pedidoMinimo: number;
   clienteId: string | null;
   clienteNome: string | null;
+  somentePix: boolean;
   expiraEm: string | null;
   limiteUsos: number;
   usos: number;
   ativo: boolean;
 };
 
-type Banner = {
-  bannerAtivo: boolean;
-  bannerTitulo: string;
-  bannerDescricao: string;
-  bannerSelo: string;
-  bannerImagem: string;
-  bannerLink: string;
-};
+/** Já passou da data? Vale para o selo "vencido" da lista do painel. */
+function venceu(expiraEm: string | null): boolean {
+  return !!expiraEm && new Date(expiraEm).getTime() < Date.now();
+}
 
 export default function AdminPromocoesPage() {
   const [cupons, setCupons] = useState<Cupom[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [banner, setBanner] = useState<Banner | null>(null);
+  const [banners, setBanners] = useState<BannerDaLoja[] | null>(null);
   const [salvandoBanner, setSalvandoBanner] = useState(false);
+  const [bannerSalvo, setBannerSalvo] = useState(false);
   const [aviso, setAviso] = useState("");
 
   const [novo, setNovo] = useState({
@@ -43,6 +47,7 @@ export default function AdminPromocoesPage() {
     tipo: "percentual",
     clienteId: "",
     expiraEm: "",
+    somentePix: false,
   });
   // Os números do cupom ficam separados: podem estar vazios enquanto ela
   // digita, e vazio não é a mesma coisa que zero.
@@ -66,8 +71,8 @@ export default function AdminPromocoesPage() {
       .catch(() => setClientes([]));
     fetch("/api/config-loja", { cache: "no-store" })
       .then((r) => r.json())
-      .then(setBanner)
-      .catch(() => setBanner(null));
+      .then((config) => setBanners(bannersDaLoja(config)))
+      .catch(() => setBanners([]));
   }, []);
 
   async function criarCupom(e: React.FormEvent) {
@@ -84,7 +89,6 @@ export default function AdminPromocoesPage() {
           pedidoMinimo: pedidoMinimo ?? 0,
           limiteUsos: Math.round(limiteUsos ?? 0),
           clienteId: novo.clienteId || null,
-          expiraEm: novo.expiraEm || null,
         }),
       });
       const corpo = await res.json();
@@ -98,6 +102,7 @@ export default function AdminPromocoesPage() {
         tipo: "percentual",
         clienteId: "",
         expiraEm: "",
+        somentePix: false,
       });
       setValor(null);
       setPedidoMinimo(null);
@@ -119,16 +124,53 @@ export default function AdminPromocoesPage() {
     });
   }
 
-  async function salvarBanner() {
-    if (!banner) return;
+  function adicionarBanner() {
+    setBanners((prev) => [...(prev ?? []), bannerVazio()]);
+    setBannerSalvo(false);
+  }
+
+  function removerBanner(id: string) {
+    setBanners((prev) => (prev ?? []).filter((b) => b.id !== id));
+    setBannerSalvo(false);
+  }
+
+  /** Troca de lugar com o vizinho — é assim que ela escolhe qual vem antes. */
+  function moverBanner(indice: number, direcao: -1 | 1) {
+    setBanners((prev) => {
+      const lista = [...(prev ?? [])];
+      const destino = indice + direcao;
+      if (destino < 0 || destino >= lista.length) return lista;
+      [lista[indice], lista[destino]] = [lista[destino], lista[indice]];
+      return lista;
+    });
+    setBannerSalvo(false);
+  }
+
+  /** Muda um campo de um banner sem mexer nos outros. */
+  function mudarBanner(id: string, campo: keyof BannerDaLoja, valor: string | boolean) {
+    setBanners((prev) =>
+      (prev ?? []).map((b) => (b.id === id ? { ...b, [campo]: valor } : b))
+    );
+    setBannerSalvo(false);
+  }
+
+  /**
+   * Salva só o campo `banners`: a rota preserva o que não vier no corpo, e
+   * mandar a configuração inteira de volta arriscaria sobrescrever o que
+   * outra tela do painel gravou no meio tempo.
+   */
+  async function salvarBanners() {
+    if (!banners) return;
     setSalvandoBanner(true);
+    setBannerSalvo(false);
     try {
-      const atual = await fetch("/api/config-loja").then((r) => r.json());
       await fetch("/api/config-loja", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...atual, ...banner }),
+        body: JSON.stringify({ banners }),
       });
+      setBannerSalvo(true);
+      setTimeout(() => setBannerSalvo(false), 3000);
     } finally {
       setSalvandoBanner(false);
     }
@@ -141,56 +183,141 @@ export default function AdminPromocoesPage() {
         <VoltarAoPainel />
       </div>
 
-      {/* ---------------- Banner da página inicial ---------------- */}
+      {/* ---------------- Destaques do cardápio ---------------- */}
       <h2 className="font-display text-xl text-cherryDark mt-6">
-        Destaque do cardápio
+        Destaques do cardápio
       </h2>
       <p className="text-sm font-body text-ink/60">
-        Aparece no topo do cardápio, antes dos doces.
+        Aparecem no topo do cardápio, antes dos doces. Com mais de um, a
+        cliente arrasta de lado para ver os outros.
       </p>
 
-      {banner && (
-        <div className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 mt-3 grid gap-3">
-          <label className="flex items-center gap-2 font-body text-sm">
-            <input
-              type="checkbox"
-              checked={banner.bannerAtivo}
-              onChange={(e) => setBanner({ ...banner, bannerAtivo: e.target.checked })}
-              className="w-5 h-5 accent-cherryDark"
-            />
-            Mostrar o destaque no site
-          </label>
+      {banners === null && (
+        <p className="text-ink/60 font-body text-sm mt-3">Carregando os destaques...</p>
+      )}
 
-          <Campo
-            label="Título"
-            valor={banner.bannerTitulo}
-            onChange={(v) => setBanner({ ...banner, bannerTitulo: v })}
-            placeholder="Combo Dia das Mães"
-          />
-          <Campo
-            label="Descrição"
-            valor={banner.bannerDescricao}
-            onChange={(v) => setBanner({ ...banner, bannerDescricao: v })}
-            placeholder="Uma torta + 12 brigadeiros por um preço especial"
-          />
-          <Campo
-            label="Selo de urgência (opcional)"
-            valor={banner.bannerSelo}
-            onChange={(v) => setBanner({ ...banner, bannerSelo: v })}
-            placeholder="Só até domingo!"
-          />
-          <EscolherFoto
-            valor={banner.bannerImagem}
-            onChange={(url) => setBanner({ ...banner, bannerImagem: url })}
-          />
+      {banners && (
+        <div className="grid gap-3 mt-3">
+          {banners.length === 0 && (
+            <p className="text-sm font-body text-ink/60 bg-white/60 border border-cherryLight/30 rounded-2xl px-4 py-3">
+              Nenhum destaque ainda. Crie um para anunciar um combo, uma data
+              especial ou o desconto do Pix. 🍒
+            </p>
+          )}
 
-          <button
-            onClick={salvarBanner}
-            disabled={salvandoBanner}
-            className="bg-cherryDark text-white rounded-full py-3 font-body font-semibold disabled:opacity-50"
-          >
-            {salvandoBanner ? "Salvando..." : "Salvar destaque"}
-          </button>
+          {banners.map((b, i) => (
+            <div
+              key={b.id}
+              className={`border rounded-2xl p-4 grid gap-3 ${
+                b.ativo ? "bg-white/70 border-cherryLight/30" : "bg-ink/5 border-ink/10"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-display text-base text-cherryDark">
+                  {i + 1}º destaque
+                  {!b.ativo && (
+                    <span className="font-body text-xs text-ink/50"> · escondido</span>
+                  )}
+                </span>
+                <div className="flex items-center gap-1">
+                  {/* Ordem: é ela que decide o que a cliente vê primeiro. */}
+                  <button
+                    type="button"
+                    onClick={() => moverBanner(i, -1)}
+                    disabled={i === 0}
+                    aria-label="Subir este destaque"
+                    className="w-11 h-11 rounded-full text-cherryDark disabled:opacity-25"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moverBanner(i, 1)}
+                    disabled={i === banners.length - 1}
+                    aria-label="Descer este destaque"
+                    className="w-11 h-11 rounded-full text-cherryDark disabled:opacity-25"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removerBanner(b.id)}
+                    className="text-xs font-body text-ink/50 underline px-2 min-h-[44px]"
+                  >
+                    remover
+                  </button>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 font-body text-sm">
+                <input
+                  type="checkbox"
+                  checked={b.ativo}
+                  onChange={(e) => mudarBanner(b.id, "ativo", e.target.checked)}
+                  className="w-5 h-5 accent-cherryDark"
+                />
+                Mostrar no site
+              </label>
+
+              <Campo
+                label="Título"
+                valor={b.titulo}
+                onChange={(v) => mudarBanner(b.id, "titulo", v)}
+                placeholder="Combo Dia das Mães"
+              />
+              <Campo
+                label="Descrição"
+                valor={b.descricao}
+                onChange={(v) => mudarBanner(b.id, "descricao", v)}
+                placeholder="Uma torta + 12 brigadeiros por um preço especial"
+              />
+              <Campo
+                label="Selo de urgência (opcional)"
+                valor={b.selo}
+                onChange={(v) => mudarBanner(b.id, "selo", v)}
+                placeholder="Só até domingo!"
+              />
+              <Campo
+                label="Para onde leva o toque"
+                valor={b.link}
+                onChange={(v) => mudarBanner(b.id, "link", v)}
+                placeholder="/catalogo"
+              />
+              <EscolherFoto
+                valor={b.imagem}
+                onChange={(url) => mudarBanner(b.id, "imagem", url)}
+              />
+            </div>
+          ))}
+
+          <div className="flex flex-wrap gap-2">
+            {banners.length < MAXIMO_BANNERS && (
+              <button
+                type="button"
+                onClick={adicionarBanner}
+                className="flex-1 min-w-[12rem] border-2 border-dashed border-cherryLight/60 text-cherryDark rounded-full py-3 font-body font-semibold hover:bg-blush/40"
+              >
+                + Adicionar destaque
+              </button>
+            )}
+            <button
+              onClick={salvarBanners}
+              disabled={salvandoBanner}
+              className={`flex-1 min-w-[12rem] rounded-full py-3 font-body font-semibold text-white disabled:opacity-50 ${
+                bannerSalvo ? "bg-green-600" : "bg-cherryDark"
+              }`}
+            >
+              {salvandoBanner
+                ? "Salvando..."
+                : bannerSalvo
+                  ? "Salvo ✓"
+                  : "Salvar destaques"}
+            </button>
+          </div>
+          <p className="text-xs font-body text-ink/45">
+            Até {MAXIMO_BANNERS} destaques. Destaque sem título e sem foto não
+            é salvo.
+          </p>
         </div>
       )}
 
@@ -249,22 +376,31 @@ export default function AdminPromocoesPage() {
           placeholder="10% de desconto na sua próxima compra"
         />
 
+        {/* Desconto só no Pix: a diferença de taxa (0,99% contra 4,98%) é o
+            que faz o desconto se pagar. */}
+        <label className="flex items-start gap-2 font-body text-sm bg-blush/40 border border-cherryLight/40 rounded-xl px-3 py-2.5">
+          <input
+            type="checkbox"
+            checked={novo.somentePix}
+            onChange={(e) => setNovo({ ...novo, somentePix: e.target.checked })}
+            className="w-5 h-5 accent-cherryDark mt-0.5"
+          />
+          <span>
+            Vale só pagando no Pix
+            <span className="block text-xs text-ink/55">
+              Com isso marcado, o Mercado Pago só oferece Pix nesse pedido. O
+              Pix te custa 0,99%, o cartão 4,98% — é o que faz o desconto valer
+              a pena.
+            </span>
+          </span>
+        </label>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className="grid gap-1 text-sm font-body text-ink/80">
-            Para quem vale
-            <select
-              value={novo.clienteId}
-              onChange={(e) => setNovo({ ...novo, clienteId: e.target.value })}
-              className="w-full border border-cherryLight/50 rounded-xl p-2.5 bg-white/70"
-            >
-              <option value="">Todos os clientes</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  Só para {c.nome}
-                </option>
-              ))}
-            </select>
-          </label>
+          <BuscaCliente
+            clientes={clientes}
+            escolhidoId={novo.clienteId}
+            onEscolher={(id) => setNovo({ ...novo, clienteId: id })}
+          />
           <label className="grid gap-1 text-sm font-body text-ink/80">
             Limite de usos (0 = ilimitado)
             <CampoNumero
@@ -277,8 +413,10 @@ export default function AdminPromocoesPage() {
           </label>
         </div>
 
+        {/* Obrigatório: cupom sem prazo fica valendo pra sempre e ninguém
+            lembra de desligar. */}
         <Campo
-          label="Vence em (opcional)"
+          label="Vence em *"
           valor={novo.expiraEm}
           onChange={(v) => setNovo({ ...novo, expiraEm: v })}
           tipo="date"
@@ -316,13 +454,27 @@ export default function AdminPromocoesPage() {
               </span>
             </div>
             {c.descricao && <p className="text-ink/70">{c.descricao}</p>}
+            <div className="flex flex-wrap gap-1.5">
+              {c.somentePix && (
+                <span className="text-[11px] font-semibold bg-green-100 text-green-800 rounded-full px-2 py-0.5">
+                  só no Pix
+                </span>
+              )}
+              {/* Vencido some da tela da cliente, mas aqui ela precisa ver. */}
+              {venceu(c.expiraEm) && (
+                <span className="text-[11px] font-semibold bg-ink/10 text-ink/60 rounded-full px-2 py-0.5">
+                  vencido
+                </span>
+              )}
+            </div>
             <p className="text-xs text-ink/50">
               {c.clienteNome ? `Só para ${c.clienteNome}` : "Todos os clientes"}
               {c.pedidoMinimo > 0 && ` · mínimo R$ ${c.pedidoMinimo.toFixed(2)}`}
               {c.limiteUsos > 0
                 ? ` · usado ${c.usos}/${c.limiteUsos}`
                 : ` · usado ${c.usos}×`}
-              {c.expiraEm && ` · vence ${new Date(c.expiraEm).toLocaleDateString("pt-BR")}`}
+              {c.expiraEm &&
+                ` · ${venceu(c.expiraEm) ? "venceu" : "vence"} ${new Date(c.expiraEm).toLocaleDateString("pt-BR")}`}
             </p>
             <button
               onClick={() => alternar(c)}
@@ -339,6 +491,105 @@ export default function AdminPromocoesPage() {
 
 const ESTILO_CAMPO =
   "w-full border border-cherryLight/50 rounded-xl p-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark";
+
+/**
+ * Para quem o cupom vale.
+ *
+ * Era uma lista suspensa com TODAS as clientes — com a loja crescendo, achar
+ * alguém ali vira rolagem infinita no celular. Agora ela digita o começo do
+ * nome e escolhe. Sem nada digitado, o cupom vale para todo mundo.
+ */
+function BuscaCliente({
+  clientes,
+  escolhidoId,
+  onEscolher,
+}: {
+  clientes: Cliente[];
+  escolhidoId: string;
+  onEscolher: (id: string) => void;
+}) {
+  const [busca, setBusca] = useState("");
+  const escolhida = clientes.find((c) => c.id === escolhidoId) ?? null;
+
+  const achados = useMemo(() => {
+    const termo = busca
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .trim();
+    if (!termo) return [];
+    return clientes
+      .filter((c) =>
+        `${c.nome} ${c.email}`
+          .normalize("NFD")
+          .replace(/[̀-ͯ]/g, "")
+          .toLowerCase()
+          .includes(termo)
+      )
+      .slice(0, 6);
+  }, [clientes, busca]);
+
+  if (escolhida) {
+    return (
+      <div className="grid gap-1 text-sm font-body text-ink/80">
+        Para quem vale
+        <div className="flex items-center justify-between gap-2 border border-cherryDark/40 bg-blush/50 rounded-xl px-3 py-2">
+          <span className="min-w-0 truncate text-cherryDark font-semibold">
+            Só para {escolhida.nome}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              onEscolher("");
+              setBusca("");
+            }}
+            className="shrink-0 text-xs text-ink/50 underline min-h-[44px] px-1"
+          >
+            trocar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-1 text-sm font-body text-ink/80">
+      Para quem vale
+      <input
+        type="search"
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        placeholder="Todos os clientes — ou digite um nome"
+        aria-label="Procurar cliente para o cupom"
+        className={ESTILO_CAMPO}
+      />
+      {busca.trim() && (
+        <div className="grid gap-1">
+          {achados.length === 0 ? (
+            <span className="text-xs text-ink/50">
+              Nenhuma cliente com esse nome.
+            </span>
+          ) : (
+            achados.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  onEscolher(c.id);
+                  setBusca("");
+                }}
+                className="text-left text-sm border border-cherryLight/40 rounded-xl px-3 py-2.5 bg-white/70 hover:border-cherryDark"
+              >
+                <span className="block truncate">{c.nome}</span>
+                <span className="block truncate text-xs text-ink/45">{c.email}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Campo({
   label,

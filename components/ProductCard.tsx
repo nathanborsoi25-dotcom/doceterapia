@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Estrelas from "./Estrelas";
 import {
@@ -37,7 +37,10 @@ import type { Produto } from "@/lib/types";
 export default function ProductCard({ produto }: { produto: Produto }) {
   const sabores = saboresVisiveis(produto);
   const fotos = fotosDoProduto(produto);
+
+  /** Qual foto está na frente do trilho — só para mostrar o "2/3". */
   const [foto, setFoto] = useState(0);
+  const trilho = useRef<HTMLDivElement>(null);
 
   /** Quantas unidades já estão no carrinho (só leitura — vem do carrinho). */
   const [noCarrinho, setNoCarrinho] = useState(0);
@@ -58,7 +61,9 @@ export default function ProductCard({ produto }: { produto: Produto }) {
   const sabor = sabores.find((s) => s.id === saborId) ?? null;
 
   // Com recheios, o que manda é o sabor: foto, preço e estoque saem dele.
-  const fotoAtual = sabor?.fotoUrl || fotos[foto] || fotos[0];
+  // Por isso o trilho de fotos só existe no doce SEM recheios — com eles,
+  // trocar de recheio é que troca a foto.
+  const fotosDoCard = sabor?.fotoUrl ? [sabor.fotoUrl] : fotos;
   const preco = precoDoSabor(produto, sabor);
   const estoque = estoqueDoSabor(produto, sabor);
   const disponibilidade = disponibilidadeDoSabor(produto, sabor);
@@ -101,7 +106,28 @@ export default function ProductCard({ produto }: { produto: Produto }) {
   useEffect(() => {
     setEscolhendo(false);
     setConfirmado(false);
+    // O trilho volta pro começo: a foto do recheio anterior não vale mais.
+    setFoto(0);
+    if (trilho.current) trilho.current.scrollLeft = 0;
   }, [saborId]);
+
+  /**
+   * Quem manda na foto é a rolagem, não um estado nosso: o dedo arrasta, o
+   * navegador encaixa a próxima foto (scroll-snap) e aqui só acompanhamos pra
+   * escrever o "2/3". Antes existiam bolinhas de trocar a foto, mas todo botão
+   * ganha 44px de altura mínima em tela de toque (`globals.css`), e elas
+   * apareciam esticadas no meio da foto, feito duas barras brancas.
+   */
+  function acompanharRolagem(e: React.UIEvent<HTMLDivElement>) {
+    const largura = e.currentTarget.clientWidth || 1;
+    setFoto(Math.round(e.currentTarget.scrollLeft / largura));
+  }
+
+  /** Setas do computador, onde não existe dedo pra arrastar. */
+  function rolar(direcao: -1 | 1) {
+    const el = trilho.current;
+    if (el) el.scrollBy({ left: el.clientWidth * direcao, behavior: "smooth" });
+  }
 
   /** Abre o contador já no número que faz sentido continuar de onde parou. */
   function abrirContador() {
@@ -125,59 +151,100 @@ export default function ProductCard({ produto }: { produto: Produto }) {
      * foto: no card inteiro ele recortava o preço e o botão na base.
      */
     <div className="bg-white/70 rounded-t-[999px] rounded-br-3xl rounded-bl-md shadow-sm border border-cherryLight/30 flex flex-col transition-shadow hover:shadow-md">
-      <Link
-        href={`/doce/${slugDoProduto(produto)}`}
-        className="group block"
-        aria-label={`Ver ${produto.nome}`}
-      >
-        <div className="relative aspect-square bg-blush flex items-center justify-center text-5xl overflow-hidden rounded-t-[999px]">
-          {fotoAtual ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={fotoAtual}
-              alt={sabor ? `${produto.nome} — ${sabor.nome}` : produto.nome}
-              className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] ${
-                esgotado ? "opacity-40 grayscale" : ""
-              }`}
-            />
-          ) : (
-            "🍰"
-          )}
-
-          {/* Faixa atravessada de esgotado: tira a dúvida antes de a pessoa
-              se animar com o doce e só descobrir no carrinho. */}
-          {esgotado && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="w-[140%] -rotate-12 bg-cherryDark/95 text-white text-center font-body font-bold tracking-wide py-2 shadow-lg">
-                ESGOTADO
-              </span>
-            </div>
-          )}
-
-          {/* Bolinhas de foto. Trocar a foto NÃO pode abrir o doce, por isso
-              o clique é interrompido antes de subir pro link. Só aparecem
-              quando o doce NÃO tem recheios — com recheios, quem manda na
-              foto são eles. */}
-          {sabores.length === 0 && fotos.length > 1 && !esgotado && (
-            <div className="absolute bottom-3 inset-x-0 flex justify-center gap-1.5">
-              {fotos.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setFoto(i);
-                  }}
-                  aria-label={`Ver foto ${i + 1} de ${produto.nome}`}
-                  className={`h-1.5 rounded-full transition-all ${
-                    i === foto ? "w-5 bg-white" : "w-1.5 bg-white/60"
+      {/*
+       * As fotos ficam num trilho que rola de lado: no celular e no tablet a
+       * cliente arrasta com o dedo e o navegador encaixa a próxima (scroll-snap),
+       * do mesmo jeito que ela já conhece do Instagram. Cada foto continua
+       * sendo um link pro doce — arrastar não abre nada, porque o navegador
+       * cancela o toque quando ele vira rolagem.
+       */}
+      <div className="group relative aspect-square bg-blush overflow-hidden rounded-t-[999px]">
+        {fotosDoCard.length > 0 ? (
+          <div
+            ref={trilho}
+            onScroll={acompanharRolagem}
+            className="flex h-full w-full overflow-x-auto overscroll-x-contain snap-x snap-mandatory"
+          >
+            {fotosDoCard.map((url, i) => (
+              <Link
+                key={`${url}-${i}`}
+                href={`/doce/${slugDoProduto(produto)}`}
+                // Só a primeira foto entra na navegação por teclado: são todas
+                // o mesmo link, e três paradas por doce cansariam o caminho.
+                tabIndex={i > 0 ? -1 : undefined}
+                className="block w-full h-full shrink-0 snap-center overflow-hidden"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={
+                    sabor
+                      ? `${produto.nome} — ${sabor.nome}`
+                      : fotosDoCard.length > 1
+                        ? `${produto.nome} — foto ${i + 1} de ${fotosDoCard.length}`
+                        : produto.nome
+                  }
+                  draggable={false}
+                  className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] ${
+                    esgotado ? "opacity-40 grayscale" : ""
                   }`}
                 />
-              ))}
-            </div>
-          )}
-        </div>
-      </Link>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <Link
+            href={`/doce/${slugDoProduto(produto)}`}
+            aria-label={`Ver ${produto.nome}`}
+            className="flex items-center justify-center w-full h-full text-5xl"
+          >
+            🍰
+          </Link>
+        )}
+
+        {/* Faixa atravessada de esgotado: tira a dúvida antes de a pessoa
+            se animar com o doce e só descobrir no carrinho. */}
+        {esgotado && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="w-[140%] -rotate-12 bg-cherryDark/95 text-white text-center font-body font-bold tracking-wide py-2 shadow-lg">
+              ESGOTADO
+            </span>
+          </div>
+        )}
+
+        {fotosDoCard.length > 1 && !esgotado && (
+          <>
+            {/* Quantas fotos existem e em qual ela está. Sem isso, ninguém
+                descobre que dá pra arrastar. Não é clicável de propósito. */}
+            <span className="absolute bottom-3 right-3 pointer-events-none rounded-full bg-ink/45 text-white text-[11px] font-body tabular-nums px-2 py-0.5">
+              {Math.min(foto + 1, fotosDoCard.length)}/{fotosDoCard.length}
+            </span>
+
+            {/* No computador não há dedo pra arrastar, então aparecem setas
+                ao passar o mouse. Em tela de toque elas nem existem. */}
+            {foto > 0 && (
+              <button
+                type="button"
+                onClick={() => rolar(-1)}
+                aria-label={`Foto anterior de ${produto.nome}`}
+                className="hidden [@media(pointer:fine)]:flex absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center rounded-full bg-white/85 text-cherryDark text-lg shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-white transition-opacity"
+              >
+                ‹
+              </button>
+            )}
+            {foto < fotosDoCard.length - 1 && (
+              <button
+                type="button"
+                onClick={() => rolar(1)}
+                aria-label={`Próxima foto de ${produto.nome}`}
+                className="hidden [@media(pointer:fine)]:flex absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center rounded-full bg-white/85 text-cherryDark text-lg shadow-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-white transition-opacity"
+              >
+                ›
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
       <div className="p-4 flex flex-col gap-1 flex-1">
         <div className="flex items-start justify-between gap-2">

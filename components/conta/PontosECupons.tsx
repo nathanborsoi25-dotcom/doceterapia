@@ -4,6 +4,33 @@ import { useEffect, useState } from "react";
 import { getMinhaConta, type MinhaConta } from "@/lib/api";
 import { reais } from "@/lib/formato";
 
+/** Quantos dias inteiros faltam até o cupom vencer. */
+function diasAte(expiraEm: string | null): number | null {
+  if (!expiraEm) return null;
+  const falta = new Date(expiraEm).getTime() - Date.now();
+  return Math.floor(falta / 86400000);
+}
+
+/** Está acabando? Aí o prazo aparece em destaque, não em cinza. */
+function prazoApertado(expiraEm: string | null): boolean {
+  const dias = diasAte(expiraEm);
+  return dias !== null && dias <= 3;
+}
+
+/**
+ * O prazo em português de gente. "Vence 31/08/2026" não faz ninguém correr;
+ * "vence hoje" faz. Cupom vencido nem chega aqui — a lista já vem peneirada
+ * pelo servidor.
+ */
+function textoDoPrazo(expiraEm: string | null): string {
+  const dias = diasAte(expiraEm);
+  if (dias === null) return "sem prazo pra usar";
+  if (dias <= 0) return "vence hoje!";
+  if (dias === 1) return "vence amanhã!";
+  if (dias <= 6) return `vence em ${dias} dias`;
+  return `vale até ${new Date(expiraEm!).toLocaleDateString("pt-BR")}`;
+}
+
 /**
  * Pontos, extrato e cupons do cliente.
  *
@@ -120,11 +147,24 @@ export default function PontosECupons() {
                   {c.pedidoMinimo > 0 && ` · a partir de ${reais(c.pedidoMinimo)}`}
                 </p>
                 {c.descricao && <p className="text-ink/60 text-xs">{c.descricao}</p>}
-                <p className="text-xs text-ink/45">
+
+                {/* Só no Pix é condição de uso, não detalhe: se ela descobrir
+                    isso só na hora de pagar, a compra trava. */}
+                {c.somentePix && (
+                  <p className="text-xs font-semibold text-green-800 bg-green-50 border border-green-200 rounded-lg px-2 py-1 justify-self-start">
+                    Vale pagando no Pix
+                  </p>
+                )}
+
+                {/* O prazo vem em destaque quando está acabando — é o que faz
+                    a pessoa usar o cupom em vez de deixar vencer. */}
+                <p
+                  className={`text-xs ${
+                    prazoApertado(c.expiraEm) ? "text-cherryDark font-semibold" : "text-ink/45"
+                  }`}
+                >
                   {c.exclusivo && "Exclusivo pra você · "}
-                  {c.expiraEm
-                    ? `vale até ${new Date(c.expiraEm).toLocaleDateString("pt-BR")}`
-                    : "sem prazo pra usar"}
+                  {textoDoPrazo(c.expiraEm)}
                 </p>
               </div>
             ))}

@@ -10,6 +10,8 @@ type Resumo = {
   lucro: number;
   cancelados: number;
   ticketMedio: number;
+  /** O que o Mercado Pago ficou das vendas do período. */
+  taxasMp: number;
 };
 
 type Metricas = {
@@ -114,6 +116,15 @@ export default function AdminMetricasPage() {
               variacao={dados.variacao?.ticketMedio}
               comparado={dados.periodo.rotuloAnterior}
             />
+            {/* Taxa é dinheiro que sai: subir é notícia ruim, então as cores
+                vão invertidas, como nos cancelados. */}
+            <Cartao
+              titulo="Taxas do Mercado Pago"
+              valor={dinheiro(dados.atual.taxasMp)}
+              variacao={dados.variacao?.taxasMp}
+              comparado={dados.periodo.rotuloAnterior}
+              inverterCores
+            />
             <Cartao
               titulo="Cancelados"
               valor={String(dados.atual.cancelados)}
@@ -128,6 +139,15 @@ export default function AdminMetricasPage() {
               rodape={`${dados.clientes.novos} ${dados.clientes.novos === 1 ? "novo" : "novos"} ${dados.periodo.rotulo}`}
             />
           </div>
+
+          {/* Explica de onde sai o lucro. Sem isso a Camily compara os dois
+              números e não entende por que não fecha. */}
+          <p className="mt-3 text-xs font-body text-ink/50 bg-white/60 border border-cherryLight/30 rounded-xl px-3 py-2.5">
+            O lucro é o valor dos doces menos o custo deles e menos a taxa do
+            Mercado Pago (Pix 0,99% · crédito 4,98%, cobrada sobre o total com
+            frete). O frete entra no faturamento, mas não no lucro — ele vai
+            inteiro para o entregador.
+          </p>
 
           <h2 className="font-display text-xl text-cherryDark mt-8">
             Doces mais vendidos

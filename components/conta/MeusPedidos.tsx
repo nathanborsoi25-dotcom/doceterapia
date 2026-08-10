@@ -86,12 +86,40 @@ function CartaoPedido({
 }) {
   const [cancelando, setCancelando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+  const [pagando, setPagando] = useState(false);
   const [erro, setErro] = useState("");
 
   const situacao = SITUACAO_PARA_CLIENTE[pedido.status];
   const subtotal = pedido.itens.reduce((a, i) => a + i.precoUnitario * i.quantidade, 0);
   const total = subtotal - pedido.desconto + pedido.valorFrete;
   const reembolso = textoDoReembolso(pedido.statusReembolso);
+
+  /**
+   * Volta para a tela de pagamento deste pedido.
+   *
+   * Quem fecha o Mercado Pago no meio ficava sem saída: o pedido existia,
+   * mas não havia botão nenhum para concluir. O servidor reabre a MESMA
+   * cobrança, com os valores já gravados — nada é recalculado.
+   */
+  async function pagarAgora() {
+    setErro("");
+    setPagando(true);
+    try {
+      const r = await fetch(`/api/cliente/pedidos/${pedido.id}/pagar`, {
+        method: "POST",
+      });
+      const corpo = await r.json();
+      if (!r.ok || !corpo.url) {
+        setErro(corpo.error ?? "Não consegui abrir o pagamento agora. Tenta de novo?");
+        return;
+      }
+      window.location.href = corpo.url;
+    } catch {
+      setErro("Não consegui abrir o pagamento agora. Confere a internet e tenta de novo?");
+    } finally {
+      setPagando(false);
+    }
+  }
 
   async function cancelar() {
     setErro("");
@@ -216,6 +244,18 @@ function CartaoPedido({
       {/* Postou nos stories? Manda o print e a Camily libera os pontos. */}
       {pedido.podeAvaliar && (
         <EnviarStory pedidoId={pedido.id} story={story} onEnviou={onMudou} />
+      )}
+
+      {/* Pedido parado esperando pagamento: o caminho de volta pra concluir.
+          Vem antes do "cancelar" porque é o que ela quer fazer. */}
+      {pedido.status === "aguardando_pagamento" && (
+        <button
+          onClick={pagarAgora}
+          disabled={pagando}
+          className="bg-cherryDark text-white rounded-full px-5 py-3 font-semibold hover:bg-cherryMid active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          {pagando ? "Abrindo o pagamento..." : `Pagar agora · ${reais(total)}`}
+        </button>
       )}
 
       {erro && <p className="text-cherryDark text-sm">{erro}</p>}

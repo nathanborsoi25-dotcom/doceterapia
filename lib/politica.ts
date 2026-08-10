@@ -43,7 +43,7 @@ export const POLITICA_PADRAO: Record<ChavePolitica, string> = {
     "Nos casos em que o cancelamento vale, o pedido de estorno vai para o Mercado Pago na mesma hora, pelo valor total — doces e entrega, descontando o cupom que tiver sido usado. Você não precisa pedir nada: sai junto com o cancelamento.",
 
   prazosDoEstorno:
-    "- Pix: o valor costuma voltar para a sua conta em minutos, e no máximo em alguns dias úteis.\n- Cartão de crédito: o estorno aparece na fatura. Dependendo da data de fechamento, pode ser só na fatura seguinte — quem define esse prazo é o banco, não eu.\n- Cartão de débito: costuma voltar para a conta em poucos dias úteis.\n\nSe por algum motivo o estorno automático não sair, eu sou avisada na hora e falo com você para devolver por Pix.",
+    "- Pix: o valor costuma voltar para a sua conta em minutos, e no máximo em alguns dias úteis.\n- Cartão de crédito: o estorno aparece na fatura. Dependendo da data de fechamento, pode ser só na fatura seguinte — quem define esse prazo é o banco, não eu.\n\nSe por algum motivo o estorno automático não sair, eu sou avisada na hora e falo com você para devolver por Pix.",
 
   entregaRetirada:
     "Entrega: por enquanto entrego somente em Arapongas-PR (CEPs de 86700-000 a 86709-999). O valor é calculado pela distância entre a minha cozinha e o seu endereço, e aparece no carrinho antes de você pagar. A entrega é feita por aplicativo, e o dia e o horário eu combino com você.\n\nRetirada: você escolhe no site onde prefere buscar, entre os endereços disponíveis, e não tem custo nenhum. O dia e o horário a gente combina depois que o pagamento é confirmado.",
@@ -52,7 +52,7 @@ export const POLITICA_PADRAO: Record<ChavePolitica, string> = {
     "Cada doce mostra no cardápio se é de pronta entrega ou sob encomenda e, nesse caso, de quantos dias eu preciso para preparar. Se o seu carrinho tiver mais de um doce sob encomenda, vale o maior prazo entre eles, porque tudo sai junto.",
 
   pagamento:
-    "O pagamento é pelo Mercado Pago, com Pix, cartão de crédito à vista ou cartão de débito. Não trabalho com boleto nem com parcelamento. Os dados do seu cartão são digitados no ambiente do Mercado Pago — eu não vejo e não guardo nada disso.\n\nO pedido entra na fila depois que o pagamento é confirmado. Você recebe um e-mail a cada mudança: pagamento confirmado, em preparo, a caminho e entregue.",
+    "O pagamento é pelo Mercado Pago, com Pix ou cartão de crédito à vista. Não trabalho com boleto nem com parcelamento. Os dados do seu cartão são digitados no ambiente do Mercado Pago — eu não vejo e não guardo nada disso.\n\nO pedido entra na fila depois que o pagamento é confirmado. Você recebe um e-mail a cada mudança: pagamento confirmado, em preparo, a caminho e entregue.",
 
   dados:
     "Guardo apenas o necessário para vender e entregar: nome, e-mail, telefone e endereço. Não peço CPF. Sua senha fica guardada de forma embaralhada, então nem eu consigo vê-la. Não vendo nem compartilho seus dados com ninguém. Se quiser que eu apague seu cadastro, é só pedir.",
@@ -112,7 +112,7 @@ export const CAMPOS_POLITICA: Array<{
     rotulo: "Doces sob encomenda",
     ajuda: "Como funcionam os prazos de preparo.",
   },
-  { chave: "pagamento", rotulo: "Formas de pagamento", ajuda: "Pix, crédito e débito." },
+  { chave: "pagamento", rotulo: "Formas de pagamento", ajuda: "Pix e crédito à vista." },
   { chave: "dados", rotulo: "Seus dados", ajuda: "O que você guarda da cliente." },
   { chave: "avaliacoes", rotulo: "Avaliações", ajuda: "Quem pode avaliar e o que você esconde." },
 ];

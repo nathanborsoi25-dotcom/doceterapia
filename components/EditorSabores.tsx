@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import CampoNumero from "./CampoNumero";
+import SobraPorUnidade from "./SobraPorUnidade";
 import { enviarFotoProduto } from "@/lib/api";
 import { reais } from "@/lib/formato";
 import type { Produto, SaborDoDoce } from "@/lib/types";
@@ -194,6 +195,13 @@ export default function EditorSabores({
                       />
                     </label>
                   </div>
+
+                  {/* Cada recheio tem preço e custo próprios, então a conta
+                      do que sobra também é de cada um. */}
+                  <SobraPorUnidade
+                    preco={sabor.preco ?? produto.preco}
+                    custo={sabor.custo ?? 0}
+                  />
                 </div>
               </div>
 

@@ -45,21 +45,32 @@ export type ResultadoCancelamento =
   | { ok: false; erro: string };
 
 /**
- * Manda o Mercado Pago devolver o valor inteiro do pagamento.
+ * Manda o Mercado Pago devolver o dinheiro.
+ *
+ * Sem `valor`, devolve o pagamento inteiro — doces e frete. Com `valor`,
+ * devolve só aquela parte: é o caso de "devolvo os doces mas não o frete,
+ * porque o entregador já rodou". Quem escolhe é a Camily, no painel.
  *
  * Devolve `false` quando não deu — e aí o pedido é cancelado do mesmo jeito,
  * mas fica marcado pra Camily estornar na mão. Prender o cancelamento num
  * erro de rede deixaria o cliente esperando sem resposta.
  */
 async function estornarNoMercadoPago(
-  pagamentoId: string
+  pagamentoId: string,
+  valor?: number
 ): Promise<{ ok: boolean; valor: number }> {
   const client = getMpClient();
   if (!client) return { ok: false, valor: 0 };
 
   try {
     const refund = new PaymentRefund(client);
-    const r = await refund.total({ payment_id: pagamentoId });
+    const parcial = typeof valor === "number" && valor > 0;
+    const r = parcial
+      ? await refund.create({
+          payment_id: pagamentoId,
+          body: { amount: Math.round(valor * 100) / 100 },
+        })
+      : await refund.total({ payment_id: pagamentoId });
     // O MP responde "approved" na hora no Pix; no cartão pode vir
     // "in_process" e ele conclui sozinho depois. Os dois contam como aceito.
     const aceito = r.status === "approved" || r.status === "in_process";
@@ -68,6 +79,26 @@ async function estornarNoMercadoPago(
     console.error("Mercado Pago recusou o estorno:", e);
     return { ok: false, valor: 0 };
   }
+}
+
+/**
+ * O que o pedido cobrou de verdade: doces mais frete, menos o cupom. É o teto
+ * do que dá pra devolver.
+ */
+export function totalDoPedido(pedido: {
+  itens: unknown;
+  valorFrete: number;
+  desconto: number;
+}): number {
+  const itens = (pedido.itens ?? []) as Array<{
+    precoUnitario: number;
+    quantidade: number;
+  }>;
+  const subtotal = itens.reduce(
+    (a, i) => a + (i.precoUnitario ?? 0) * (i.quantidade ?? 0),
+    0
+  );
+  return Math.max(0, subtotal + pedido.valorFrete - pedido.desconto);
 }
 
 /** Tira do extrato os pontos que a compra tinha dado. */
@@ -103,7 +134,16 @@ async function liberarUsoDoCupom(codigo: string) {
 
 export async function cancelarPedido(
   pedidoId: string,
-  opcoes: { por: QuemCancelou; motivo?: string; clienteId?: string }
+  opcoes: {
+    por: QuemCancelou;
+    motivo?: string;
+    clienteId?: string;
+    /**
+     * Quanto devolver. Só a Camily escolhe: quando o cancelamento vem da
+     * cliente, a devolução é sempre integral. Ausente = valor inteiro.
+     */
+    valorReembolso?: number;
+  }
 ): Promise<ResultadoCancelamento> {
   const db = getDb();
 
@@ -171,11 +211,35 @@ export async function cancelarPedido(
   let valorReembolsado = 0;
 
   if (jaFoiPago(status)) {
-    if (!pedido.pagamentoId) {
+    /*
+     * Quanto devolver. Só a loja escolhe: cancelamento vindo da cliente
+     * devolve sempre o valor inteiro. O valor é preso entre zero e o total
+     * do pedido, pra ninguém devolver mais do que entrou.
+     */
+    const total = totalDoPedido(pedido);
+    const escolhaDaLoja = opcoes.por === "loja" ? opcoes.valorReembolso : undefined;
+    const aDevolver =
+      typeof escolhaDaLoja === "number"
+        ? Math.min(Math.max(escolhaDaLoja, 0), total)
+        : total;
+
+    if (aDevolver <= 0) {
+      /*
+       * "Não devolver nada" é uma decisão, não uma falha — vem antes de
+       * olhar o pagamento. Marcar "falhou" aqui deixaria um alerta vermelho
+       * no painel pedindo pra ela estornar justamente o que ela decidiu não
+       * estornar.
+       */
+      reembolso = "nao_precisa";
+    } else if (!pedido.pagamentoId) {
       // Pedido pago antes de existir este campo, ou pagamento fora do site.
       reembolso = "falhou";
     } else {
-      const r = await estornarNoMercadoPago(pedido.pagamentoId);
+      const r = await estornarNoMercadoPago(
+        pedido.pagamentoId,
+        // Sem valor = estorno total; com valor = parcial.
+        aDevolver < total ? aDevolver : undefined
+      );
       reembolso = r.ok ? "concluido" : "falhou";
       valorReembolsado = r.ok ? r.valor : 0;
     }

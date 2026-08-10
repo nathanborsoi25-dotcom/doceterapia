@@ -21,6 +21,7 @@ import {
   resumoDePreco,
   situacaoDoEstoque,
 } from "@/lib/catalogo";
+import SobraPorUnidade from "@/components/SobraPorUnidade";
 import { fotosDoProduto } from "@/lib/fotos";
 import type { Produto, SaborDoDoce } from "@/lib/types";
 
@@ -366,6 +367,11 @@ export default function AdminProdutosPage() {
                           />
                         </label>
                       </div>
+
+                      <SobraPorUnidade
+                        preco={produto.preco}
+                        custo={produto.custo ?? 0}
+                      />
 
                       {/* Estoque: vazio = não controla; zero = esgotado. */}
                       <label className="grid gap-0.5">

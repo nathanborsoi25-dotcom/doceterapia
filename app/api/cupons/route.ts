@@ -7,6 +7,19 @@ import { normalizarCodigo } from "@/lib/cupom";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * "2026-08-31" vira o último instante daquele dia em Brasília (23:59:59 no
+ * horário de -03:00). O cupom precisa valer o dia inteiro que a Camily
+ * escolheu: com `new Date("2026-08-31")` ele venceria à meia-noite UTC, ou
+ * seja, às 21h do dia 30 aqui — o mesmo tropeço de fuso que já derrubou o
+ * prazo dos pedidos (ver `lib/prazo.ts`).
+ */
+function fimDoDiaEmBrasilia(texto: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(texto.trim())) return null;
+  const data = new Date(`${texto.trim()}T23:59:59.999-03:00`);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
 /** Lista os cupons com o nome do cliente, quando for cupom pessoal. */
 export async function GET() {
   const negado = await requireAdmin();
@@ -64,7 +77,19 @@ export async function POST(req: Request) {
     );
   }
 
-  const expiraEm = b.expiraEm ? new Date(String(b.expiraEm)) : null;
+  /*
+   * O vencimento passou a ser obrigatório: cupom sem prazo fica valendo para
+   * sempre e ninguém lembra de desligar. A data chega como "2026-08-31" e é
+   * montada no fim do dia, no fuso daqui — senão o cupom morreria às 21h do
+   * dia anterior em Brasília (a Vercel roda em UTC).
+   */
+  const expiraEm = fimDoDiaEmBrasilia(String(b.expiraEm ?? ""));
+  if (!expiraEm) {
+    return NextResponse.json(
+      { error: "Escolha até quando o cupom vale." },
+      { status: 400 }
+    );
+  }
 
   await db.insert(cupons).values({
     id: crypto.randomUUID(),
@@ -74,7 +99,8 @@ export async function POST(req: Request) {
     valor,
     pedidoMinimo: Math.max(0, Number(b.pedidoMinimo) || 0),
     clienteId: b.clienteId ? String(b.clienteId) : null,
-    expiraEm: expiraEm && !Number.isNaN(expiraEm.getTime()) ? expiraEm : null,
+    somentePix: b.somentePix === true,
+    expiraEm,
     limiteUsos: Math.max(0, Math.floor(Number(b.limiteUsos) || 0)),
   });
 

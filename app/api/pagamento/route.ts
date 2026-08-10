@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Preference } from "mercadopago";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { carrinhos, configFrete, cupons, pedidos, produtos, sabores } from "@/lib/db/schema";
@@ -13,6 +12,7 @@ import { descricaoDoPonto, pontoRetiradaPorId, pontosDaLoja } from "@/lib/retira
 import { getConfigLoja } from "@/lib/config-loja";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
+import { criarPreferenciaDoPedido } from "@/lib/preferencia-mp";
 import { prazoDoSabor } from "@/lib/sabores";
 import { sql } from "drizzle-orm";
 import type { ItemPedido, Pedido } from "@/lib/types";
@@ -42,17 +42,6 @@ const QUANTIDADE_MAXIMA = 200;
 
 function texto(valor: unknown, limite: number): string {
   return typeof valor === "string" ? valor.trim().slice(0, limite) : "";
-}
-
-/**
- * Telefone do jeito que o Mercado Pago espera: DDD e número separados.
- * Devolve null quando não dá pra separar com confiança — melhor mandar sem
- * telefone do que mandar errado.
- */
-function dddETelefone(telefone: string | null | undefined) {
-  const d = (telefone ?? "").replace(/\D/g, "");
-  if (d.length !== 10 && d.length !== 11) return null;
-  return { area_code: d.slice(0, 2), number: d.slice(2) };
 }
 
 export async function POST(req: Request) {
@@ -314,6 +303,8 @@ export async function POST(req: Request) {
   const subtotal = itens.reduce((a, i) => a + i.precoUnitario * i.quantidade, 0);
   let desconto = 0;
   let cupomCodigo: string | null = null;
+  /** Cupom de Pix: a cobrança tem que sair em Pix, e só. */
+  let obrigarPix = false;
 
   const codigoInformado = normalizarCodigo(body.cupom ?? "");
   if (codigoInformado) {
@@ -327,6 +318,7 @@ export async function POST(req: Request) {
     }
     desconto = r.desconto;
     cupomCodigo = r.cupom.codigo;
+    obrigarPix = r.cupom.somentePix;
   }
 
   // 6) Só agora precisamos do Mercado Pago — as validações acima já
@@ -359,7 +351,9 @@ export async function POST(req: Request) {
     valorFrete,
     cupomCodigo,
     desconto,
-    formaPagamento: body.formaPagamento ?? "pix",
+    // Com cupom de Pix a cobrança sai obrigatoriamente em Pix, então é isso
+    // que fica gravado — senão as métricas descontariam a taxa do crédito.
+    formaPagamento: obrigarPix ? "pix" : body.formaPagamento ?? "pix",
     status: "aguardando_pagamento",
   });
 
@@ -374,86 +368,27 @@ export async function POST(req: Request) {
   // O carrinho virou pedido: sai da lista de "abandonados" da Camily.
   await db.delete(carrinhos).where(eq(carrinhos.clienteId, cliente.id));
 
-  // 8) Cria a preferência de pagamento no Mercado Pago.
+  // 8) Cria a preferência de pagamento no Mercado Pago. A montagem fica em
+  // `lib/preferencia-mp.ts`, compartilhada com a retomada do pagamento.
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
-  const ehLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
 
-  const preference = new Preference(client);
-  const pref = await preference.create({
-    body: {
-      items: itens.map((i) => ({
-        id: i.produtoId,
-        title: i.nome,
-        quantity: i.quantidade,
-        unit_price: i.precoUnitario,
-        currency_id: "BRL",
-      })),
-      // Frete entra como custo de envio (quando houver).
-      shipments:
-        valorFrete > 0 ? { cost: valorFrete, mode: "not_specified" } : undefined,
-      // O desconto do cupom vai como item negativo, que é como o Mercado
-      // Pago aceita abatimento: o total cobrado já sai certo na tela dele.
-      ...(desconto > 0
-        ? {
-            items: [
-              ...itens.map((i) => ({
-                id: i.produtoId,
-                title: i.nome,
-                quantity: i.quantidade,
-                unit_price: i.precoUnitario,
-                currency_id: "BRL",
-              })),
-              {
-                id: "desconto",
-                title: `Desconto (cupom ${cupomCodigo})`,
-                quantity: 1,
-                unit_price: -desconto,
-                currency_id: "BRL",
-              },
-            ],
-          }
-        : {}),
-      /**
-       * Quem está comprando, já preenchido.
-       *
-       * Sem isto o Mercado Pago abre pedindo o e-mail de novo, no meio do
-       * pagamento — a cliente acabou de entrar na conta dela e tem que
-       * digitar tudo outra vez, e o comprovante corre o risco de ir parar num
-       * e-mail diferente do cadastro. Os dados saem da SESSÃO, nunca do que o
-       * navegador mandou.
-       */
-      payer: {
-        name: cliente.nome.split(" ")[0],
-        surname: cliente.nome.split(" ").slice(1).join(" ") || undefined,
-        email: cliente.email,
-        ...(dddETelefone(cliente.telefone)
-          ? { phone: dddETelefone(cliente.telefone)! }
-          : {}),
-      },
-      external_reference: id,
-      back_urls: {
-        success: `${origin}/pedido/sucesso`,
-        pending: `${origin}/pedido/sucesso`,
-        failure: `${origin}/pedido/erro`,
-      },
-      auto_return: "approved",
-      payment_methods: {
-        // Crédito à vista (sem parcelamento).
-        installments: 1,
-        default_installments: 1,
-        // Remove Boleto. Mantém Pix (bank_transfer), crédito e débito
-        // (debit_card) — de qualquer banco que o Mercado Pago oferecer.
-        excluded_payment_types: [{ id: "ticket" }],
-      },
-      // MP não aceita URL local para notificação; só manda em produção.
-      ...(ehLocal
-        ? {}
-        : { notification_url: `${origin}/api/pagamento/webhook` }),
+  const url = await criarPreferenciaDoPedido(client, {
+    pedidoId: id,
+    itens,
+    valorFrete,
+    desconto,
+    cupomCodigo,
+    comprador: {
+      nome: cliente.nome,
+      email: cliente.email,
+      telefone: cliente.telefone,
     },
+    origin,
+    obrigarPix,
   });
 
   return NextResponse.json({
     pedidoId: id,
-    url: pref.init_point ?? pref.sandbox_init_point ?? null,
+    url,
   });
 }

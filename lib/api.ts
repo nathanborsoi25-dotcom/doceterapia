@@ -243,7 +243,13 @@ export async function getCarrinhosAbandonados(): Promise<CarrinhoAbandonado[]> {
 
 export async function atualizarPedido(
   id: string,
-  mudancas: { status?: StatusPedido; linkRastreio?: string; motivo?: string }
+  mudancas: {
+    status?: StatusPedido;
+    linkRastreio?: string;
+    motivo?: string;
+    /** Só no cancelamento: quanto devolver. Ausente = o pedido inteiro. */
+    valorReembolso?: number;
+  }
 ): Promise<void> {
   const res = await fetch(`/api/pedidos/${id}`, {
     method: "PATCH",
@@ -303,6 +309,8 @@ export type MinhaConta = {
     tipo: string;
     valor: number;
     pedidoMinimo: number;
+    /** Só vale pagando no Pix. */
+    somentePix: boolean;
     expiraEm: string | null;
     exclusivo: boolean;
   }>;

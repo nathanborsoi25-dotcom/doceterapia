@@ -8,10 +8,16 @@ import {
   tentarEstorno,
   type CarrinhoAbandonado,
 } from "@/lib/api";
+import CampoNumero from "@/components/CampoNumero";
 import VoltarAoPainel from "@/components/VoltarAoPainel";
 import { linkWhatsAppNumero } from "@/lib/contato";
 import { reais } from "@/lib/formato";
 import { mensagemCarrinhoAbandonado, mensagemDeStatus } from "@/lib/mensagens-whatsapp";
+import {
+  dentroDoPeriodo,
+  intervaloDoPeriodo,
+  type FiltroPeriodo,
+} from "@/lib/periodo";
 import { situacaoPrazo } from "@/lib/prazo";
 import type { PedidoDoPainel, StatusPedido } from "@/lib/types";
 
@@ -42,14 +48,29 @@ const PROXIMA_ETAPA: Partial<Record<StatusPedido, { proximo: StatusPedido; rotul
 
 type Filtro = StatusPedido | "todos" | "abandonados";
 
+const PERIODOS: { valor: FiltroPeriodo; label: string }[] = [
+  { valor: "sempre", label: "Todo o período" },
+  { valor: "hoje", label: "Hoje" },
+  { valor: "semana", label: "Últimos 7 dias" },
+  { valor: "mes", label: "Últimos 30 dias" },
+  { valor: "escolhido", label: "Escolher datas" },
+];
+
 export default function AdminPedidosPage() {
   const [pedidos, setPedidos] = useState<PedidoDoPainel[]>([]);
   const [abandonados, setAbandonados] = useState<CarrinhoAbandonado[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvandoLink, setSalvandoLink] = useState<string | null>(null);
   const [estornando, setEstornando] = useState<string | null>(null);
+  /** Qual pedido está com a tela de "quanto devolver" aberta. */
+  const [cancelando, setCancelando] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
+
+  /** Recorte de tempo. Começa aberto: ela quer ver tudo ao entrar. */
+  const [periodo, setPeriodo] = useState<FiltroPeriodo>("sempre");
+  const [de, setDe] = useState("");
+  const [ate, setAte] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -68,16 +89,27 @@ export default function AdminPedidosPage() {
     if (novos) setPedidos(novos);
   }
 
-  async function mudarStatus(id: string, status: StatusPedido) {
-    // Cancelar é a única mudança que mexe com dinheiro: ela pede confirmação,
-    // porque o estorno vai pro Mercado Pago na hora e não tem "desfazer".
-    if (status === "cancelado") {
+  async function mudarStatus(
+    id: string,
+    status: StatusPedido,
+    valorReembolso?: number
+  ) {
+    /*
+     * Cancelar é a única mudança que mexe com dinheiro. Quando o pedido já
+     * foi pago, quem decide quanto devolver é a Camily — a escolha acontece
+     * no cartão do pedido (`EscolherReembolso`), então aqui só chega o valor
+     * já decidido. Sem pagamento não há o que devolver: pergunta simples.
+     */
+    if (status === "cancelado" && valorReembolso === undefined) {
       const p = pedidos.find((x) => x.id === id);
       const jaPago = p ? p.status !== "aguardando_pagamento" : false;
+      if (jaPago) {
+        // Abre a escolha do valor em vez de cancelar direto.
+        setCancelando(id);
+        return;
+      }
       const ok = window.confirm(
-        jaPago
-          ? "Cancelar este pedido e devolver o valor para o cliente pelo Mercado Pago?\n\nIsso não tem como desfazer."
-          : "Cancelar este pedido? Ninguém chegou a pagar, então não há valor a devolver."
+        "Cancelar este pedido? Ninguém chegou a pagar, então não há valor a devolver."
       );
       if (!ok) return;
     }
@@ -86,9 +118,12 @@ export default function AdminPedidosPage() {
     setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
     setAviso("");
     try {
-      await atualizarPedido(id, { status });
+      await atualizarPedido(id, { status, valorReembolso });
       // Depois de cancelar, recarrega pra saber se o estorno saiu ou falhou.
-      if (status === "cancelado") await recarregar();
+      if (status === "cancelado") {
+        setCancelando(null);
+        await recarregar();
+      }
     } catch (e) {
       setPedidos(anterior);
       setAviso(e instanceof Error ? e.message : "Não foi possível atualizar o pedido.");
@@ -130,11 +165,31 @@ export default function AdminPedidosPage() {
   }
 
   /**
+   * O recorte de tempo vem ANTES de tudo: as contagens de cada situação
+   * precisam falar do mesmo conjunto que a lista mostra, senão o filtro diz
+   * "Pago (5)" e aparecem dois.
+   */
+  const intervalo = useMemo(
+    () => intervaloDoPeriodo(periodo, de, ate),
+    [periodo, de, ate]
+  );
+
+  const doPeriodo = useMemo(
+    () => pedidos.filter((p) => dentroDoPeriodo(p.criadoEm, intervalo)),
+    [pedidos, intervalo]
+  );
+
+  const abandonadosDoPeriodo = useMemo(
+    () => abandonados.filter((c) => dentroDoPeriodo(c.atualizadoEm, intervalo)),
+    [abandonados, intervalo]
+  );
+
+  /**
    * Ordena pelo prazo: o que está vencido ou mais apertado vem primeiro.
    * Pedidos já entregues ou cancelados descem para o fim da lista.
    */
   const ordenados = useMemo(() => {
-    return [...pedidos].sort((a, b) => {
+    return [...doPeriodo].sort((a, b) => {
       const aFim = ENCERRADOS.includes(a.status);
       const bFim = ENCERRADOS.includes(b.status);
       if (aFim !== bFim) return aFim ? 1 : -1;
@@ -142,7 +197,7 @@ export default function AdminPedidosPage() {
       const pb = b.prazoEm ? new Date(b.prazoEm).getTime() : Infinity;
       return pa - pb;
     });
-  }, [pedidos]);
+  }, [doPeriodo]);
 
   const visiveis = useMemo(
     () =>
@@ -158,10 +213,22 @@ export default function AdminPedidosPage() {
 
   /** Quantos pedidos há em cada situação, pro número aparecer no filtro. */
   const contagem = useMemo(() => {
-    const c: Record<string, number> = { todos: pedidos.length, abandonados: abandonados.length };
-    for (const s of STATUS) c[s.valor] = pedidos.filter((p) => p.status === s.valor).length;
+    const c: Record<string, number> = {
+      todos: doPeriodo.length,
+      abandonados: abandonadosDoPeriodo.length,
+    };
+    for (const s of STATUS) c[s.valor] = doPeriodo.filter((p) => p.status === s.valor).length;
     return c;
-  }, [pedidos, abandonados]);
+  }, [doPeriodo, abandonadosDoPeriodo]);
+
+  /** Quanto entrou no recorte, sem contar o que foi cancelado. */
+  const faturamentoDoPeriodo = useMemo(
+    () =>
+      doPeriodo
+        .filter((p) => p.status !== "cancelado" && p.status !== "aguardando_pagamento")
+        .reduce((soma, p) => soma + total(p), 0),
+    [doPeriodo]
+  );
 
   const filtros: { valor: Filtro; label: string }[] = [
     { valor: "todos", label: "Todos" },
@@ -184,6 +251,74 @@ export default function AdminPedidosPage() {
           </span>
         )}
       </p>
+
+      {/* Recorte de tempo. Fica ACIMA dos filtros de situação porque manda
+          neles: as contagens ali embaixo já saem contando só este período. */}
+      <div className="mt-4 grid gap-2">
+        <div className="flex gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+          {PERIODOS.map((p) => (
+            <button
+              key={p.valor}
+              onClick={() => setPeriodo(p.valor)}
+              className={`shrink-0 px-4 py-2.5 rounded-full text-sm font-body border transition-colors ${
+                periodo === p.valor
+                  ? "bg-blush border-cherryDark text-cherryDark font-semibold"
+                  : "bg-white/70 text-ink/70 border-cherryLight/50 hover:border-cherryMid"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {periodo === "escolhido" && (
+          <div className="flex flex-wrap items-end gap-2 bg-white/70 border border-cherryLight/30 rounded-2xl p-3">
+            <label className="grid gap-1 text-xs font-body text-ink/60">
+              De
+              <input
+                type="date"
+                value={de}
+                max={ate || undefined}
+                onChange={(e) => setDe(e.target.value)}
+                className="border border-cherryLight/40 rounded-lg p-2 bg-white/70 font-body text-sm"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-body text-ink/60">
+              Até
+              <input
+                type="date"
+                value={ate}
+                min={de || undefined}
+                onChange={(e) => setAte(e.target.value)}
+                className="border border-cherryLight/40 rounded-lg p-2 bg-white/70 font-body text-sm"
+              />
+            </label>
+            {(de || ate) && (
+              <button
+                onClick={() => {
+                  setDe("");
+                  setAte("");
+                }}
+                className="text-xs font-body text-ink/50 underline inline-flex items-center min-h-[44px] px-1"
+              >
+                limpar
+              </button>
+            )}
+            <p className="basis-full text-xs font-body text-ink/45">
+              Pode preencher só um lado: com &ldquo;De&rdquo; você vê daquele
+              dia em diante; para um dia só, repita a mesma data nos dois.
+            </p>
+          </div>
+        )}
+
+        {intervalo && (
+          <p className="text-xs font-body text-ink/55">
+            {contagem.todos === 0
+              ? "Nenhum pedido nesse período."
+              : `${contagem.todos} ${contagem.todos === 1 ? "pedido" : "pedidos"} no período · ${reais(faturamentoDoPeriodo)} (sem contar cancelados e não pagos)`}
+          </p>
+        )}
+      </div>
 
       {/* Filtros: rolam na horizontal no celular, sem espremer os botões */}
       {/* No celular a fileira rola de lado; da largura de tablet pra cima ela
@@ -227,10 +362,14 @@ export default function AdminPedidosPage() {
             Pessoas que escolheram doces e não finalizaram. Um toque no WhatsApp
             costuma resgatar a venda.
           </p>
-          {abandonados.length === 0 && (
-            <p className="text-ink/60 font-body">Nenhum carrinho parado no momento. 🍒</p>
+          {abandonadosDoPeriodo.length === 0 && (
+            <p className="text-ink/60 font-body">
+              {intervalo
+                ? "Nenhum carrinho parado nesse período. 🍒"
+                : "Nenhum carrinho parado no momento. 🍒"}
+            </p>
           )}
-          {abandonados.map((c) => (
+          {abandonadosDoPeriodo.map((c) => (
             <div
               key={c.clienteId}
               className="bg-white/70 border border-cherryLight/30 rounded-2xl p-3 sm:p-4 grid gap-2 font-body text-sm"
@@ -276,7 +415,11 @@ export default function AdminPedidosPage() {
       {!carregando && filtro !== "abandonados" && (
         <div className="grid gap-4 mt-2">
           {visiveis.length === 0 && (
-            <p className="text-ink/60 font-body">Nenhum pedido nesta situação.</p>
+            <p className="text-ink/60 font-body">
+              {intervalo
+                ? "Nenhum pedido nesta situação dentro do período escolhido."
+                : "Nenhum pedido nesta situação."}
+            </p>
           )}
 
           {visiveis.map((p) => {
@@ -448,6 +591,17 @@ export default function AdminPedidosPage() {
                   </div>
                 )}
 
+                {/* Quanto devolver. Abre quando ela escolhe "Cancelado" num
+                    pedido já pago — é a hora de decidir se o frete volta. */}
+                {cancelando === p.id && (
+                  <EscolherReembolso
+                    total={total(p)}
+                    valorFrete={p.valorFrete}
+                    onCancelar={(valor) => mudarStatus(p.id, "cancelado", valor)}
+                    onDesistir={() => setCancelando(null)}
+                  />
+                )}
+
                 {p.tipoEntrega === "entrega" && !encerrado && (
                   <LinkRastreio
                     valorInicial={p.linkRastreio ?? ""}
@@ -492,6 +646,126 @@ export default function AdminPedidosPage() {
         </div>
       )}
     </main>
+  );
+}
+
+/**
+ * Quanto devolver ao cancelar um pedido já pago.
+ *
+ * Antes o site sempre estornava o valor inteiro, e não havia como fazer
+ * diferente pelo painel — quando o entregador já tinha rodado, o frete ia
+ * junto e saía do bolso da Camily. Agora ela escolhe: tudo, só os doces, ou
+ * um valor combinado com a cliente.
+ *
+ * O estorno vai pro Mercado Pago na hora e não tem desfazer, por isso a
+ * confirmação é um passo separado e o valor aparece escrito no botão.
+ */
+function EscolherReembolso({
+  total,
+  valorFrete,
+  onCancelar,
+  onDesistir,
+}: {
+  total: number;
+  valorFrete: number;
+  onCancelar: (valor: number) => void;
+  onDesistir: () => void;
+}) {
+  type Escolha = "tudo" | "sem_frete" | "outro" | "nada";
+  const [escolha, setEscolha] = useState<Escolha>("tudo");
+  const [outro, setOutro] = useState<number | null>(null);
+
+  const semFrete = Math.max(0, total - valorFrete);
+  const valor =
+    escolha === "tudo"
+      ? total
+      : escolha === "sem_frete"
+        ? semFrete
+        : escolha === "nada"
+          ? 0
+          : Math.min(outro ?? 0, total);
+
+  const opcoes: { valor: Escolha; label: string; ajuda: string }[] = [
+    { valor: "tudo", label: `Tudo · ${reais(total)}`, ajuda: "Doces e entrega." },
+    ...(valorFrete > 0
+      ? [
+          {
+            valor: "sem_frete" as Escolha,
+            label: `Só os doces · ${reais(semFrete)}`,
+            ajuda: `A entrega de ${reais(valorFrete)} não volta.`,
+          },
+        ]
+      : []),
+    { valor: "outro", label: "Outro valor", ajuda: "Um combinado com a cliente." },
+    { valor: "nada", label: "Não devolver nada", ajuda: "Nenhum estorno é pedido." },
+  ];
+
+  return (
+    <div className="bg-blush/60 border border-cherryDark/30 rounded-2xl p-3 grid gap-2">
+      <p className="font-semibold text-cherryDark">
+        Quanto você quer devolver para a cliente?
+      </p>
+
+      <div className="grid gap-1.5">
+        {opcoes.map((o) => (
+          <label
+            key={o.valor}
+            className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border cursor-pointer ${
+              escolha === o.valor
+                ? "bg-white border-cherryDark"
+                : "bg-white/60 border-cherryLight/40"
+            }`}
+          >
+            <input
+              type="radio"
+              name="reembolso"
+              checked={escolha === o.valor}
+              onChange={() => setEscolha(o.valor)}
+              className="mt-0.5 accent-cherryDark"
+            />
+            <span className="min-w-0">
+              <span className="block text-ink/85 font-semibold">{o.label}</span>
+              <span className="block text-xs text-ink/55">{o.ajuda}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {escolha === "outro" && (
+        <label className="grid gap-1 text-xs text-ink/60">
+          Valor a devolver (R$) — no máximo {reais(total)}
+          <CampoNumero
+            valor={outro}
+            onChange={setOutro}
+            placeholder="0,00"
+            className="w-full sm:w-48 border border-cherryLight/50 rounded-lg p-2 bg-white/70 text-sm font-body"
+          />
+        </label>
+      )}
+
+      <p className="text-xs text-ink/60">
+        O pedido é cancelado de qualquer jeito, a cliente é avisada por e-mail e
+        os doces voltam para o estoque. O estorno não tem como desfazer.
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => onCancelar(valor)}
+          disabled={escolha === "outro" && (outro ?? 0) <= 0}
+          className="bg-cherryDark text-white rounded-full px-5 py-3 font-semibold disabled:opacity-40"
+        >
+          {valor > 0
+            ? `Cancelar e devolver ${reais(valor)}`
+            : "Cancelar sem devolver nada"}
+        </button>
+        <button
+          onClick={onDesistir}
+          className="text-ink/60 underline px-3 py-3 min-h-[44px]"
+        >
+          Voltar
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -69,6 +69,11 @@ export interface Cliente {
 }
 
 export type TipoEntrega = "entrega" | "retirada";
+/**
+ * O checkout só oferece Pix e crédito — o Mercado Pago não tem débito no
+ * Checkout Pro. O `"debito"` continua aqui porque pedidos antigos foram
+ * gravados com ele e o painel precisa saber ler.
+ */
 export type FormaPagamento = "pix" | "credito" | "debito";
 
 export interface ItemPedido {

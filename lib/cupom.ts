@@ -10,11 +10,16 @@ export type ResultadoCupom =
  * Decide se um cupom pode ser usado nesta compra e quanto ele abate.
  * Fica separado das rotas porque a mesma regra vale em dois lugares: quando
  * o cliente confere o cupom na tela e quando o servidor fecha o pedido.
+ *
+ * A `formaPagamento` só importa para o cupom de Pix. Quando ela não vem
+ * (a tela ainda está só conferindo o código), o cupom de Pix é aceito e a
+ * cobrança depois é travada em Pix — quem garante isso é `/api/pagamento`.
  */
 export function avaliarCupom(
   cupom: Cupom | undefined,
   subtotal: number,
-  clienteId: string
+  clienteId: string,
+  formaPagamento?: string
 ): ResultadoCupom {
   if (!cupom || !cupom.ativo) {
     return { valido: false, motivo: "Cupom não encontrado." };
@@ -22,6 +27,13 @@ export function avaliarCupom(
 
   if (cupom.expiraEm && cupom.expiraEm.getTime() < Date.now()) {
     return { valido: false, motivo: "Este cupom já venceu." };
+  }
+
+  if (cupom.somentePix && formaPagamento && formaPagamento !== "pix") {
+    return {
+      valido: false,
+      motivo: "Este cupom vale só para pagamento no Pix. Escolha Pix para usá-lo.",
+    };
   }
 
   if (cupom.limiteUsos > 0 && cupom.usos >= cupom.limiteUsos) {

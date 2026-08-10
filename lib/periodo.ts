@@ -97,6 +97,77 @@ export function calcularPeriodo(nome: NomePeriodo, hoje = new Date()): Periodo {
   }
 }
 
+/* -------------------------------------------------------------------------
+ * Recorte de tempo do painel de pedidos.
+ *
+ * Separado do `calcularPeriodo` de propósito: lá o assunto é COMPARAR com o
+ * período anterior; aqui é só peneirar a lista. E aqui existe o intervalo
+ * escolhido a dedo, que as métricas não têm.
+ * ------------------------------------------------------------------------- */
+
+export type FiltroPeriodo = "sempre" | "hoje" | "semana" | "mes" | "escolhido";
+
+/**
+ * Vira "2026-08-10" (o que o campo de data devolve) em data do fuso DAQUI.
+ *
+ * `new Date("2026-08-10")` seria meia-noite em UTC, ou seja, 21h do dia 9 em
+ * Brasília — o dia inteiro andaria pra trás. Já mordeu o prazo dos pedidos
+ * uma vez (ver `lib/prazo.ts`), então aqui a data é montada campo a campo.
+ */
+function dataLocal(texto: string): Date | null {
+  const [ano, mes, dia] = texto.split("-").map(Number);
+  if (!ano || !mes || !dia) return null;
+  return new Date(ano, mes - 1, dia);
+}
+
+/**
+ * O intervalo que o filtro representa. `null` significa "não recorta nada" —
+ * é o caso de "todo o período" e o de um intervalo escolhido pela metade.
+ */
+export function intervaloDoPeriodo(
+  filtro: FiltroPeriodo,
+  de = "",
+  ate = "",
+  hoje = new Date()
+): { inicio: Date; fim: Date } | null {
+  switch (filtro) {
+    case "hoje":
+      return { inicio: inicioDoDia(hoje), fim: fimDoDia(hoje) };
+
+    case "semana":
+      return { inicio: inicioDoDia(somarDias(hoje, -6)), fim: fimDoDia(hoje) };
+
+    case "mes":
+      return { inicio: inicioDoDia(somarDias(hoje, -29)), fim: fimDoDia(hoje) };
+
+    case "escolhido": {
+      const inicio = de ? dataLocal(de) : null;
+      const fim = ate ? dataLocal(ate) : null;
+      if (!inicio && !fim) return null;
+      // Só uma ponta preenchida ainda vale: "de tal dia em diante".
+      return {
+        inicio: inicio ? inicioDoDia(inicio) : new Date(2000, 0, 1),
+        fim: fim ? fimDoDia(fim) : fimDoDia(hoje),
+      };
+    }
+
+    case "sempre":
+    default:
+      return null;
+  }
+}
+
+/** A data cai dentro do recorte? Sem recorte, tudo cai. */
+export function dentroDoPeriodo(
+  quando: string | Date | null | undefined,
+  intervalo: { inicio: Date; fim: Date } | null
+): boolean {
+  if (!intervalo) return true;
+  if (!quando) return false;
+  const t = new Date(quando).getTime();
+  return t >= intervalo.inicio.getTime() && t <= intervalo.fim.getTime();
+}
+
 /**
  * Variação percentual entre dois números, para o indicador de subiu/caiu.
  * Devolve null quando não há base de comparação (antes era zero), porque
