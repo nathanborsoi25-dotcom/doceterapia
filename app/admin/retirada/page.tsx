@@ -50,7 +50,7 @@ export default function AdminRetiradaPage() {
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
     if (pontos.length === 0) {
-      setErro("Deixe pelo menos um endereço: é onde a cliente vai buscar.");
+      setErro("Deixe pelo menos um endereço: é onde o cliente vai buscar.");
       return;
     }
     if (semEndereco) {
@@ -94,12 +94,12 @@ export default function AdminRetiradaPage() {
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-2xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">
-          Onde a cliente busca
+          Onde o cliente busca
         </h1>
         <VoltarAoPainel />
       </div>
       <p className="font-body text-sm text-ink/60 mt-1">
-        Quando a cliente escolhe <strong>Retirada</strong>, ela vê estes
+        Quando o cliente escolhe <strong>Retirada</strong>, ele vê estes
         endereços e escolhe um.{" "}
         <Link
           href="/checkout"
@@ -155,7 +155,7 @@ export default function AdminRetiradaPage() {
                 className="w-full border border-cherryLight/60 rounded-xl px-4 py-2.5 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark resize-y"
               />
               <span className="text-xs text-ink/50">
-                Um horário por linha. Escreva do jeito que a cliente entende.
+                Um horário por linha. Escreva do jeito que o cliente entende.
               </span>
             </label>
           </div>
@@ -185,7 +185,7 @@ export default function AdminRetiradaPage() {
 
         <p className="text-xs text-ink/45 font-body text-center">
           Mudar um endereço aqui não mexe nos pedidos que já foram feitos: cada
-          pedido guarda o endereço que a cliente leu na hora de comprar.
+          pedido guarda o endereço que o cliente leu na hora de comprar.
         </p>
       </form>
     </main>

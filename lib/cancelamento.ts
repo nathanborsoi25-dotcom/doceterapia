@@ -89,6 +89,7 @@ export function totalDoPedido(pedido: {
   itens: unknown;
   valorFrete: number;
   desconto: number;
+  descontoPix?: number;
 }): number {
   const itens = (pedido.itens ?? []) as Array<{
     precoUnitario: number;
@@ -98,7 +99,12 @@ export function totalDoPedido(pedido: {
     (a, i) => a + (i.precoUnitario ?? 0) * (i.quantidade ?? 0),
     0
   );
-  return Math.max(0, subtotal + pedido.valorFrete - pedido.desconto);
+  // Os dois descontos saem: é o valor que de fato foi cobrado, e devolver
+  // mais do que entrou seria pagar do próprio bolso.
+  return Math.max(
+    0,
+    subtotal + pedido.valorFrete - pedido.desconto - (pedido.descontoPix ?? 0)
+  );
 }
 
 /** Tira do extrato os pontos que a compra tinha dado. */

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { cupons, pedidos, produtos, sabores } from "@/lib/db/schema";
+import { pedidos, produtos, sabores } from "@/lib/db/schema";
 import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
@@ -89,24 +89,20 @@ export async function POST(
     );
   }
 
-  // Cupom de Pix continua obrigando Pix na retomada — senão bastaria voltar
-  // por aqui para pagar no cartão com o desconto do Pix.
-  let obrigarPix = false;
-  if (pedido.cupomCodigo) {
-    const [cupom] = await db
-      .select()
-      .from(cupons)
-      .where(eq(cupons.codigo, pedido.cupomCodigo));
-    obrigarPix = cupom?.somentePix ?? false;
-  }
-
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
 
+  /*
+   * A retomada repete a MESMA forma de pagamento do pedido original, e o
+   * Checkout abre travado nela. É o que protege o desconto do Pix: quem
+   * ganhou os 4% por escolher Pix não pode voltar por aqui e pagar no cartão
+   * com o valor já abatido.
+   */
   const url = await criarPreferenciaDoPedido(client, {
     pedidoId: pedido.id,
     itens,
     valorFrete: pedido.valorFrete,
     desconto: pedido.desconto,
+    descontoPix: pedido.descontoPix,
     cupomCodigo: pedido.cupomCodigo,
     comprador: {
       nome: cliente.nome,
@@ -114,7 +110,7 @@ export async function POST(
       telefone: cliente.telefone,
     },
     origin,
-    obrigarPix,
+    formaPagamento: pedido.formaPagamento,
   });
 
   if (!url) {

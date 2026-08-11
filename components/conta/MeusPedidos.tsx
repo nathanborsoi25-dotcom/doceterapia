@@ -200,6 +200,14 @@ function CartaoPedido({
             <span>-{reais(pedido.desconto)}</span>
           </li>
         )}
+        {/* Linha própria: o abatimento do Pix não é cupom, e juntar os dois
+            faria parecer que o cupom valeu mais do que valeu. */}
+        {(pedido.descontoPix ?? 0) > 0 && (
+          <li className="flex justify-between gap-2 text-green-700">
+            <span>Desconto pagando no Pix</span>
+            <span>-{reais(pedido.descontoPix)}</span>
+          </li>
+        )}
         {pedido.valorFrete > 0 && (
           <li className="flex justify-between gap-2 text-ink/60">
             <span>Entrega</span>
@@ -368,7 +376,7 @@ function EnviarStory({
   return (
     <div className="border border-cherryLight/40 rounded-xl p-3 grid gap-2 bg-blush/30">
       <p className="text-xs text-ink/70">
-        Poste o doce nos stories marcando <strong>@doceterapia</strong>, tire um
+        Poste o doce nos stories marcando <strong>@doceterapia_28</strong>, tire um
         print e mande aqui. A Camily confere e os pontos entram na sua conta.
       </p>
 

@@ -128,6 +128,11 @@ export interface PedidoDoPainel extends Pedido {
   prazoEm: string | null;
   /** Link de acompanhamento da entrega, quando informado. */
   linkRastreio: string | null;
+  /** Cupom usado e quanto ele abateu. */
+  cupomCodigo: string | null;
+  desconto: number;
+  /** Abatimento por ter pago no Pix, em reais. */
+  descontoPix: number;
   clienteNome: string | null;
   clienteTelefone: string | null;
   /** Devolução do dinheiro: "nao_precisa" | "concluido" | "falhou" | null. */
@@ -151,6 +156,8 @@ export interface PedidoDoCliente extends Pedido {
   linkRastreio: string | null;
   cupomCodigo: string | null;
   desconto: number;
+  /** Abatimento por ter pago no Pix, em reais. */
+  descontoPix: number;
   podeCancelar: boolean;
   statusReembolso: string | null;
   podeAvaliar: boolean;

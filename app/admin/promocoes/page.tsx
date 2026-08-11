@@ -10,6 +10,8 @@ import {
   MAXIMO_BANNERS,
   type BannerDaLoja,
 } from "@/lib/banners";
+import { percentualDoPix } from "@/lib/desconto-pix";
+import { reais } from "@/lib/formato";
 import type { Cliente } from "@/lib/types";
 
 type Cupom = {
@@ -21,7 +23,6 @@ type Cupom = {
   pedidoMinimo: number;
   clienteId: string | null;
   clienteNome: string | null;
-  somentePix: boolean;
   expiraEm: string | null;
   limiteUsos: number;
   usos: number;
@@ -41,13 +42,17 @@ export default function AdminPromocoesPage() {
   const [bannerSalvo, setBannerSalvo] = useState(false);
   const [aviso, setAviso] = useState("");
 
+  /** Desconto automático de quem paga no Pix, em %. Zero desliga. */
+  const [descontoPix, setDescontoPix] = useState<number | null>(null);
+  const [salvandoPix, setSalvandoPix] = useState(false);
+  const [pixSalvo, setPixSalvo] = useState(false);
+
   const [novo, setNovo] = useState({
     codigo: "",
     descricao: "",
     tipo: "percentual",
     clienteId: "",
     expiraEm: "",
-    somentePix: false,
   });
   // Os números do cupom ficam separados: podem estar vazios enquanto ela
   // digita, e vazio não é a mesma coisa que zero.
@@ -71,9 +76,29 @@ export default function AdminPromocoesPage() {
       .catch(() => setClientes([]));
     fetch("/api/config-loja", { cache: "no-store" })
       .then((r) => r.json())
-      .then((config) => setBanners(bannersDaLoja(config)))
+      .then((config) => {
+        setBanners(bannersDaLoja(config));
+        setDescontoPix(percentualDoPix(config?.descontoPix));
+      })
       .catch(() => setBanners([]));
   }, []);
+
+  /** Salva só o percentual: a rota preserva o resto da configuração. */
+  async function salvarDescontoPix() {
+    setSalvandoPix(true);
+    setPixSalvo(false);
+    try {
+      await fetch("/api/config-loja", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descontoPix: descontoPix ?? 0 }),
+      });
+      setPixSalvo(true);
+      setTimeout(() => setPixSalvo(false), 3000);
+    } finally {
+      setSalvandoPix(false);
+    }
+  }
 
   async function criarCupom(e: React.FormEvent) {
     e.preventDefault();
@@ -102,7 +127,6 @@ export default function AdminPromocoesPage() {
         tipo: "percentual",
         clienteId: "",
         expiraEm: "",
-        somentePix: false,
       });
       setValor(null);
       setPedidoMinimo(null);
@@ -181,6 +205,51 @@ export default function AdminPromocoesPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Promoções</h1>
         <VoltarAoPainel />
+      </div>
+
+      {/* ---------------- Desconto do Pix ---------------- */}
+      <h2 className="font-display text-xl text-cherryDark mt-6">
+        Desconto de quem paga no Pix
+      </h2>
+      <p className="text-sm font-body text-ink/60">
+        Vale pra todo mundo, sem cupom nenhum: aparece já no botão de pagar.
+      </p>
+
+      <div className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 mt-3 grid gap-3">
+        <label className="grid gap-1 text-sm font-body text-ink/80">
+          Desconto no Pix (%) — zero desliga
+          <div className="flex flex-wrap items-center gap-2">
+            <CampoNumero
+              valor={descontoPix}
+              onChange={(v) => {
+                setDescontoPix(v);
+                setPixSalvo(false);
+              }}
+              placeholder="4"
+              className="w-full sm:w-32 border border-cherryLight/50 rounded-xl p-2.5 bg-white/70"
+            />
+            <button
+              onClick={salvarDescontoPix}
+              disabled={salvandoPix}
+              className={`rounded-full px-5 py-3 font-body font-semibold text-white disabled:opacity-50 ${
+                pixSalvo ? "bg-green-600" : "bg-cherryDark"
+              }`}
+            >
+              {salvandoPix ? "Salvando..." : pixSalvo ? "Salvo ✓" : "Salvar"}
+            </button>
+          </div>
+        </label>
+
+        {/* O número que decide se o desconto vale a pena. Sem ele, é chute. */}
+        <p className="text-xs font-body text-ink/55 bg-blush/40 border border-cherryLight/30 rounded-xl px-3 py-2.5">
+          O Pix te custa <strong>0,99%</strong> e o cartão <strong>4,98%</strong>.
+          Numa venda de R$ 100 você fica com{" "}
+          <strong>{reais(100 * (1 - (descontoPix ?? 0) / 100) * 0.9901)}</strong> dando
+          esse desconto no Pix, contra <strong>{reais(95.02)}</strong> no cartão.
+          {(descontoPix ?? 0) > 4
+            ? " Acima de 4% você recebe menos do que receberia no cartão."
+            : " E o dinheiro do Pix cai na hora."}
+        </p>
       </div>
 
       {/* ---------------- Destaques do cardápio ---------------- */}
@@ -376,25 +445,6 @@ export default function AdminPromocoesPage() {
           placeholder="10% de desconto na sua próxima compra"
         />
 
-        {/* Desconto só no Pix: a diferença de taxa (0,99% contra 4,98%) é o
-            que faz o desconto se pagar. */}
-        <label className="flex items-start gap-2 font-body text-sm bg-blush/40 border border-cherryLight/40 rounded-xl px-3 py-2.5">
-          <input
-            type="checkbox"
-            checked={novo.somentePix}
-            onChange={(e) => setNovo({ ...novo, somentePix: e.target.checked })}
-            className="w-5 h-5 accent-cherryDark mt-0.5"
-          />
-          <span>
-            Vale só pagando no Pix
-            <span className="block text-xs text-ink/55">
-              Com isso marcado, o Mercado Pago só oferece Pix nesse pedido. O
-              Pix te custa 0,99%, o cartão 4,98% — é o que faz o desconto valer
-              a pena.
-            </span>
-          </span>
-        </label>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <BuscaCliente
             clientes={clientes}
@@ -454,19 +504,12 @@ export default function AdminPromocoesPage() {
               </span>
             </div>
             {c.descricao && <p className="text-ink/70">{c.descricao}</p>}
-            <div className="flex flex-wrap gap-1.5">
-              {c.somentePix && (
-                <span className="text-[11px] font-semibold bg-green-100 text-green-800 rounded-full px-2 py-0.5">
-                  só no Pix
-                </span>
-              )}
-              {/* Vencido some da tela da cliente, mas aqui ela precisa ver. */}
-              {venceu(c.expiraEm) && (
-                <span className="text-[11px] font-semibold bg-ink/10 text-ink/60 rounded-full px-2 py-0.5">
-                  vencido
-                </span>
-              )}
-            </div>
+            {/* Vencido some da tela do cliente, mas aqui você precisa ver. */}
+            {venceu(c.expiraEm) && (
+              <span className="justify-self-start text-[11px] font-semibold bg-ink/10 text-ink/60 rounded-full px-2 py-0.5">
+                vencido
+              </span>
+            )}
             <p className="text-xs text-ink/50">
               {c.clienteNome ? `Só para ${c.clienteNome}` : "Todos os clientes"}
               {c.pedidoMinimo > 0 && ` · mínimo R$ ${c.pedidoMinimo.toFixed(2)}`}
@@ -567,7 +610,7 @@ function BuscaCliente({
         <div className="grid gap-1">
           {achados.length === 0 ? (
             <span className="text-xs text-ink/50">
-              Nenhuma cliente com esse nome.
+              Nenhum cliente com esse nome.
             </span>
           ) : (
             achados.map((c) => (

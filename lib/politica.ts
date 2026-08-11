@@ -80,7 +80,7 @@ export const CAMPOS_POLITICA: Array<{
   {
     chave: "etapaAguardando",
     rotulo: "Etapa: aguardando pagamento ou pago",
-    ajuda: "Quando a cliente ainda cancela sozinha pelo site.",
+    ajuda: "Quando o cliente ainda cancela sozinho pelo site.",
   },
   {
     chave: "etapaPreparo",
@@ -113,7 +113,7 @@ export const CAMPOS_POLITICA: Array<{
     ajuda: "Como funcionam os prazos de preparo.",
   },
   { chave: "pagamento", rotulo: "Formas de pagamento", ajuda: "Pix e crédito à vista." },
-  { chave: "dados", rotulo: "Seus dados", ajuda: "O que você guarda da cliente." },
+  { chave: "dados", rotulo: "Seus dados", ajuda: "O que você guarda do cliente." },
   { chave: "avaliacoes", rotulo: "Avaliações", ajuda: "Quem pode avaliar e o que você esconde." },
 ];
 

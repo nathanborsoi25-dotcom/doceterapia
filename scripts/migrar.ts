@@ -225,6 +225,16 @@ async function main() {
     ADD COLUMN IF NOT EXISTS somente_pix boolean NOT NULL DEFAULT false
   `;
 
+  console.log("12) Desconto automatico de quem paga no Pix...");
+  await sql`
+    ALTER TABLE config_loja
+    ADD COLUMN IF NOT EXISTS desconto_pix double precision NOT NULL DEFAULT 4
+  `;
+  await sql`
+    ALTER TABLE pedidos
+    ADD COLUMN IF NOT EXISTS desconto_pix double precision NOT NULL DEFAULT 0
+  `;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns

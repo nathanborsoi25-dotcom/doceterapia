@@ -11,6 +11,7 @@ import { dataMinimaRetirada, prazoMaximoEmDias } from "@/lib/prazo";
 import { descricaoDoPonto, pontoRetiradaPorId, pontosDaLoja } from "@/lib/retirada";
 import { getConfigLoja } from "@/lib/config-loja";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
+import { descontoDoPix } from "@/lib/desconto-pix";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
 import { criarPreferenciaDoPedido } from "@/lib/preferencia-mp";
 import { prazoDoSabor } from "@/lib/sabores";
@@ -279,9 +280,13 @@ export async function POST(req: Request) {
    * gravados no pedido são montados aqui, a partir da lista do servidor. Se
    * viessem prontos da tela, daria pra gravar qualquer endereço no pedido.
    */
+  // Uma leitura só da configuração da loja: serve pros pontos de retirada e
+  // pro percentual do desconto do Pix, mais abaixo.
+  const configLoja = await getConfigLoja();
+
   let pontoRetirada: string | null = null;
   if (tipoEntrega === "retirada") {
-    const pontos = pontosDaLoja((await getConfigLoja()).pontosRetirada);
+    const pontos = pontosDaLoja(configLoja.pontosRetirada);
     const ponto = pontoRetiradaPorId(pontos, texto(body.pontoRetirada, 40));
     if (!ponto) {
       return NextResponse.json(
@@ -303,8 +308,6 @@ export async function POST(req: Request) {
   const subtotal = itens.reduce((a, i) => a + i.precoUnitario * i.quantidade, 0);
   let desconto = 0;
   let cupomCodigo: string | null = null;
-  /** Cupom de Pix: a cobrança tem que sair em Pix, e só. */
-  let obrigarPix = false;
 
   const codigoInformado = normalizarCodigo(body.cupom ?? "");
   if (codigoInformado) {
@@ -318,8 +321,20 @@ export async function POST(req: Request) {
     }
     desconto = r.desconto;
     cupomCodigo = r.cupom.codigo;
-    obrigarPix = r.cupom.somentePix;
   }
+
+  /*
+   * 5b) Desconto de quem paga no Pix. Vem da configuração da loja, nunca do
+   * navegador — o que chega de lá é só QUAL botão a pessoa apertou. E a
+   * cobrança sai travada nessa forma (ver `lib/preferencia-mp.ts`), senão
+   * bastaria clicar em Pix, ganhar o desconto e pagar no cartão.
+   */
+  const formaPagamento = body.formaPagamento === "credito" ? "credito" : "pix";
+  const descontoPix = descontoDoPix(
+    formaPagamento,
+    Math.max(0, subtotal - desconto + valorFrete),
+    configLoja.descontoPix
+  );
 
   // 6) Só agora precisamos do Mercado Pago — as validações acima já
   // recusaram o que não dá pra vender, sem depender do gateway.
@@ -351,9 +366,10 @@ export async function POST(req: Request) {
     valorFrete,
     cupomCodigo,
     desconto,
-    // Com cupom de Pix a cobrança sai obrigatoriamente em Pix, então é isso
-    // que fica gravado — senão as métricas descontariam a taxa do crédito.
-    formaPagamento: obrigarPix ? "pix" : body.formaPagamento ?? "pix",
+    descontoPix,
+    // A cobrança sai travada nesta forma, então é ela que fica gravada — é o
+    // que as métricas usam pra saber qual taxa o Mercado Pago cobrou.
+    formaPagamento,
     status: "aguardando_pagamento",
   });
 
@@ -377,6 +393,7 @@ export async function POST(req: Request) {
     itens,
     valorFrete,
     desconto,
+    descontoPix,
     cupomCodigo,
     comprador: {
       nome: cliente.nome,
@@ -384,7 +401,7 @@ export async function POST(req: Request) {
       telefone: cliente.telefone,
     },
     origin,
-    obrigarPix,
+    formaPagamento,
   });
 
   return NextResponse.json({

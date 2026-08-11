@@ -89,14 +89,14 @@ export default function AdminSobrePage() {
         <VoltarAoPainel />
       </div>
       <p className="font-body text-sm text-ink/60 mt-1">
-        É o que aparece no finalzinho de todas as telas do site, pra cliente saber
-        quem faz os doces.
+        É o que aparece no finalzinho de todas as telas do site, pro cliente
+        saber quem faz os doces.
       </p>
 
       {/* ---------- Prévia ---------- */}
       <div className="bg-blush/60 border border-cherryLight/40 rounded-2xl p-6 mt-6 text-center">
         <p className="font-body text-[11px] uppercase tracking-wide text-ink/45">
-          Como a cliente vai ver
+          Como o cliente vai ver
         </p>
         <div className="w-24 h-24 rounded-full mx-auto bg-cherryLight/40 overflow-hidden flex items-center justify-center text-3xl mt-3">
           {foto ? (
@@ -115,7 +115,7 @@ export default function AdminSobrePage() {
           {telefoneNaTela}
         </span>
         <p className="font-body text-xs text-ink/45 mt-2">
-          Tocando no telefone, a cliente já cai na sua conversa do WhatsApp.
+          Tocando no telefone, o cliente já cai na sua conversa do WhatsApp.
         </p>
       </div>
 
@@ -172,7 +172,7 @@ export default function AdminSobrePage() {
             </span>
           ) : (
             <span className="text-xs text-ink/50">
-              É pra este número que vão as clientes que tocarem no rodapé.{" "}
+              É pra este número que vão os clientes que tocarem no rodapé.{" "}
               <a
                 href={linkWhatsAppNumero(
                   telefoneNaTela,

@@ -310,7 +310,7 @@ export default function DetalheDoce({
       {/* ---------- Avaliações ---------- */}
       <div className="md:col-span-2">
         <h2 className="font-display text-xl text-cherryDark">
-          O que as clientes acharam
+          O que os clientes acharam
         </h2>
 
         {avaliacoes.length === 0 ? (

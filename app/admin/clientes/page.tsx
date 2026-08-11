@@ -92,14 +92,14 @@ export default function AdminClientesPage() {
         {!carregando && (
           <p className="text-xs font-body text-ink/50">
             {busca.trim()
-              ? `${encontrados.length} ${encontrados.length === 1 ? "cliente encontrada" : "clientes encontradas"} de ${clientes.length}`
-              : `${clientes.length} ${clientes.length === 1 ? "cliente cadastrada" : "clientes cadastradas"}`}
+              ? `${encontrados.length} ${encontrados.length === 1 ? "cliente encontrado" : "clientes encontrados"} de ${clientes.length}`
+              : `${clientes.length} ${clientes.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}`}
           </p>
         )}
       </div>
 
       <div className="grid gap-3 mt-4">
-        {carregando && <p className="text-ink/60 font-body">Carregando suas clientes...</p>}
+        {carregando && <p className="text-ink/60 font-body">Carregando seus clientes...</p>}
 
         {!carregando && clientes.length === 0 && (
           <p className="text-ink/60 font-body">Ainda não há clientes cadastrados.</p>
@@ -115,7 +115,7 @@ export default function AdminClientesPage() {
               onClick={() => setBusca("")}
               className="justify-self-center text-sm font-body text-cherryDark underline min-h-[44px] px-2"
             >
-              Ver todas de novo
+              Ver todos de novo
             </button>
           </div>
         )}

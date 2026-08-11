@@ -85,10 +85,16 @@ export async function GET(req: Request) {
 
       const itens = p.itens as ItemPedido[];
       const subtotal = itens.reduce((a, i) => a + i.precoUnitario * i.quantidade, 0);
-      // O frete é repassado ao entregador, então entra no faturamento mas
-      // não no lucro. Quando a entrega é cortesia (frete zero), o custo
-      // fica com a Camily — mas esse valor não passa pelo site.
-      r.faturamento += subtotal + p.valorFrete;
+      /*
+       * O frete é repassado ao entregador, então entra no faturamento mas
+       * não no lucro. Quando a entrega é cortesia (frete zero), o custo
+       * fica com a Camily — mas esse valor não passa pelo site.
+       *
+       * O desconto de quem pagou no Pix sai do faturamento: aquele dinheiro
+       * nunca foi cobrado. O do cupom já sai na conta do total mais abaixo.
+       */
+      const abatidoNoPix = p.descontoPix ?? 0;
+      r.faturamento += subtotal + p.valorFrete - abatidoNoPix;
 
       const custoItens = itens.reduce((a, i) => {
         const custo = i.saborId
@@ -106,10 +112,12 @@ export async function GET(req: Request) {
        */
       const taxa = taxaMercadoPago(
         p.formaPagamento as FormaPagamento,
-        totalCobrado(subtotal, p.valorFrete, p.desconto ?? 0)
+        totalCobrado(subtotal, p.valorFrete, (p.desconto ?? 0) + abatidoNoPix)
       );
       r.taxasMp += taxa;
-      r.lucro += subtotal - custoItens - taxa;
+      // O desconto do Pix sai do lucro também: é dinheiro que a Camily
+      // escolheu não cobrar pra receber na hora e pagar taxa menor.
+      r.lucro += subtotal - custoItens - taxa - abatidoNoPix;
 
       for (const i of itens) {
         const atual = porProduto.get(i.produtoId) ?? {

@@ -82,7 +82,7 @@ export default function AdminPoliticaPage() {
         <VoltarAoPainel />
       </div>
       <p className="font-body text-sm text-ink/60 mt-1">
-        É a página que a cliente lê antes de comprar, com as regras de
+        É a página que o cliente lê antes de comprar, com as regras de
         cancelamento, entrega e pagamento.{" "}
         <Link
           href="/politica"
@@ -95,7 +95,7 @@ export default function AdminPoliticaPage() {
 
       <div className="bg-blush/50 border border-cherryLight/40 rounded-2xl px-4 py-3 mt-5 font-body text-sm text-ink/75">
         <p>
-          Escreva do seu jeito, como se estivesse falando com a cliente no
+          Escreva do seu jeito, como se estivesse falando com o cliente no
           WhatsApp. Duas dicas:
         </p>
         <ul className="list-disc pl-5 mt-1.5 grid gap-1 text-ink/65">

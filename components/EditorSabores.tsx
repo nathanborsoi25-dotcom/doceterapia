@@ -102,7 +102,7 @@ export default function EditorSabores({
       {sabores.length === 0 ? (
         <p className="text-xs font-body text-ink/50">
           Sem recheios, este doce é vendido de um jeito só. Adicione um recheio
-          quando o mesmo doce tiver versões — a cliente escolhe pela foto no
+          quando o mesmo doce tiver versões — o cliente escolhe pela foto no
           cardápio.
         </p>
       ) : (

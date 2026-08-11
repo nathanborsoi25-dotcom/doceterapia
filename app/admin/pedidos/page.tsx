@@ -161,7 +161,12 @@ export default function AdminPedidosPage() {
 
   function total(p: PedidoDoPainel) {
     const subtotal = p.itens.reduce((a, i) => a + i.precoUnitario * i.quantidade, 0);
-    return subtotal + p.valorFrete;
+    // Os descontos entram na conta: é o valor que de fato foi cobrado, e é
+    // ele que manda no quanto dá pra devolver num cancelamento.
+    return Math.max(
+      0,
+      subtotal + p.valorFrete - (p.desconto ?? 0) - (p.descontoPix ?? 0)
+    );
   }
 
   /**
@@ -502,6 +507,10 @@ export default function AdminPedidosPage() {
                     : ""}{" "}
                   · {PAGAMENTO[p.formaPagamento]}
                   {p.valorFrete > 0 && ` · Frete ${reais(p.valorFrete)}`}
+                  {(p.desconto ?? 0) > 0 &&
+                    ` · Cupom ${p.cupomCodigo ?? ""} −${reais(p.desconto)}`}
+                  {(p.descontoPix ?? 0) > 0 &&
+                    ` · Desconto Pix −${reais(p.descontoPix)}`}
                 </p>
 
                 {/* Onde ela escolheu buscar: é o que a Camily precisa saber
@@ -574,10 +583,10 @@ export default function AdminPedidosPage() {
                       {p.statusReembolso === "falhou" && (
                         <strong>
                           O estorno NÃO saiu. Tente de novo ou devolva pelo site
-                          do Mercado Pago e avise a cliente.
+                          do Mercado Pago e avise o cliente.
                         </strong>
                       )}
-                      {p.canceladoPor === "cliente" && " Cancelado pela cliente."}
+                      {p.canceladoPor === "cliente" && " Cancelado pelo cliente."}
                     </span>
                     {p.statusReembolso === "falhou" && (
                       <button
@@ -696,14 +705,14 @@ function EscolherReembolso({
           },
         ]
       : []),
-    { valor: "outro", label: "Outro valor", ajuda: "Um combinado com a cliente." },
+    { valor: "outro", label: "Outro valor", ajuda: "Um combinado com o cliente." },
     { valor: "nada", label: "Não devolver nada", ajuda: "Nenhum estorno é pedido." },
   ];
 
   return (
     <div className="bg-blush/60 border border-cherryDark/30 rounded-2xl p-3 grid gap-2">
       <p className="font-semibold text-cherryDark">
-        Quanto você quer devolver para a cliente?
+        Quanto você quer devolver para o cliente?
       </p>
 
       <div className="grid gap-1.5">
@@ -744,7 +753,7 @@ function EscolherReembolso({
       )}
 
       <p className="text-xs text-ink/60">
-        O pedido é cancelado de qualquer jeito, a cliente é avisada por e-mail e
+        O pedido é cancelado de qualquer jeito, o cliente é avisado por e-mail e
         os doces voltam para o estoque. O estorno não tem como desfazer.
       </p>
 

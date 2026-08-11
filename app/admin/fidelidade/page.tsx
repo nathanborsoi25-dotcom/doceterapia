@@ -141,7 +141,7 @@ export default function AdminFidelidadePage() {
             className="w-full border border-cherryLight/50 rounded-xl p-2.5 bg-white/70"
           />
           <span className="text-xs text-ink/50">
-            A cliente posta o doce marcando você, manda o print e{" "}
+            O cliente posta o doce marcando você, manda o print e{" "}
             <Link href="/admin/stories" className="text-cherryDark underline">
               você aprova aqui
             </Link>

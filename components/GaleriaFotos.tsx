@@ -134,7 +134,7 @@ export default function GaleriaFotos({
         <span className="text-xs text-cherryDark">{erro}</span>
       ) : (
         <span className="text-xs text-ink/50">
-          A primeira é a que aparece no cardápio; as outras a cliente vê ao abrir
+          A primeira é a que aparece no cardápio; as outras o cliente vê ao abrir
           o doce. Da galeria do celular ou do computador, até 8 MB cada.
         </span>
       )}

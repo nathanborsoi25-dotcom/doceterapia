@@ -24,15 +24,40 @@ export type DadosDaPreferencia = {
   valorFrete: number;
   desconto: number;
   cupomCodigo: string | null;
+  /** Abatimento por pagar no Pix, em reais. Entra como item negativo. */
+  descontoPix?: number;
   comprador: { nome: string; email: string; telefone?: string | null };
   /** De onde saiu o pedido, pras URLs de volta. */
   origin: string;
   /**
-   * Cupom de Pix: o Checkout passa a oferecer só Pix. Sem isso, bastaria
-   * escolher Pix no site e trocar para cartão na tela do Mercado Pago.
+   * A forma que a pessoa escolheu no botão de pagar. O Checkout abre TRAVADO
+   * nela: quem clicou em "Pagar com Pix" não vê cartão, e quem clicou em
+   * cartão não vê Pix.
+   *
+   * Isso não é capricho. O desconto do Pix é calculado antes, no nosso lado —
+   * sem a trava, bastaria clicar em Pix, ganhar os 4% e trocar para cartão na
+   * tela do Mercado Pago: a Camily pagaria o desconto E a taxa cheia. E,
+   * já que a forma está decidida, ninguém precisa escolher duas vezes.
    */
-  obrigarPix?: boolean;
+  formaPagamento?: string;
 };
+
+/**
+ * O que o Checkout NÃO deve oferecer.
+ *
+ * Boleto ("ticket") fica sempre de fora, por decisão da loja. O resto depende
+ * do botão que a pessoa apertou.
+ */
+function tiposExcluidos(forma?: string): { id: string }[] {
+  if (forma === "pix") {
+    // Sobra só o Pix (que no Mercado Pago é "bank_transfer").
+    return [{ id: "ticket" }, { id: "credit_card" }, { id: "debit_card" }, { id: "atm" }];
+  }
+  if (forma === "credito") {
+    return [{ id: "ticket" }, { id: "bank_transfer" }, { id: "debit_card" }, { id: "atm" }];
+  }
+  return [{ id: "ticket" }];
+}
 
 export async function criarPreferenciaDoPedido(
   client: MercadoPagoConfig,
@@ -49,21 +74,33 @@ export async function criarPreferenciaDoPedido(
     currency_id: "BRL",
   }));
 
-  // O desconto do cupom vai como item negativo, que é como o Mercado Pago
-  // aceita abatimento: o total cobrado já sai certo na tela dele.
-  const items =
-    desconto > 0
-      ? [
-          ...produtos,
-          {
-            id: "desconto",
-            title: `Desconto${cupomCodigo ? ` (cupom ${cupomCodigo})` : ""}`,
-            quantity: 1,
-            unit_price: -desconto,
-            currency_id: "BRL",
-          },
-        ]
-      : produtos;
+  /*
+   * Descontos vão como itens negativos, que é como o Mercado Pago aceita
+   * abatimento: o total cobrado já sai certo na tela dele. São duas linhas
+   * separadas de propósito — o cupom e o Pix aparecem cada um com o seu nome,
+   * pra pessoa entender de onde veio cada abatimento.
+   */
+  const items = [...produtos];
+
+  if (desconto > 0) {
+    items.push({
+      id: "desconto",
+      title: `Desconto${cupomCodigo ? ` (cupom ${cupomCodigo})` : ""}`,
+      quantity: 1,
+      unit_price: -desconto,
+      currency_id: "BRL",
+    });
+  }
+
+  if ((dados.descontoPix ?? 0) > 0) {
+    items.push({
+      id: "desconto-pix",
+      title: "Desconto pagando no Pix",
+      quantity: 1,
+      unit_price: -(dados.descontoPix ?? 0),
+      currency_id: "BRL",
+    });
+  }
 
   // O MP não aceita URL local para notificação; só manda em produção.
   const ehLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
@@ -97,13 +134,7 @@ export async function criarPreferenciaDoPedido(
         // Crédito à vista (sem parcelamento).
         installments: 1,
         default_installments: 1,
-        /*
-         * Boleto sempre fora. Com cupom de Pix, o cartão também sai: o
-         * desconto só se paga porque o Pix custa 0,99% em vez de 4,98%.
-         */
-        excluded_payment_types: dados.obrigarPix
-          ? [{ id: "ticket" }, { id: "credit_card" }, { id: "debit_card" }, { id: "atm" }]
-          : [{ id: "ticket" }],
+        excluded_payment_types: tiposExcluidos(dados.formaPagamento),
       },
       ...(ehLocal ? {} : { notification_url: `${origin}/api/pagamento/webhook` }),
     },

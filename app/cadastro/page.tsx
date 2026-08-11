@@ -159,7 +159,7 @@ export default function CadastroPage() {
   return (
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-xl mx-auto">
       <h1 className="font-display text-2xl sm:text-3xl text-cherryDark text-center">
-        Bem-vinda(o) à Doceterapia
+        Bem-vindo à Doceterapia
       </h1>
       <p className="text-center text-ink/70 mt-2 font-body">
         Crie sua conta para fazer pedidos e acompanhar tudo por aqui.

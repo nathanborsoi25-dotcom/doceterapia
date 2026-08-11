@@ -6,6 +6,7 @@ import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import EnderecoVisitante from "@/components/EnderecoVisitante";
 import IconeWhatsApp from "@/components/IconeWhatsApp";
+import { descontoDoPix, percentualDoPix, percentualEscrito } from "@/lib/desconto-pix";
 import { reais } from "@/lib/formato";
 import { prazoDoSabor } from "@/lib/sabores";
 import { getCarrinho, type EnderecoVisitante as EnderecoDeVisitante } from "@/lib/store";
@@ -30,10 +31,26 @@ export default function CheckoutPage() {
   const [pontoRetirada, setPontoRetirada] = useState("");
   /** Os endereços de retirada que a Camily configurou no painel. */
   const [pontos, setPontos] = useState<PontoRetirada[]>([]);
-  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("pix");
   const [frete, setFrete] = useState<{ distanciaKm: number; valor: number | null } | null>(null);
   const [config, setConfig] = useState<ConfiguracaoFrete | null>(null);
-  const [finalizando, setFinalizando] = useState(false);
+  /**
+   * Qual botão de pagar está em andamento — ou `null`. Guarda a forma, e não
+   * só um "true", pra escrever "Abrindo o Pix..." no botão certo quando os
+   * dois estão na tela.
+   */
+  const [finalizando, setFinalizando] = useState<FormaPagamento | null>(null);
+
+  /**
+   * Desconto de quem paga no Pix, em %. Vem da loja: a Camily ajusta em
+   * Promoções, e zero desliga (aí só aparece um botão de pagar).
+   */
+  const [percentualPix, setPercentualPix] = useState(0);
+  useEffect(() => {
+    fetch("/api/config-loja", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => setPercentualPix(percentualDoPix(c?.descontoPix)))
+      .catch(() => setPercentualPix(0));
+  }, []);
 
   /**
    * O carrinho mora no navegador, então o servidor não tem como conhecê-lo:
@@ -181,6 +198,18 @@ export default function CheckoutPage() {
   const desconto = Math.min(cupomAplicado?.desconto ?? 0, subtotal);
   const total = subtotal - desconto + valorFrete;
 
+  /**
+   * Quanto o Pix abate deste pedido. A mesma conta roda no servidor na hora
+   * de cobrar — aqui é só pra pessoa ver o valor antes de apertar o botão.
+   */
+  const descontoPix = descontoDoPix("pix", total, percentualPix);
+
+  /** Nada de pagar enquanto falta endereço, ponto de retirada ou resposta. */
+  const pagamentoBloqueado =
+    (tipoEntrega === "retirada" && !pontoRetirada) ||
+    finalizando !== null ||
+    compraBloqueada;
+
   async function aplicarCupom() {
     setErroCupom("");
     setConferindoCupom(true);
@@ -206,7 +235,15 @@ export default function CheckoutPage() {
     setMostrarCupom(false);
   }
 
-  async function handleFinalizar() {
+  /**
+   * Fecha o pedido na forma que a pessoa apertou.
+   *
+   * A forma vai junto porque é ela que decide duas coisas no servidor: se o
+   * desconto do Pix entra, e em qual forma o Checkout do Mercado Pago vai
+   * abrir travado. O valor do desconto, esse, é sempre recalculado lá —
+   * o que vem daqui é só o botão que foi clicado.
+   */
+  async function handleFinalizar(forma: FormaPagamento) {
     if (carrinho.length === 0) {
       alert("Seu carrinho está vazio.");
       return;
@@ -220,7 +257,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    setFinalizando(true);
+    setFinalizando(forma);
     try {
       // Cria o pedido e inicia o pagamento no Mercado Pago.
       const { url } = await iniciarPagamento({
@@ -238,7 +275,7 @@ export default function CheckoutPage() {
               : cliente?.endereco
             : undefined,
         valorFrete,
-        formaPagamento,
+        formaPagamento: forma,
         ehPresente,
         nomeQuemRecebe: ehPresente ? nomeQuemRecebe : "",
         bilhete: querBilhete ? bilhete : "",
@@ -249,7 +286,7 @@ export default function CheckoutPage() {
         window.location.href = url;
       } else {
         alert("Não foi possível iniciar o pagamento. Tente novamente.");
-        setFinalizando(false);
+        setFinalizando(null);
       }
     } catch (e) {
       alert(
@@ -257,7 +294,7 @@ export default function CheckoutPage() {
           ? e.message
           : "Não foi possível iniciar o pagamento. Verifique sua conexão e tente novamente."
       );
-      setFinalizando(false);
+      setFinalizando(null);
     }
   }
 
@@ -575,19 +612,26 @@ export default function CheckoutPage() {
 
         <section className="grid gap-3">
           <h2 className="font-display text-lg text-ink">Forma de pagamento</h2>
-          {/* Só Pix e crédito. O débito saiu daqui porque o Mercado Pago não
-              o oferece no Checkout — só na maquininha e no Tap —, e a tela
-              não pode prometer uma forma que a cobrança pode não aceitar. */}
-          <div className="flex gap-3 flex-wrap">
-            {(["pix", "credito"] as FormaPagamento[]).map((forma) => (
-              <OpcaoBotao
-                key={forma}
-                ativo={formaPagamento === forma}
-                onClick={() => setFormaPagamento(forma)}
-                label={forma === "pix" ? "Pix" : "Crédito à vista"}
-              />
-            ))}
-          </div>
+          {/*
+            Aqui só INFORMA quais formas existem — quem escolhe é o botão de
+            pagar, lá embaixo. Ter a escolha nos dois lugares fazia a pessoa
+            decidir duas vezes: uma aqui e outra dentro do Mercado Pago.
+
+            O débito não aparece porque o Mercado Pago não o oferece no
+            Checkout, só na maquininha e no Tap.
+          */}
+          <p className="text-sm font-body text-ink/70">
+            <strong className="text-ink/85">Pix</strong>
+            {descontoPix > 0 && (
+              <span className="text-green-700 font-semibold">
+                {" "}
+                (com {percentualEscrito(percentualPix)} de desconto)
+              </span>
+            )}{" "}
+            ou <strong className="text-ink/85">cartão de crédito à vista</strong>.
+            Você escolhe no botão de pagar, no fim da página — e paga no
+            ambiente seguro do Mercado Pago.
+          </p>
           <p className="text-xs text-ink/50">Não trabalhamos com parcelamento.</p>
         </section>
 
@@ -673,21 +717,62 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <button
-          onClick={handleFinalizar}
-          disabled={
-            (tipoEntrega === "retirada" && !pontoRetirada) ||
-            finalizando ||
-            compraBloqueada
-          }
-          className="mt-6 w-full bg-cherryDark text-white rounded-full py-3 font-body font-semibold hover:bg-cherryMid transition-colors disabled:opacity-40"
-        >
-          {finalizando
-            ? "Redirecionando para o pagamento..."
-            : cliente === null && !carregandoCliente
-              ? "Entrar e finalizar o pedido"
-              : "Ir para o pagamento"}
-        </button>
+        {/*
+         * A forma de pagamento É o botão de pagar.
+         *
+         * Antes havia uma seção "Forma de pagamento" aqui em cima e um botão
+         * "Ir para o pagamento" — e a pessoa escolhia tudo de novo dentro do
+         * Mercado Pago. Agora ela aperta direto o que quer, o Checkout abre
+         * travado naquela forma, e o desconto do Pix já aparece no valor do
+         * botão, antes de sair do site.
+         */}
+        <div className="mt-6 grid gap-2">
+          {/* O Pix está sempre aqui: é forma de pagamento, não promoção. O
+              desconto só muda o valor e a linha de baixo. */}
+          <button
+            onClick={() => handleFinalizar("pix")}
+            disabled={pagamentoBloqueado}
+            className="w-full bg-cherryDark text-white rounded-2xl px-5 py-4 font-body hover:bg-cherryMid transition-colors disabled:opacity-40 text-left"
+          >
+            <span className="flex items-center justify-between gap-3">
+              <span className="font-semibold">
+                {finalizando === "pix" ? "Abrindo o Pix..." : "Pagar com Pix"}
+              </span>
+              <span className="font-display text-lg tabular-nums">
+                {reais(total - descontoPix)}
+              </span>
+            </span>
+            <span className="flex items-center justify-between gap-3 text-xs text-white/80 mt-0.5">
+              <span>
+                {descontoPix > 0
+                  ? `${percentualEscrito(percentualPix)} de desconto — você economiza ${reais(descontoPix)}`
+                  : "O pagamento cai na hora."}
+              </span>
+              {descontoPix > 0 && (
+                <span className="line-through tabular-nums">{reais(total)}</span>
+              )}
+            </span>
+          </button>
+
+          <button
+            onClick={() => handleFinalizar("credito")}
+            disabled={pagamentoBloqueado}
+            className="w-full rounded-2xl px-5 py-4 font-body transition-colors disabled:opacity-40 text-left bg-white/70 border border-cherryDark/30 text-ink hover:border-cherryDark"
+          >
+            <span className="flex items-center justify-between gap-3">
+              <span className="font-semibold">
+                {finalizando === "credito"
+                  ? "Abrindo o cartão..."
+                  : "Pagar com cartão de crédito"}
+              </span>
+              <span className="font-display text-lg tabular-nums">{reais(total)}</span>
+            </span>
+            <span className="block text-xs mt-0.5 text-ink/55">
+              À vista, sem parcelamento.
+            </span>
+          </button>
+        </div>
+
         <p className="text-xs text-ink/50 text-center mt-2 font-body">
           {compraBloqueada && !carregandoFrete
             ? enderecoEmBranco || enderecoIncompleto
@@ -695,7 +780,7 @@ export default function CheckoutPage() {
               : "Para continuar, escolha Retirada acima."
             : cliente === null && !carregandoCliente
               ? "Você entra (ou cria sua conta em 1 minuto) e volta direto pra cá, com o carrinho do jeito que está."
-              : "Você será levado ao ambiente seguro do Mercado Pago para pagar com Pix ou cartão."}
+              : "Você paga no ambiente seguro do Mercado Pago, já na forma que escolher aqui."}
         </p>
       </main>
       <RodapeLinks />

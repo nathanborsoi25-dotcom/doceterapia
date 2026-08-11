@@ -62,12 +62,12 @@ export default function AdminStoriesPage() {
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">
-          Stories das clientes
+          Stories dos clientes
         </h1>
         <VoltarAoPainel />
       </div>
       <p className="text-sm font-body text-ink/60 mt-1">
-        Elas postam marcando você e mandam o print. Confira e libere os pontos.
+        Eles postam marcando você e mandam o print. Confira e libere os pontos.
         {pendentes.length > 0 && (
           <span className="text-cherryDark font-semibold">
             {" "}
@@ -99,7 +99,7 @@ export default function AdminStoriesPage() {
       {!carregando && visiveis.length === 0 && (
         <p className="text-ink/60 font-body mt-6">
           {lista.length === 0
-            ? "Nenhuma cliente mandou story ainda. Assim que mandarem, aparece aqui. 🍒"
+            ? "Nenhum cliente mandou story ainda. Assim que mandarem, aparece aqui. 🍒"
             : "Tudo decidido por aqui! 🍒"}
         </p>
       )}

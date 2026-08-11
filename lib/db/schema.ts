@@ -169,6 +169,12 @@ export const pedidos = pgTable("pedidos", {
   /** Cupom aplicado na compra, se houve. */
   cupomCodigo: text("cupom_codigo"),
   desconto: doublePrecision("desconto").notNull().default(0),
+  /**
+   * Abatimento por ter pago no Pix, em reais. Separado do `desconto` do cupom
+   * de propósito: são duas coisas diferentes na conta e nas telas, e misturar
+   * faria o painel dizer "Desconto (CUPOM)" num pedido que não teve cupom.
+   */
+  descontoPix: doublePrecision("desconto_pix").notNull().default(0),
   formaPagamento: text("forma_pagamento").notNull(),
   status: text("status").notNull().default("aguardando_pagamento"),
   // Quando este pedido precisa estar pronto. Calculado no servidor na hora
@@ -389,6 +395,11 @@ export const configLoja = pgTable("config_loja", {
   pontosPorAvaliacao: integer("pontos_por_avaliacao").notNull().default(10),
   /** Pontos ganhos ao postar o doce nos stories (depois da Camily aprovar). */
   pontosPorStory: integer("pontos_por_story").notNull().default(15),
+  /**
+   * Desconto automático de quem paga no Pix, em % (ver `lib/desconto-pix.ts`).
+   * Zero desliga. Não é cupom: vale pra todo mundo, sem código nenhum.
+   */
+  descontoPix: doublePrecision("desconto_pix").notNull().default(4),
   /**
    * Os destaques do topo do cardápio, em carrossel (ver `lib/banners.ts`).
    * Lista vazia cai no banner único das colunas antigas, logo abaixo.
