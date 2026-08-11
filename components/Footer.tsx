@@ -52,6 +52,9 @@ export default function Footer() {
         {/* As regras da loja ficam a um toque de qualquer tela do cliente —
             é onde ele procura quando bate a dúvida de "e se eu desistir?". */}
         <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-5 font-body text-xs text-ink/60">
+          <Link href="/loja" className="underline inline-flex items-center min-h-[44px] px-1 hover:text-cherryDark">
+            Sobre a loja
+          </Link>
           <Link href="/politica" className="underline inline-flex items-center min-h-[44px] px-1 hover:text-cherryDark">
             Cancelamento e reembolso
           </Link>

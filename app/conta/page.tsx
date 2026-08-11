@@ -79,12 +79,13 @@ export default function ContaPage() {
           {aba === "dados" && <MeusDados />}
         </div>
 
-        {/* Sair fica aqui embaixo, discreto: no celular o cabeçalho não tem
-            espaço pra ele, e este é o lugar onde a pessoa mexe na conta. */}
-        <div className="text-center mt-10">
+        {/* Sair fica aqui embaixo: no celular o cabeçalho não tem espaço, e
+            este é o lugar onde a pessoa mexe na conta. Em vermelho porque é
+            uma ação de saída — antes era um link cinza que ninguém achava. */}
+        <div className="mt-10 flex justify-center">
           <button
             onClick={sair}
-            className="font-body text-sm text-ink/50 underline inline-flex items-center min-h-[44px] px-2 hover:text-cherryDark"
+            className="font-body text-sm font-semibold bg-cherryDark text-white rounded-full px-6 py-3 hover:bg-cherryMid active:scale-[0.98] transition-all"
           >
             Sair da minha conta
           </button>

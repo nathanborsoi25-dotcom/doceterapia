@@ -158,7 +158,12 @@ export default function ProductCard({ produto }: { produto: Produto }) {
        * sendo um link pro doce — arrastar não abre nada, porque o navegador
        * cancela o toque quando ele vira rolagem.
        */}
-      <div className="group relative aspect-square bg-blush overflow-hidden rounded-t-[999px]">
+      {/*
+       * 4/3 em vez de quadrada: a foto quadrada empurrava o preço e o botão
+       * pra baixo da dobra no celular, e a pessoa tinha que rolar um card
+       * inteiro pra ver dois doces. O arco continua sendo o mesmo.
+       */}
+      <div className="group relative aspect-[4/3] bg-blush overflow-hidden rounded-t-[999px]">
         {fotosDoCard.length > 0 ? (
           <div
             ref={trilho}

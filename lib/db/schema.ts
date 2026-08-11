@@ -233,7 +233,7 @@ export const codigosSenha = pgTable("codigos_senha", {
 
 /**
  * Cupons de desconto criados pela Camily. Um cupom pode valer para a loja
- * toda (clienteId nulo) ou ser exclusivo de uma pessoa — inclusive como
+ * toda, para UM cliente ou para VÁRIOS escolhidos a dedo — inclusive como
  * isca para trazer de volta quem abandonou o carrinho.
  */
 export const cupons = pgTable("cupons", {
@@ -246,15 +246,30 @@ export const cupons = pgTable("cupons", {
   valor: doublePrecision("valor").notNull().default(0),
   /** Só vale a partir deste subtotal. Zero = sem mínimo. */
   pedidoMinimo: doublePrecision("pedido_minimo").notNull().default(0),
-  /** Nulo = qualquer cliente pode usar. */
+  /**
+   * Cliente único, do tempo em que o cupom pessoal só podia ter um dono.
+   * Continua aqui pros cupons antigos; quem manda hoje é `clientesIds`, e
+   * `lib/cupom.ts` faz os dois conversarem.
+   */
   clienteId: text("cliente_id"),
+  /**
+   * Para quem o cupom vale. Lista VAZIA = a loja toda.
+   *
+   * Virou lista porque a Camily quis dar o mesmo cupom para um punhado de
+   * clientes específicos, e criar um código por pessoa não escala.
+   */
+  clientesIds: jsonb("clientes_ids").$type<string[]>().notNull().default([]),
+  /**
+   * Cupom secreto: não aparece em "Cupons disponíveis pra você" na conta do
+   * cliente. Só funciona pra quem digitar o código, que a Camily manda a
+   * dedo pra quem ela quiser.
+   */
+  secreto: boolean("secreto").notNull().default(false),
   /**
    * Cupom que só vale pagando no Pix.
    *
-   * Existe porque o Pix custa 0,99% e o crédito 4,98%: dar 4% de desconto no
-   * Pix ainda sai mais barato para a Camily do que receber no cartão. Quando
-   * é `true`, o Checkout Pro passa a oferecer SÓ Pix — senão bastaria marcar
-   * Pix no site e trocar para cartão na tela do Mercado Pago.
+   * ⚠️ Não é mais oferecido no painel: virou desconto automático do Pix
+   * (`lib/desconto-pix.ts`). Fica pros cupons que já foram criados com ele.
    */
   somentePix: boolean("somente_pix").notNull().default(false),
   /** Nulo = sem prazo. */

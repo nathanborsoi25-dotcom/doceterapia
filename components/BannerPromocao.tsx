@@ -74,38 +74,38 @@ export default function BannerPromocao() {
         }`}
       >
         {banners.map((b) => (
+          /*
+           * Só a imagem. A arte já vem com o texto escrito dentro dela, e
+           * repetir título e descrição embaixo dava duas mensagens dizendo a
+           * mesma coisa — além de esticar o banner e empurrar os doces pra
+           * fora da primeira tela do celular.
+           *
+           * A proporção é fixa (2:1) pra todos os banners ficarem do mesmo
+           * tamanho no trilho, mesmo que a Camily suba artes diferentes.
+           */
           <Link
             key={b.id}
             href={b.link || "/catalogo"}
-            className={`snap-center shrink-0 bg-white/70 border border-cherryLight/40 rounded-2xl overflow-hidden hover:border-cherryDark transition-colors ${
+            aria-label={b.titulo || "Ver a promoção"}
+            className={`snap-center shrink-0 rounded-2xl overflow-hidden bg-blush/60 border border-cherryLight/40 hover:border-cherryDark transition-colors ${
               /* Com vários, sobra tela dos dois lados pro vizinho aparecer. */
-              varios ? "w-[86%] sm:w-[70%] md:w-[52%] max-w-3xl" : "w-full max-w-5xl"
+              varios ? "w-[86%] sm:w-[70%] md:w-[52%] max-w-3xl" : "w-full max-w-3xl"
             }`}
           >
-            {b.imagem && (
+            {b.imagem ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={b.imagem}
-                alt={b.titulo}
+                alt={b.titulo || "Promoção"}
                 draggable={false}
-                className="w-full h-40 sm:h-56 object-cover"
+                className="w-full aspect-[2/1] object-cover"
               />
-            )}
-            <div className="p-5 text-center">
-              <h2 className="font-display text-xl sm:text-2xl text-cherryDark">
+            ) : (
+              /* Sem imagem, o título salva o banner de ficar em branco. */
+              <span className="flex items-center justify-center w-full aspect-[2/1] px-6 text-center font-display text-xl text-cherryDark">
                 {b.titulo}
-              </h2>
-              {b.descricao && (
-                <p className="font-body text-sm text-ink/70 mt-2 max-w-md mx-auto">
-                  {b.descricao}
-                </p>
-              )}
-              {b.selo && (
-                <span className="inline-block mt-3 bg-cherryDark text-white text-xs font-body font-bold uppercase tracking-wide rounded-full px-4 py-2">
-                  {b.selo}
-                </span>
-              )}
-            </div>
+              </span>
+            )}
           </Link>
         ))}
       </div>

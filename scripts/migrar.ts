@@ -235,6 +235,23 @@ async function main() {
     ADD COLUMN IF NOT EXISTS desconto_pix double precision NOT NULL DEFAULT 0
   `;
 
+  console.log("13) Cupom para varios clientes e cupom secreto...");
+  await sql`
+    ALTER TABLE cupons
+    ADD COLUMN IF NOT EXISTS clientes_ids jsonb NOT NULL DEFAULT '[]'::jsonb
+  `;
+  await sql`
+    ALTER TABLE cupons
+    ADD COLUMN IF NOT EXISTS secreto boolean NOT NULL DEFAULT false
+  `;
+  // Cupom pessoal antigo (um dono só) entra na lista nova, pra tela do painel
+  // mostrar do mesmo jeito quem já estava escolhido.
+  await sql`
+    UPDATE cupons
+    SET clientes_ids = jsonb_build_array(cliente_id)
+    WHERE clientes_ids = '[]'::jsonb AND cliente_id IS NOT NULL
+  `;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns

@@ -22,7 +22,10 @@ type Cupom = {
   valor: number;
   pedidoMinimo: number;
   clienteId: string | null;
-  clienteNome: string | null;
+  /** Ids e nomes de quem pode usar. Vazio = a loja toda. */
+  clientesIds: string[];
+  clientesNomes: string[];
+  secreto: boolean;
   expiraEm: string | null;
   limiteUsos: number;
   usos: number;
@@ -32,6 +35,18 @@ type Cupom = {
 /** Já passou da data? Vale para o selo "vencido" da lista do painel. */
 function venceu(expiraEm: string | null): boolean {
   return !!expiraEm && new Date(expiraEm).getTime() < Date.now();
+}
+
+/**
+ * Quem pode usar o cupom, escrito. Com muita gente escolhida a lista fica
+ * ilegível, então a partir de três pessoas vira "Fulana, Beltrana e mais 4".
+ */
+function quemPodeUsar(c: Cupom): string {
+  const nomes = c.clientesNomes ?? [];
+  if (nomes.length === 0) return "Todos os clientes";
+  if (nomes.length === 1) return `Só para ${nomes[0]}`;
+  if (nomes.length <= 3) return `Só para ${nomes.join(", ")}`;
+  return `Só para ${nomes.slice(0, 2).join(", ")} e mais ${nomes.length - 2}`;
 }
 
 export default function AdminPromocoesPage() {
@@ -51,9 +66,12 @@ export default function AdminPromocoesPage() {
     codigo: "",
     descricao: "",
     tipo: "percentual",
-    clienteId: "",
     expiraEm: "",
+    /** Cupom secreto: só quem receber o código consegue usar. */
+    secreto: false,
   });
+  /** Quem pode usar o cupom. Lista vazia = a loja toda. */
+  const [clientesEscolhidos, setClientesEscolhidos] = useState<string[]>([]);
   // Os números do cupom ficam separados: podem estar vazios enquanto ela
   // digita, e vazio não é a mesma coisa que zero.
   const [valor, setValor] = useState<number | null>(null);
@@ -113,7 +131,7 @@ export default function AdminPromocoesPage() {
           valor: valor ?? 0,
           pedidoMinimo: pedidoMinimo ?? 0,
           limiteUsos: Math.round(limiteUsos ?? 0),
-          clienteId: novo.clienteId || null,
+          clientesIds: clientesEscolhidos,
         }),
       });
       const corpo = await res.json();
@@ -125,9 +143,10 @@ export default function AdminPromocoesPage() {
         codigo: "",
         descricao: "",
         tipo: "percentual",
-        clienteId: "",
         expiraEm: "",
+        secreto: false,
       });
+      setClientesEscolhidos([]);
       setValor(null);
       setPedidoMinimo(null);
       setLimiteUsos(null);
@@ -328,33 +347,32 @@ export default function AdminPromocoesPage() {
                 Mostrar no site
               </label>
 
+              {/* A arte é o destaque inteiro: o texto da promoção já vem
+                  escrito nela, então o site não escreve nada por cima nem por
+                  baixo. */}
+              <EscolherFoto
+                valor={b.imagem}
+                onChange={(url) => mudarBanner(b.id, "imagem", url)}
+                label="Arte do destaque"
+              />
+              <p className="text-xs font-body text-ink/50 -mt-1">
+                Faça a arte em <strong>1080 × 540 px</strong> (o dobro de
+                largura da altura). No celular ela aparece com{" "}
+                <strong>322 × 161 px</strong>, então deixe o texto grande e
+                longe das bordas.
+              </p>
+
               <Campo
-                label="Título"
+                label="Nome (só pra você se achar aqui)"
                 valor={b.titulo}
                 onChange={(v) => mudarBanner(b.id, "titulo", v)}
                 placeholder="Combo Dia das Mães"
-              />
-              <Campo
-                label="Descrição"
-                valor={b.descricao}
-                onChange={(v) => mudarBanner(b.id, "descricao", v)}
-                placeholder="Uma torta + 12 brigadeiros por um preço especial"
-              />
-              <Campo
-                label="Selo de urgência (opcional)"
-                valor={b.selo}
-                onChange={(v) => mudarBanner(b.id, "selo", v)}
-                placeholder="Só até domingo!"
               />
               <Campo
                 label="Para onde leva o toque"
                 valor={b.link}
                 onChange={(v) => mudarBanner(b.id, "link", v)}
                 placeholder="/catalogo"
-              />
-              <EscolherFoto
-                valor={b.imagem}
-                onChange={(url) => mudarBanner(b.id, "imagem", url)}
               />
             </div>
           ))}
@@ -448,8 +466,8 @@ export default function AdminPromocoesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <BuscaCliente
             clientes={clientes}
-            escolhidoId={novo.clienteId}
-            onEscolher={(id) => setNovo({ ...novo, clienteId: id })}
+            escolhidos={clientesEscolhidos}
+            onMudar={setClientesEscolhidos}
           />
           <label className="grid gap-1 text-sm font-body text-ink/80">
             Limite de usos (0 = ilimitado)
@@ -471,6 +489,24 @@ export default function AdminPromocoesPage() {
           onChange={(v) => setNovo({ ...novo, expiraEm: v })}
           tipo="date"
         />
+
+        {/* Cupom secreto: não se anuncia, você é quem entrega o código. */}
+        <label className="flex items-start gap-2 font-body text-sm bg-blush/40 border border-cherryLight/40 rounded-xl px-3 py-2.5">
+          <input
+            type="checkbox"
+            checked={novo.secreto}
+            onChange={(e) => setNovo({ ...novo, secreto: e.target.checked })}
+            className="w-5 h-5 accent-cherryDark mt-0.5"
+          />
+          <span>
+            Cupom secreto
+            <span className="block text-xs text-ink/55">
+              Não aparece em &ldquo;Cupons disponíveis&rdquo; na conta de
+              ninguém. Só funciona pra quem digitar o código — você manda pra
+              quem quiser, no WhatsApp ou nos stories.
+            </span>
+          </span>
+        </label>
 
         {aviso && <p className="text-sm text-cherryDark font-body">{aviso}</p>}
 
@@ -504,14 +540,21 @@ export default function AdminPromocoesPage() {
               </span>
             </div>
             {c.descricao && <p className="text-ink/70">{c.descricao}</p>}
-            {/* Vencido some da tela do cliente, mas aqui você precisa ver. */}
-            {venceu(c.expiraEm) && (
-              <span className="justify-self-start text-[11px] font-semibold bg-ink/10 text-ink/60 rounded-full px-2 py-0.5">
-                vencido
-              </span>
-            )}
+            <div className="flex flex-wrap gap-1.5">
+              {c.secreto && (
+                <span className="text-[11px] font-semibold bg-cherryDark/10 text-cherryDark rounded-full px-2 py-0.5">
+                  🤫 secreto
+                </span>
+              )}
+              {/* Vencido some da tela do cliente, mas aqui você precisa ver. */}
+              {venceu(c.expiraEm) && (
+                <span className="text-[11px] font-semibold bg-ink/10 text-ink/60 rounded-full px-2 py-0.5">
+                  vencido
+                </span>
+              )}
+            </div>
             <p className="text-xs text-ink/50">
-              {c.clienteNome ? `Só para ${c.clienteNome}` : "Todos os clientes"}
+              {quemPodeUsar(c)}
               {c.pedidoMinimo > 0 && ` · mínimo R$ ${c.pedidoMinimo.toFixed(2)}`}
               {c.limiteUsos > 0
                 ? ` · usado ${c.usos}/${c.limiteUsos}`
@@ -538,21 +581,22 @@ const ESTILO_CAMPO =
 /**
  * Para quem o cupom vale.
  *
- * Era uma lista suspensa com TODAS as clientes — com a loja crescendo, achar
+ * Era uma lista suspensa com TODOS os clientes — com a loja crescendo, achar
  * alguém ali vira rolagem infinita no celular. Agora ela digita o começo do
- * nome e escolhe. Sem nada digitado, o cupom vale para todo mundo.
+ * nome e escolhe **quantos quiser**: dá pra montar um cupom para três
+ * clientes específicos sem criar três códigos diferentes. Nenhum escolhido
+ * quer dizer "vale para a loja toda".
  */
 function BuscaCliente({
   clientes,
-  escolhidoId,
-  onEscolher,
+  escolhidos,
+  onMudar,
 }: {
   clientes: Cliente[];
-  escolhidoId: string;
-  onEscolher: (id: string) => void;
+  escolhidos: string[];
+  onMudar: (ids: string[]) => void;
 }) {
   const [busca, setBusca] = useState("");
-  const escolhida = clientes.find((c) => c.id === escolhidoId) ?? null;
 
   const achados = useMemo(() => {
     const termo = busca
@@ -562,6 +606,7 @@ function BuscaCliente({
       .trim();
     if (!termo) return [];
     return clientes
+      .filter((c) => !escolhidos.includes(c.id))
       .filter((c) =>
         `${c.nome} ${c.email}`
           .normalize("NFD")
@@ -570,39 +615,44 @@ function BuscaCliente({
           .includes(termo)
       )
       .slice(0, 6);
-  }, [clientes, busca]);
+  }, [clientes, busca, escolhidos]);
 
-  if (escolhida) {
-    return (
-      <div className="grid gap-1 text-sm font-body text-ink/80">
-        Para quem vale
-        <div className="flex items-center justify-between gap-2 border border-cherryDark/40 bg-blush/50 rounded-xl px-3 py-2">
-          <span className="min-w-0 truncate text-cherryDark font-semibold">
-            Só para {escolhida.nome}
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              onEscolher("");
-              setBusca("");
-            }}
-            className="shrink-0 text-xs text-ink/50 underline min-h-[44px] px-1"
-          >
-            trocar
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const todos = escolhidos.length === 0;
 
   return (
-    <div className="grid gap-1 text-sm font-body text-ink/80">
+    <div className="grid gap-1.5 text-sm font-body text-ink/80">
       Para quem vale
+      {/* Quem já foi escolhido, cada um com o seu "×". */}
+      {escolhidos.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {escolhidos.map((id) => {
+            const c = clientes.find((x) => x.id === id);
+            return (
+              <span
+                key={id}
+                className="inline-flex items-center gap-1 bg-blush/70 border border-cherryDark/30 rounded-full pl-3 pr-1 py-1 text-xs text-cherryDark"
+              >
+                <span className="max-w-[10rem] truncate">{c?.nome ?? "cliente"}</span>
+                <button
+                  type="button"
+                  onClick={() => onMudar(escolhidos.filter((x) => x !== id))}
+                  aria-label={`Tirar ${c?.nome ?? "cliente"} do cupom`}
+                  className="w-7 h-7 rounded-full text-cherryDark/70 hover:text-cherryDark"
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
       <input
         type="search"
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
-        placeholder="Todos os clientes — ou digite um nome"
+        placeholder={
+          todos ? "Todos os clientes — ou digite um nome" : "Adicionar mais alguém"
+        }
         aria-label="Procurar cliente para o cupom"
         className={ESTILO_CAMPO}
       />
@@ -610,7 +660,7 @@ function BuscaCliente({
         <div className="grid gap-1">
           {achados.length === 0 ? (
             <span className="text-xs text-ink/50">
-              Nenhum cliente com esse nome.
+              Nenhum cliente com esse nome — ou já está na lista.
             </span>
           ) : (
             achados.map((c) => (
@@ -618,7 +668,7 @@ function BuscaCliente({
                 key={c.id}
                 type="button"
                 onClick={() => {
-                  onEscolher(c.id);
+                  onMudar([...escolhidos, c.id]);
                   setBusca("");
                 }}
                 className="text-left text-sm border border-cherryLight/40 rounded-xl px-3 py-2.5 bg-white/70 hover:border-cherryDark"
@@ -630,6 +680,35 @@ function BuscaCliente({
           )}
         </div>
       )}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            onMudar(clientes.map((c) => c.id));
+            setBusca("");
+          }}
+          className="text-xs font-body text-cherryDark underline min-h-[44px] px-1"
+        >
+          Escolher todos ({clientes.length})
+        </button>
+        {escolhidos.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              onMudar([]);
+              setBusca("");
+            }}
+            className="text-xs font-body text-ink/50 underline min-h-[44px] px-1"
+          >
+            limpar
+          </button>
+        )}
+      </div>
+      <span className="text-xs text-ink/50">
+        {todos
+          ? "Sem ninguém escolhido, o cupom vale para a loja toda."
+          : `${escolhidos.length} ${escolhidos.length === 1 ? "cliente escolhido" : "clientes escolhidos"} — só eles conseguem usar.`}
+      </span>
     </div>
   );
 }

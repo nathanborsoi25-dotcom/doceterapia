@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import BarraInferior from "@/components/BarraInferior";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -41,9 +42,15 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="font-body">
+      {/*
+        O `pb` deixa livre a faixa que a barra fixa do rodapé ocupa. Sem ele,
+        a barra cobre o último botão de cada tela — e o último botão costuma
+        ser justamente o de finalizar alguma coisa.
+      */}
+      <body className="font-body pb-[calc(64px+env(safe-area-inset-bottom))]">
         {children}
         {gaveta}
+        <BarraInferior />
       </body>
     </html>
   );

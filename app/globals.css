@@ -61,6 +61,13 @@ body {
   overflow-x: clip;
 }
 
+/* Rolagem suave nos atalhos (categorias do cardápio). Fica no CSS, e não no
+   `scrollIntoView({behavior:'smooth'})`, porque assim quem não suporta rola
+   direto em vez de não rolar nada. */
+html {
+  scroll-behavior: smooth;
+}
+
 /*
  * Fileiras que rolam de lado (abas da conta, filtros do painel, categorias do
  * cardápio) escondem a barra de rolagem: no computador ela aparecia como um
@@ -103,6 +110,9 @@ body {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
   }
 }
 

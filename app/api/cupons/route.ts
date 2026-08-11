@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { clientes, cupons } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
-import { normalizarCodigo } from "@/lib/cupom";
+import { donosDoCupom, normalizarCodigo } from "@/lib/cupom";
 
 export const dynamic = "force-dynamic";
 
@@ -20,25 +20,35 @@ function fimDoDiaEmBrasilia(texto: string): Date | null {
   return Number.isNaN(data.getTime()) ? null : data;
 }
 
-/** Lista os cupons com o nome do cliente, quando for cupom pessoal. */
+/** Lista os cupons com os nomes de quem pode usar, quando for cupom pessoal. */
 export async function GET() {
   const negado = await requireAdmin();
   if (negado) return negado;
 
   const db = getDb();
-  const linhas = await db
-    .select({ cupom: cupons, cliente: clientes })
-    .from(cupons)
-    .leftJoin(clientes, eq(cupons.clienteId, clientes.id))
-    .orderBy(desc(cupons.criadoEm));
+  const [linhas, todosClientes] = await Promise.all([
+    db.select().from(cupons).orderBy(desc(cupons.criadoEm)),
+    db.select({ id: clientes.id, nome: clientes.nome }).from(clientes),
+  ]);
+
+  // Um mapa em vez de join: o cupom pode ter vários donos agora, e o join
+  // multiplicaria a linha do cupom por dono.
+  const nomePorId = new Map(todosClientes.map((c) => [c.id, c.nome]));
 
   return NextResponse.json(
-    linhas.map(({ cupom, cliente }) => ({
-      ...cupom,
-      expiraEm: cupom.expiraEm?.toISOString() ?? null,
-      criadoEm: cupom.criadoEm.toISOString(),
-      clienteNome: cliente?.nome ?? null,
-    }))
+    linhas.map((cupom) => {
+      const donos = donosDoCupom(cupom);
+      return {
+        ...cupom,
+        expiraEm: cupom.expiraEm?.toISOString() ?? null,
+        criadoEm: cupom.criadoEm.toISOString(),
+        clientesIds: donos,
+        /** Nomes de quem pode usar. Vazio = a loja toda. */
+        clientesNomes: donos
+          .map((id) => nomePorId.get(id))
+          .filter((n): n is string => Boolean(n)),
+      };
+    })
   );
 }
 
@@ -91,6 +101,24 @@ export async function POST(req: Request) {
     );
   }
 
+  /*
+   * Para quem o cupom vale. Só entram ids de clientes que existem de fato —
+   * o que vem do navegador não serve pra decidir isso. Lista vazia = a loja
+   * toda, que é o caso mais comum.
+   */
+  const pedidos_ = Array.isArray(b.clientesIds)
+    ? Array.from(new Set(b.clientesIds.map((x) => String(x)).filter(Boolean))).slice(0, 500)
+    : [];
+  const existentes =
+    pedidos_.length > 0
+      ? (
+          await db
+            .select({ id: clientes.id })
+            .from(clientes)
+            .where(inArray(clientes.id, pedidos_))
+        ).map((c) => c.id)
+      : [];
+
   await db.insert(cupons).values({
     id: crypto.randomUUID(),
     codigo,
@@ -98,8 +126,11 @@ export async function POST(req: Request) {
     tipo,
     valor,
     pedidoMinimo: Math.max(0, Number(b.pedidoMinimo) || 0),
-    clienteId: b.clienteId ? String(b.clienteId) : null,
-    somentePix: b.somentePix === true,
+    // A coluna antiga guarda o primeiro dono, pra não ficar em branco em
+    // cupom pessoal; quem manda de verdade é `clientesIds`.
+    clienteId: existentes[0] ?? null,
+    clientesIds: existentes,
+    secreto: b.secreto === true,
     expiraEm,
     limiteUsos: Math.max(0, Math.floor(Number(b.limiteUsos) || 0)),
   });

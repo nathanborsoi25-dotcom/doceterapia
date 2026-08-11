@@ -39,14 +39,50 @@ export function categoriasDe(
   return lista;
 }
 
-/** Agrupa os doces por categoria, respeitando a ordem acima. */
-export function agruparPorCategoria<T extends Pick<Produto, "categoria">>(
+/**
+ * Ordena os doces pelos mais bem avaliados — o melhor sempre na frente.
+ *
+ * A nota é o que mais pesa na escolha de um doce que a pessoa nunca provou,
+ * então quem já agradou abre a fila. Desempata pelo NÚMERO de avaliações:
+ * entre um doce 5,0 com uma nota e outro 5,0 com trinta, o segundo é mais
+ * confiável.
+ *
+ * Doce sem nota nenhuma não vai pro fim do mundo: ele entra logo depois dos
+ * avaliados, na ordem em que já estava. Enterrar o lançamento no rodapé do
+ * cardápio seria condená-lo a nunca ganhar a primeira avaliação.
+ */
+export function ordenarPorNota<
+  T extends Pick<Produto, "notaMedia" | "totalAvaliacoes">,
+>(produtos: T[]): T[] {
+  return [...produtos].sort((a, b) => {
+    const temA = (a.totalAvaliacoes ?? 0) > 0;
+    const temB = (b.totalAvaliacoes ?? 0) > 0;
+    if (temA !== temB) return temA ? -1 : 1;
+    if (!temA) return 0; // os dois sem nota: mantém a ordem que veio
+
+    const notaA = a.notaMedia ?? 0;
+    const notaB = b.notaMedia ?? 0;
+    if (notaA !== notaB) return notaB - notaA;
+    return (b.totalAvaliacoes ?? 0) - (a.totalAvaliacoes ?? 0);
+  });
+}
+
+/**
+ * Agrupa os doces por categoria, respeitando a ordem acima — e, dentro de
+ * cada categoria, os mais bem avaliados primeiro. A ordem das CATEGORIAS
+ * continua sendo a que a Camily montou no painel.
+ */
+export function agruparPorCategoria<
+  T extends Pick<Produto, "categoria" | "notaMedia" | "totalAvaliacoes">,
+>(
   produtos: T[],
   ordemPreferida: string[] = []
 ): Array<{ categoria: string; doces: T[] }> {
   return categoriasDe(produtos, ordemPreferida).map((categoria) => ({
     categoria,
-    doces: produtos.filter((p) => categoriaDoProduto(p) === categoria),
+    doces: ordenarPorNota(
+      produtos.filter((p) => categoriaDoProduto(p) === categoria)
+    ),
   }));
 }
 

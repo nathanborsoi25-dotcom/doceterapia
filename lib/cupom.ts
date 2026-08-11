@@ -2,6 +2,28 @@ import type { cupons } from "./db/schema";
 
 type Cupom = typeof cupons.$inferSelect;
 
+/**
+ * Para quem este cupom vale. Lista vazia = a loja toda.
+ *
+ * Existe porque o cupom pessoal já teve duas formas: primeiro `cliente_id`
+ * (um dono só) e agora `clientes_ids` (vários). Em vez de espalhar essa
+ * dúvida por cada tela e cada rota, a resposta fica num lugar só.
+ */
+export function donosDoCupom(
+  cupom: Pick<Cupom, "clienteId" | "clientesIds">
+): string[] {
+  const lista = (cupom.clientesIds ?? []).filter(Boolean);
+  if (lista.length > 0) return lista;
+  return cupom.clienteId ? [cupom.clienteId] : [];
+}
+
+/** É cupom da loja toda? */
+export function valeParaTodos(
+  cupom: Pick<Cupom, "clienteId" | "clientesIds">
+): boolean {
+  return donosDoCupom(cupom).length === 0;
+}
+
 export type ResultadoCupom =
   | { valido: true; desconto: number; cupom: Cupom }
   | { valido: false; motivo: string };
@@ -40,9 +62,13 @@ export function avaliarCupom(
     return { valido: false, motivo: "Este cupom já atingiu o limite de usos." };
   }
 
-  // Cupom pessoal: só quem foi escolhido consegue usar. A mensagem é a mesma
-  // de "não encontrado" pra ninguém sair testando cupom dos outros.
-  if (cupom.clienteId && cupom.clienteId !== clienteId) {
+  /*
+   * Cupom pessoal: só quem foi escolhido consegue usar — pode ser uma
+   * pessoa ou várias. A mensagem é a mesma de "não encontrado" pra ninguém
+   * sair testando cupom dos outros e descobrir que ele existe.
+   */
+  const donos = donosDoCupom(cupom);
+  if (donos.length > 0 && !donos.includes(clienteId)) {
     return { valido: false, motivo: "Cupom não encontrado." };
   }
 

@@ -15,6 +15,9 @@ export default function RodapeLinks() {
   return (
     <footer className="mt-10 pb-8 px-4 text-center font-body text-xs text-ink/50">
       <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+        <Link href="/loja" className="underline inline-flex items-center min-h-[44px] px-1 hover:text-cherryDark">
+          Sobre a loja
+        </Link>
         <Link href="/politica" className="underline inline-flex items-center min-h-[44px] px-1 hover:text-cherryDark">
           Cancelamento e reembolso
         </Link>

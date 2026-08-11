@@ -34,8 +34,25 @@ export async function GET() {
       .where(
         and(
           eq(cupons.ativo, true),
-          // Da loja toda OU exclusivo dele.
-          or(isNull(cupons.clienteId), eq(cupons.clienteId, cliente.id)),
+          // Cupom secreto não se anuncia: ele só funciona pra quem recebeu o
+          // código da Camily. Listar aqui entregaria o segredo a todo mundo.
+          eq(cupons.secreto, false),
+          /*
+           * Da loja toda OU de quem está entre os escolhidos.
+           *
+           * "Da loja toda" exige as DUAS colunas vazias: um cupom pessoal
+           * antigo tem dono em `cliente_id` e lista vazia, e olhar só a lista
+           * o entregaria pra todo mundo. A migração preenche a lista, mas a
+           * regra não pode depender disso ter rodado.
+           */
+          or(
+            and(
+              sql`${cupons.clientesIds} = '[]'::jsonb`,
+              isNull(cupons.clienteId)
+            ),
+            sql`${cupons.clientesIds} @> ${JSON.stringify([cliente.id])}::jsonb`,
+            eq(cupons.clienteId, cliente.id)
+          ),
           // Ainda no prazo (sem data = sem prazo).
           or(isNull(cupons.expiraEm), gt(cupons.expiraEm, agora)),
           // Ainda tem uso sobrando (limite zero = ilimitado).
