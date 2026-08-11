@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import VoltarAoPainel from "@/components/VoltarAoPainel";
 import {
@@ -20,6 +21,7 @@ import {
  * um buraco na página que a cliente lê antes de comprar.
  */
 export default function AdminPoliticaPage() {
+  const router = useRouter();
   const [textos, setTextos] = useState<Partial<Record<ChavePolitica, string>>>({});
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -56,6 +58,8 @@ export default function AdminPoliticaPage() {
         body: JSON.stringify({ politica: limpo }),
       });
       if (!r.ok) throw new Error();
+      // Limpa o que o navegador guardou das telas do cliente.
+      router.refresh();
       setSalvo(true);
       setTimeout(() => setSalvo(false), 3000);
     } catch {

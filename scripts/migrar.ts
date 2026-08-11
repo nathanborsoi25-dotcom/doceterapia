@@ -252,6 +252,13 @@ async function main() {
     WHERE clientes_ids = '[]'::jsonb AND cliente_id IS NOT NULL
   `;
 
+  console.log("14) Horario de funcionamento da loja...");
+  await sql`
+    ALTER TABLE config_loja
+    ADD COLUMN IF NOT EXISTS funcionamento jsonb NOT NULL
+    DEFAULT '{"abreAs":9,"fechaAs":22,"ativo":true}'::jsonb
+  `;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns

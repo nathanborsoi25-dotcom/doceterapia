@@ -6,7 +6,18 @@ import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import IconeWhatsApp from "@/components/IconeWhatsApp";
+import {
+  IconeApplePay,
+  IconeCartao,
+  IconePix,
+} from "@/components/IconesPagamento";
 import { percentualDoPix, percentualEscrito } from "@/lib/desconto-pix";
+import {
+  FUNCIONAMENTO_PADRAO,
+  horarioEscrito,
+  limparFuncionamento,
+  lojaAberta,
+} from "@/lib/funcionamento";
 import { pontosDaLoja, type PontoRetirada } from "@/lib/retirada";
 import { useSobre } from "@/lib/usar-sobre";
 
@@ -19,27 +30,28 @@ import { useSobre } from "@/lib/usar-sobre";
  * comprava não achava nada disso.
  */
 
-/** As formas que o Mercado Pago oferece na tela de pagamento. */
+/**
+ * As formas que o Mercado Pago oferece, e em qual botão cada uma aparece.
+ *
+ * Escolhendo Pix, a tela do Mercado Pago mostra **só o Pix**. É o que faz o
+ * desconto se pagar: ele só existe porque essa forma custa 0,99% em vez de
+ * 4,98%.
+ */
 const FORMAS = [
   {
-    emoji: "⚡",
+    Icone: IconePix,
     nome: "Pix",
     detalhe: "Cai na hora, e o pedido já entra na fila.",
   },
   {
-    emoji: "💳",
+    Icone: IconeCartao,
     nome: "Cartão de crédito",
     detalhe: "À vista, sem parcelamento.",
   },
   {
-    emoji: "🟦",
-    nome: "Saldo do Mercado Pago",
-    detalhe: "Se você já tem dinheiro na conta do Mercado Pago.",
-  },
-  {
-    emoji: "",
+    Icone: IconeApplePay,
     nome: "Apple Pay",
-    detalhe: "No iPhone, com Face ID ou Touch ID.",
+    detalhe: "No iPhone, escolhendo cartão, com Face ID ou Touch ID.",
   },
 ];
 
@@ -47,6 +59,7 @@ export default function LojaPage() {
   const { foto, texto, telefone, linkWhatsApp } = useSobre();
   const [pontos, setPontos] = useState<PontoRetirada[]>([]);
   const [percentualPix, setPercentualPix] = useState(0);
+  const [funcionamento, setFuncionamento] = useState(FUNCIONAMENTO_PADRAO);
 
   useEffect(() => {
     fetch("/api/config-loja", { cache: "no-store" })
@@ -54,9 +67,12 @@ export default function LojaPage() {
       .then((c) => {
         setPontos(pontosDaLoja(c?.pontosRetirada));
         setPercentualPix(percentualDoPix(c?.descontoPix));
+        setFuncionamento(limparFuncionamento(c?.funcionamento));
       })
       .catch(() => setPontos(pontosDaLoja(null)));
   }, []);
+
+  const aberta = lojaAberta(funcionamento);
 
   return (
     <>
@@ -87,6 +103,33 @@ export default function LojaPage() {
             <IconeWhatsApp className="w-4 h-4" />
             {telefone}
           </a>
+        </section>
+
+        <CherryDivider />
+
+        {/* ---------- Quando a loja atende ---------- */}
+        <section>
+          <h2 className="font-display text-xl text-cherryDark">
+            Horário de funcionamento
+          </h2>
+          <div
+            className={`mt-3 rounded-2xl border px-4 py-3 font-body text-sm ${
+              aberta
+                ? "bg-green-50 border-green-200 text-green-900"
+                : "bg-blush/60 border-cherryLight/50 text-ink/75"
+            }`}
+          >
+            <p className="font-semibold">
+              {aberta ? "🟢 Aberta agora" : "🌙 Fechada agora"}
+            </p>
+            <p className="mt-0.5">{horarioEscrito(funcionamento)}</p>
+            {!aberta && (
+              <p className="text-xs mt-1.5">
+                Você pode montar o carrinho a qualquer hora — só o fechamento do
+                pedido espera a loja abrir.
+              </p>
+            )}
+          </div>
         </section>
 
         <CherryDivider />
@@ -152,17 +195,15 @@ export default function LojaPage() {
           </p>
 
           <div className="grid gap-2 mt-3">
-            {FORMAS.map((f) => (
+            {FORMAS.map(({ Icone, nome, detalhe }) => (
               <div
-                key={f.nome}
-                className="flex items-start gap-3 bg-white/70 border border-cherryLight/30 rounded-xl px-4 py-3 font-body text-sm"
+                key={nome}
+                className="flex items-center gap-3 bg-white/70 border border-cherryLight/30 rounded-xl px-4 py-3 font-body text-sm"
               >
-                <span className="text-xl leading-none shrink-0" aria-hidden="true">
-                  {f.emoji}
-                </span>
+                <Icone className="w-9 h-7 shrink-0 text-ink/80" />
                 <span className="min-w-0">
-                  <span className="block text-ink/85 font-semibold">{f.nome}</span>
-                  <span className="block text-xs text-ink/55">{f.detalhe}</span>
+                  <span className="block text-ink/85 font-semibold">{nome}</span>
+                  <span className="block text-xs text-ink/55">{detalhe}</span>
                 </span>
               </div>
             ))}

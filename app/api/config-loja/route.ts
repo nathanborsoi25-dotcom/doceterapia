@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
 import { configLoja } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { getConfigLoja, ID_CONFIG } from "@/lib/config-loja";
 import { limparBanners } from "@/lib/banners";
 import { percentualDoPix } from "@/lib/desconto-pix";
+import { limparFuncionamento } from "@/lib/funcionamento";
 import { CAMPOS_POLITICA } from "@/lib/politica";
 import { limparPontos } from "@/lib/retirada";
 
@@ -73,6 +75,7 @@ export async function PUT(req: Request) {
       Math.max(0, Math.floor(Number(v) || 0))
     ),
     descontoPix: manter(b.descontoPix, atual.descontoPix, percentualDoPix),
+    funcionamento: manter(b.funcionamento, atual.funcionamento, limparFuncionamento),
     banners: manter(b.banners, atual.banners, limparBanners),
     bannerAtivo: manter(b.bannerAtivo, atual.bannerAtivo, Boolean),
     bannerTitulo: manter(b.bannerTitulo, atual.bannerTitulo, (v) => texto(v, 80)),
@@ -91,6 +94,20 @@ export async function PUT(req: Request) {
     .insert(configLoja)
     .values(valores)
     .onConflictDoUpdate({ target: configLoja.id, set: atualizacao });
+
+  /*
+   * Manda o Next esquecer o que ele guardou das telas que leem esta
+   * configuração.
+   *
+   * Sem isto, a Camily salvava o banner (ou as regras da loja) e continuava
+   * vendo o texto antigo por MINUTOS — o Next guarda a página já montada e a
+   * serve de novo em cada visita, sem perguntar ao banco. Ela ficava salvando
+   * duas, três vezes achando que não tinha pegado.
+   *
+   * O `"layout"` faz a limpeza valer para as telas de dentro também, porque o
+   * rodapé com o telefone e a barra aparecem em todas elas.
+   */
+  revalidatePath("/", "layout");
 
   return NextResponse.json({ ok: true });
 }

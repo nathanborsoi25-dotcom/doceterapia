@@ -12,6 +12,7 @@ import { descricaoDoPonto, pontoRetiradaPorId, pontosDaLoja } from "@/lib/retira
 import { getConfigLoja } from "@/lib/config-loja";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
 import { descontoDoPix } from "@/lib/desconto-pix";
+import { avisoDeFechada, lojaAberta } from "@/lib/funcionamento";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
 import { criarPreferenciaDoPedido } from "@/lib/preferencia-mp";
 import { prazoDoSabor } from "@/lib/sabores";
@@ -57,6 +58,24 @@ export async function POST(req: Request) {
   const db = getDb();
   const tipoEntrega = body.tipoEntrega ?? "entrega";
   const ehPresente = body.ehPresente === true;
+
+  /*
+   * 0) Loja fechada não fecha pedido — e essa é a PRIMEIRA coisa conferida,
+   * antes de olhar carrinho, endereço ou estoque: é o motivo mais importante
+   * da recusa, e não faz sentido reclamar de um doce esgotado para quem só
+   * vai poder comprar amanhã de manhã.
+   *
+   * A checagem é aqui, no servidor, e não só na tela: o aviso some da frente
+   * de quem está com a página aberta desde antes de fechar, e o botão dela
+   * continuaria funcionando.
+   */
+  const configLoja = await getConfigLoja();
+  if (!lojaAberta(configLoja.funcionamento)) {
+    return NextResponse.json(
+      { error: avisoDeFechada(configLoja.funcionamento) },
+      { status: 409 }
+    );
+  }
 
   // 1) Remonta os itens A PARTIR DO BANCO. Nome e preço que vêm do navegador
   // são descartados — só o produtoId e a quantidade são aproveitados —, senão
@@ -280,10 +299,6 @@ export async function POST(req: Request) {
    * gravados no pedido são montados aqui, a partir da lista do servidor. Se
    * viessem prontos da tela, daria pra gravar qualquer endereço no pedido.
    */
-  // Uma leitura só da configuração da loja: serve pros pontos de retirada e
-  // pro percentual do desconto do Pix, mais abaixo.
-  const configLoja = await getConfigLoja();
-
   let pontoRetirada: string | null = null;
   if (tipoEntrega === "retirada") {
     const pontos = pontosDaLoja(configLoja.pontosRetirada);

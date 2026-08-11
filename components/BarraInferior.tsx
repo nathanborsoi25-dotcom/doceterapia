@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getClienteLogado } from "@/lib/api";
 import { EVENTO_CARRINHO, totalDeItens } from "@/lib/store";
 
 /**
@@ -22,7 +23,7 @@ const ITENS = [
   { href: "/promocoes", emoji: "🎁", label: "Promoções" },
   { href: "/carrinho", emoji: "🛒", label: "Carrinho" },
   { href: "/conta", emoji: "👤", label: "Conta" },
-];
+] as const;
 
 /** Telas onde a barra atrapalha mais do que ajuda. */
 const ESCONDER_EM = ["/admin", "/checkout", "/entrar", "/cadastro", "/esqueci-senha", "/redefinir-senha"];
@@ -30,6 +31,14 @@ const ESCONDER_EM = ["/admin", "/checkout", "/entrar", "/cadastro", "/esqueci-se
 export default function BarraInferior() {
   const caminho = usePathname() ?? "";
   const [itens, setItens] = useState(0);
+  /** `null` enquanto a resposta não chega — aí o último item não pisca. */
+  const [logado, setLogado] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getClienteLogado()
+      .then((c) => setLogado(Boolean(c)))
+      .catch(() => setLogado(false));
+  }, []);
 
   // Mesmo contador do cabeçalho: reage a quem adiciona por aqui (evento
   // próprio) e a quem mexe no carrinho em outra aba (evento storage).
@@ -46,6 +55,17 @@ export default function BarraInferior() {
 
   if (ESCONDER_EM.some((rota) => caminho.startsWith(rota))) return null;
 
+  /*
+   * Quem ainda não entrou vê "Entrar" no lugar de "Conta". Levar essa pessoa
+   * para /conta seria empurrá-la a uma tela vazia e depois para o login do
+   * mesmo jeito — um toque a mais para chegar no mesmo lugar.
+   */
+  const lista = ITENS.map((item) =>
+    item.href === "/conta" && logado === false
+      ? { href: "/entrar", emoji: "🔑", label: "Entrar" }
+      : item
+  );
+
   return (
     /*
      * A altura vira variável CSS porque o `layout.tsx` usa ela pra dar folga
@@ -58,7 +78,7 @@ export default function BarraInferior() {
       className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur shadow-[0_-15px_45px_rgba(10,10,10,0.10)] pb-[env(safe-area-inset-bottom)]"
     >
       <ul className="flex items-stretch justify-center max-w-lg mx-auto">
-        {ITENS.map((item) => {
+        {lista.map((item) => {
           // "/conta/pedidos" também acende "Conta"; "/" não acende nada além
           // do cardápio, que é a tela inicial.
           const ativo =

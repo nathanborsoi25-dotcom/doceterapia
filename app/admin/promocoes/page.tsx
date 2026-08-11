@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import CampoNumero from "@/components/CampoNumero";
 import VoltarAoPainel from "@/components/VoltarAoPainel";
 import EscolherFoto from "@/components/EscolherFoto";
@@ -50,6 +51,7 @@ function quemPodeUsar(c: Cupom): string {
 }
 
 export default function AdminPromocoesPage() {
+  const router = useRouter();
   const [cupons, setCupons] = useState<Cupom[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [banners, setBanners] = useState<BannerDaLoja[] | null>(null);
@@ -111,6 +113,7 @@ export default function AdminPromocoesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ descontoPix: descontoPix ?? 0 }),
       });
+      router.refresh();
       setPixSalvo(true);
       setTimeout(() => setPixSalvo(false), 3000);
     } finally {
@@ -212,6 +215,9 @@ export default function AdminPromocoesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ banners }),
       });
+      // Limpa o que o navegador guardou das telas do cliente: sem isso ela
+      // vai ver o banner antigo ao sair daqui e voltar pelo menu.
+      router.refresh();
       setBannerSalvo(true);
       setTimeout(() => setBannerSalvo(false), 3000);
     } finally {

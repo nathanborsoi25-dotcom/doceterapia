@@ -11,6 +11,7 @@ import {
 import type { Cliente, ConfiguracaoFrete, FaixaFrete, ItemPedido } from "../types";
 import type { PontoRetirada } from "../retirada";
 import type { BannerDaLoja } from "../banners";
+import { FUNCIONAMENTO_PADRAO, type Funcionamento } from "../funcionamento";
 
 // Catálogo de doces (gerenciado pelo admin, exibido no cardápio).
 export const produtos = pgTable("produtos", {
@@ -415,6 +416,14 @@ export const configLoja = pgTable("config_loja", {
    * Zero desliga. Não é cupom: vale pra todo mundo, sem código nenhum.
    */
   descontoPix: doublePrecision("desconto_pix").notNull().default(4),
+  /**
+   * Horário em que a loja aceita pedido (ver `lib/funcionamento.ts`). Fora
+   * dele o site não deixa fechar a compra.
+   */
+  funcionamento: jsonb("funcionamento")
+    .$type<Funcionamento>()
+    .notNull()
+    .default(FUNCIONAMENTO_PADRAO),
   /**
    * Os destaques do topo do cardápio, em carrossel (ver `lib/banners.ts`).
    * Lista vazia cai no banner único das colunas antigas, logo abaixo.

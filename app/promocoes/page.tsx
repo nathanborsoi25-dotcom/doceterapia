@@ -6,7 +6,6 @@ import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import { bannersVisiveis, type BannerDaLoja } from "@/lib/banners";
-import { percentualDoPix, percentualEscrito } from "@/lib/desconto-pix";
 import { reais } from "@/lib/formato";
 import { getMinhaConta, type MinhaConta } from "@/lib/api";
 
@@ -18,9 +17,38 @@ import { getMinhaConta, type MinhaConta } from "@/lib/api";
  * tinha conta encontrava. Quem chega pelo Instagram procurando desconto não
  * ia achar nem um nem outro.
  */
+/** Quanto cada coisa rende de ponto. Quem define é a Camily, no painel. */
+type RegrasDePonto = {
+  pontosPorReal: number;
+  pontosPorAvaliacao: number;
+  pontosPorStory: number;
+};
+
+type Recompensa = { id: string; nome: string; descricao: string; pontos: number };
+
+/**
+ * Quanto rende comprar, escrito do jeito que se fala.
+ *
+ * A Camily configura "pontos por real", e hoje isso vale **0,1** — dizer
+ * "0.1 pontos a cada R$ 1,00" não significa nada pra quem lê (e ainda sai com
+ * ponto no lugar de vírgula). Abaixo de 1, a frase vira de cabeça pra baixo:
+ * "1 ponto a cada R$ 10,00", que é a mesma conta em português.
+ */
+function quantoRendeComprar(pontosPorReal: number): string {
+  if (pontosPorReal <= 0) return "Você ganha pontos a cada compra.";
+
+  const inicio =
+    pontosPorReal >= 1
+      ? `${pontosPorReal === 1 ? "1 ponto" : `${pontosPorReal} pontos`} a cada ${reais(1)}`
+      : `1 ponto a cada ${reais(1 / pontosPorReal)}`;
+
+  return `${inicio} gasto. Os pontos entram quando o pagamento é confirmado.`;
+}
+
 export default function PromocoesPage() {
   const [banners, setBanners] = useState<BannerDaLoja[]>([]);
-  const [percentualPix, setPercentualPix] = useState(0);
+  const [regras, setRegras] = useState<RegrasDePonto | null>(null);
+  const [premios, setPremios] = useState<Recompensa[]>([]);
   const [conta, setConta] = useState<MinhaConta | null>(null);
   const [carregando, setCarregando] = useState(true);
 
@@ -29,20 +57,60 @@ export default function PromocoesPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
         setBanners(bannersVisiveis(c));
-        setPercentualPix(percentualDoPix(c?.descontoPix));
+        if (c) {
+          setRegras({
+            pontosPorReal: Number(c.pontosPorReal) || 0,
+            pontosPorAvaliacao: Number(c.pontosPorAvaliacao) || 0,
+            pontosPorStory: Number(c.pontosPorStory) || 0,
+          });
+        }
       })
       .catch(() => setBanners([]))
       .finally(() => setCarregando(false));
 
-    // Sem conta isso falha, e tudo bem: os cupons pessoais só existem pra
-    // quem entrou. O resto da tela continua valendo pra visitante.
+    /*
+     * O catálogo de prêmios é público de propósito: quem ainda não tem conta
+     * precisa ver pelo que os pontos são trocados ANTES de decidir criar uma.
+     */
+    fetch("/api/recompensas", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setPremios)
+      .catch(() => setPremios([]));
+
+    // Sem conta isso falha, e tudo bem: os cupons pessoais e o saldo só
+    // existem pra quem entrou. O resto da tela continua valendo pra visitante.
     getMinhaConta()
       .then(setConta)
       .catch(() => setConta(null));
   }, []);
 
   const cupons = conta?.cupons ?? [];
-  const vazia = !carregando && banners.length === 0 && percentualPix <= 0 && cupons.length === 0;
+  const vazia = !carregando && banners.length === 0 && cupons.length === 0;
+
+  /** As três formas de ganhar ponto, com os números que valem hoje. */
+  const formasDeGanhar = [
+    {
+      emoji: "🛍️",
+      titulo: "Comprando",
+      texto: quantoRendeComprar(regras?.pontosPorReal ?? 0),
+    },
+    {
+      emoji: "⭐",
+      titulo: "Avaliando o doce",
+      texto:
+        regras && regras.pontosPorAvaliacao > 0
+          ? `${regras.pontosPorAvaliacao} pontos por doce avaliado, depois que o pedido chega. Sua nota ainda ajuda outras pessoas a escolherem.`
+          : "Avalie os doces que você recebeu e ganhe pontos.",
+    },
+    {
+      emoji: "📸",
+      titulo: "Postando nos stories",
+      texto:
+        regras && regras.pontosPorStory > 0
+          ? `${regras.pontosPorStory} pontos: poste marcando @doceterapia_28, mande o print em Meus pedidos e a Camily libera.`
+          : "Poste o doce marcando @doceterapia_28 e mande o print.",
+    },
+  ];
 
   return (
     <>
@@ -75,27 +143,12 @@ export default function PromocoesPage() {
           </div>
         )}
 
-        {/* O desconto do Pix vale pra todo mundo, sem código — por isso vem
-            antes dos cupons, que dependem de ter ganhado um. */}
-        {percentualPix > 0 && (
-          <section className="bg-white/70 border border-cherryLight/40 rounded-2xl p-5 mb-6">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl" aria-hidden="true">
-                💸
-              </span>
-              <div className="min-w-0">
-                <h2 className="font-display text-xl text-cherryDark">
-                  {percentualEscrito(percentualPix)} de desconto no Pix
-                </h2>
-                <p className="font-body text-sm text-ink/70 mt-1">
-                  Vale pra todo mundo, sem cupom nenhum: é só escolher
-                  &ldquo;Pagar com Pix&rdquo; na hora de fechar o pedido, e o
-                  desconto já entra no valor.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
+        {/*
+         * O desconto do Pix NÃO é anunciado aqui: a Camily prefere contar isso
+         * na arte de um banner, e o site escrever a mesma coisa logo acima
+         * seria dizer duas vezes. Ele continua aparecendo onde decide a
+         * compra — no botão de pagar — e no perfil da loja.
+         */}
 
         {/* Os destaques que a Camily cadastrou, agora em grade — aqui a
             pessoa veio justamente pra olhar todos, não pra passar de lado. */}
@@ -162,6 +215,94 @@ export default function PromocoesPage() {
                 <CartaoCupom key={c.codigo} cupom={c} />
               ))}
             </div>
+          )}
+        </section>
+
+        <CherryDivider />
+
+        {/* ---------- Programa de pontos ---------- */}
+        <section>
+          <h2 className="font-display text-xl text-cherryDark">
+            Junte pontos e troque por doce
+          </h2>
+          <p className="font-body text-sm text-ink/60 mt-1">
+            Cada compra, cada avaliação e cada story viram pontos na sua conta.
+            Quando junta o suficiente, você troca por um dos prêmios aqui de
+            baixo.
+          </p>
+
+          {/* Quem está logado vê o próprio saldo — é o que dá sentido aos
+              números dos prêmios logo abaixo. */}
+          {conta && (
+            <div className="bg-cherryDark text-white rounded-2xl p-5 text-center mt-3">
+              <p className="font-body text-white/70 text-xs uppercase tracking-wide">
+                Seus pontos
+              </p>
+              <p className="font-display text-4xl mt-1">{conta.saldoPontos}</p>
+            </div>
+          )}
+
+          <div className="grid gap-2 mt-3">
+            {formasDeGanhar.map((f) => (
+              <div
+                key={f.titulo}
+                className="flex items-start gap-3 bg-white/70 border border-cherryLight/30 rounded-xl px-4 py-3 font-body text-sm"
+              >
+                <span className="text-xl leading-none shrink-0" aria-hidden="true">
+                  {f.emoji}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-ink/85 font-semibold">{f.titulo}</span>
+                  <span className="block text-xs text-ink/60 mt-0.5">{f.texto}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {premios.length > 0 && (
+            <>
+              <h3 className="font-display text-lg text-cherryDark mt-6">
+                O que dá pra trocar
+              </h3>
+              <div className="grid gap-2 mt-2">
+                {premios.map((p) => {
+                  // Só quem está logado tem saldo pra comparar.
+                  const falta = conta ? p.pontos - conta.saldoPontos : null;
+                  const podeResgatar = falta !== null && falta <= 0;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`flex flex-wrap items-center justify-between gap-2 border rounded-xl px-4 py-3 font-body text-sm ${
+                        podeResgatar
+                          ? "bg-green-50 border-green-200"
+                          : "bg-white/70 border-cherryLight/30"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-ink/85 font-semibold">{p.nome}</p>
+                        {p.descricao && (
+                          <p className="text-xs text-ink/55">{p.descricao}</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-cherryDark font-semibold">
+                          {p.pontos} pts
+                        </p>
+                        {falta !== null && (
+                          <p className="text-xs text-ink/55">
+                            {podeResgatar ? "você já pode!" : `faltam ${falta}`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="font-body text-xs text-ink/50 mt-2">
+                Para resgatar, é só falar com a Camily no WhatsApp na hora de
+                fazer o pedido.
+              </p>
+            </>
           )}
         </section>
       </main>

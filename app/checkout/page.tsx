@@ -7,6 +7,7 @@ import RodapeLinks from "@/components/RodapeLinks";
 import EnderecoVisitante from "@/components/EnderecoVisitante";
 import IconeWhatsApp from "@/components/IconeWhatsApp";
 import { descontoDoPix, percentualDoPix, percentualEscrito } from "@/lib/desconto-pix";
+import { avisoDeFechada, limparFuncionamento, lojaAberta } from "@/lib/funcionamento";
 import { reais } from "@/lib/formato";
 import { prazoDoSabor } from "@/lib/sabores";
 import { getCarrinho, type EnderecoVisitante as EnderecoDeVisitante } from "@/lib/store";
@@ -45,10 +46,17 @@ export default function CheckoutPage() {
    * Promoções, e zero desliga (aí só aparece um botão de pagar).
    */
   const [percentualPix, setPercentualPix] = useState(0);
+  /** Loja fechada: os botões de pagar saem do ar e um aviso toma o lugar. */
+  const [fechada, setFechada] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/config-loja", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((c) => setPercentualPix(percentualDoPix(c?.descontoPix)))
+      .then((c) => {
+        setPercentualPix(percentualDoPix(c?.descontoPix));
+        const f = limparFuncionamento(c?.funcionamento);
+        setFechada(lojaAberta(f) ? null : avisoDeFechada(f));
+      })
       .catch(() => setPercentualPix(0));
   }, []);
 
@@ -726,6 +734,19 @@ export default function CheckoutPage() {
          * travado naquela forma, e o desconto do Pix já aparece no valor do
          * botão, antes de sair do site.
          */}
+        {/* Loja fechada: o aviso toma o lugar dos botões de pagar. Deixá-los
+            ali só pra dar erro no toque seria pior do que explicar antes. */}
+        {fechada ? (
+          <div className="mt-6 bg-blush/70 border border-cherryLight/60 rounded-2xl p-5 text-center">
+            <p className="font-display text-lg text-cherryDark">
+              A loja está fechada agora 🌙
+            </p>
+            <p className="font-body text-sm text-ink/75 mt-2">{fechada}</p>
+            <p className="font-body text-xs text-ink/55 mt-2">
+              Seu carrinho fica guardado do jeito que está.
+            </p>
+          </div>
+        ) : (
         <div className="mt-6 grid gap-2">
           {/* O Pix está sempre aqui: é forma de pagamento, não promoção. O
               desconto só muda o valor e a linha de baixo. */}
@@ -748,6 +769,7 @@ export default function CheckoutPage() {
                   ? `${percentualEscrito(percentualPix)} de desconto — você economiza ${reais(descontoPix)}`
                   : "O pagamento cai na hora."}
               </span>
+              {/* O valor cheio riscado, pra diferença ficar evidente. */}
               {descontoPix > 0 && (
                 <span className="line-through tabular-nums">{reais(total)}</span>
               )}
@@ -772,9 +794,12 @@ export default function CheckoutPage() {
             </span>
           </button>
         </div>
+        )}
 
         <p className="text-xs text-ink/50 text-center mt-2 font-body">
-          {compraBloqueada && !carregandoFrete
+          {fechada
+            ? "O horário de atendimento é o mesmo todos os dias."
+            : compraBloqueada && !carregandoFrete
             ? enderecoEmBranco || enderecoIncompleto
               ? "Complete o endereço acima (ou escolha Retirada) para continuar."
               : "Para continuar, escolha Retirada acima."

@@ -43,20 +43,54 @@ export type DadosDaPreferencia = {
 };
 
 /**
- * O que o Checkout NÃO deve oferecer.
+ * Todos os tipos de pagamento que o Mercado Pago pode oferecer.
  *
- * Boleto ("ticket") fica sempre de fora, por decisão da loja. O resto depende
- * do botão que a pessoa apertou.
+ * A lista existe porque a regra abaixo funciona ao contrário: em vez de dizer
+ * o que tirar — e esquecer algum —, ela diz o que FICA e tira todo o resto.
+ * Foi o esquecimento que deixou o saldo em conta (`account_money`) e o
+ * Mercado Crédito (`consumer_credits`) aparecerem na tela do Pix.
+ */
+const TIPOS_DO_MERCADO_PAGO = [
+  "credit_card",
+  "debit_card",
+  "prepaid_card",
+  "ticket", // boleto
+  "bank_transfer", // Pix
+  "atm",
+  "account_money", // saldo na conta do Mercado Pago
+  "digital_currency",
+  "digital_wallet", // é por aqui que o Apple Pay aparece
+  "voucher_card",
+  "crypto_transfer",
+  "consumer_credits", // Mercado Crédito: a linha de crédito deles
+  "credits",
+];
+
+/**
+ * O que o Checkout NÃO deve oferecer, a partir do botão que a pessoa apertou.
+ *
+ * - **Pix**: fica SÓ o Pix. Sem saldo em conta, sem Mercado Crédito, sem
+ *   cartão. Quem apertou "Pagar com Pix" já viu o desconto no valor — se a
+ *   tela do Mercado Pago oferecesse outra forma ali, o desconto sairia do
+ *   bolso da Camily sem a taxa menor que o justifica.
+ * - **Crédito**: cartão de crédito, saldo em conta e carteira digital (o
+ *   Apple Pay). Fora o Mercado Crédito, que é parcelamento — e a loja não
+ *   trabalha com parcelamento.
+ *
+ * Boleto fica sempre de fora, por decisão da loja.
  */
 function tiposExcluidos(forma?: string): { id: string }[] {
-  if (forma === "pix") {
-    // Sobra só o Pix (que no Mercado Pago é "bank_transfer").
-    return [{ id: "ticket" }, { id: "credit_card" }, { id: "debit_card" }, { id: "atm" }];
-  }
-  if (forma === "credito") {
-    return [{ id: "ticket" }, { id: "bank_transfer" }, { id: "debit_card" }, { id: "atm" }];
-  }
-  return [{ id: "ticket" }];
+  const permitidos =
+    forma === "pix"
+      ? ["bank_transfer"]
+      : forma === "credito"
+        ? ["credit_card", "account_money", "digital_wallet"]
+        : // Sem forma escolhida, só o boleto sai (não deve acontecer hoje).
+          TIPOS_DO_MERCADO_PAGO.filter((t) => t !== "ticket");
+
+  return TIPOS_DO_MERCADO_PAGO.filter((t) => !permitidos.includes(t)).map((id) => ({
+    id,
+  }));
 }
 
 export async function criarPreferenciaDoPedido(
@@ -135,6 +169,12 @@ export async function criarPreferenciaDoPedido(
         installments: 1,
         default_installments: 1,
         excluded_payment_types: tiposExcluidos(dados.formaPagamento),
+        /*
+         * O Mercado Crédito também sai pelo NOME do método, não só pelo tipo.
+         * O Mercado Pago o trata dos dois jeitos dependendo da conta, e é
+         * parcelamento disfarçado — a loja não trabalha com parcelamento.
+         */
+        excluded_payment_methods: [{ id: "consumer_credits" }],
       },
       ...(ehLocal ? {} : { notification_url: `${origin}/api/pagamento/webhook` }),
     },

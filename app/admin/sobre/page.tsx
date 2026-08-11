@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import EscolherFoto from "@/components/EscolherFoto";
 import IconeWhatsApp from "@/components/IconeWhatsApp";
 import VoltarAoPainel from "@/components/VoltarAoPainel";
@@ -17,6 +18,7 @@ import { telefoneValido } from "@/lib/validacoes";
  * saber como vai ficar sem ter que salvar, sair do painel e ir olhar o site.
  */
 export default function AdminSobrePage() {
+  const router = useRouter();
   const [foto, setFoto] = useState("");
   const [textoSobre, setTextoSobre] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -65,6 +67,8 @@ export default function AdminSobrePage() {
         }),
       });
       if (!r.ok) throw new Error();
+      // Limpa o que o navegador guardou das telas do cliente.
+      router.refresh();
       setSalvo(true);
       setTimeout(() => setSalvo(false), 3000);
     } catch {
