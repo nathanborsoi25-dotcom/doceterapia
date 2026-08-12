@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import PreviaNoSite from "./PreviaNoSite";
 import { enviarFotoProduto } from "@/lib/api";
 
 const MAXIMO = 3;
@@ -138,6 +139,10 @@ export default function GaleriaFotos({
           o doce. Da galeria do celular ou do computador, até 8 MB cada.
         </span>
       )}
+
+      {/* A prévia mostra só a CAPA: é a única que passa pelo recorte do card,
+          e é onde o corte costuma decepcionar. */}
+      {lista[0] && !enviando && <PreviaNoSite url={lista[0]} formato="doce" />}
     </div>
   );
 }

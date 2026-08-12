@@ -360,13 +360,8 @@ export default function AdminPromocoesPage() {
                 valor={b.imagem}
                 onChange={(url) => mudarBanner(b.id, "imagem", url)}
                 label="Arte do destaque"
+                previa="banner"
               />
-              <p className="text-xs font-body text-ink/50 -mt-1">
-                Faça a arte em <strong>1080 × 540 px</strong> (o dobro de
-                largura da altura). No celular ela aparece com{" "}
-                <strong>322 × 161 px</strong>, então deixe o texto grande e
-                longe das bordas.
-              </p>
 
               <Campo
                 label="Nome (só pra você se achar aqui)"

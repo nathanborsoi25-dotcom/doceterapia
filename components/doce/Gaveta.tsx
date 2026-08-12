@@ -64,18 +64,35 @@ export default function Gaveta({ children }: { children: React.ReactNode }) {
     }
     document.addEventListener("keydown", noEsc);
 
+    // Onde o cardápio estava. Guardado ANTES de qualquer coisa mexer na
+    // rolagem, pra devolver a pessoa exatamente ao doce que ela tocou.
+    const rolagemDoCardapio = window.scrollY;
+
     // Trava a rolagem do fundo enquanto a gaveta está aberta, senão o dedo
     // rola o cardápio atrás em vez do conteúdo da gaveta.
-    const rolagemAntes = document.body.style.overflow;
+    const overflowAntes = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // Leva o foco pra dentro, pra quem usa teclado ou leitor de tela não
-    // continuar navegando na lista que ficou atrás.
-    painelRef.current?.focus();
+    /*
+     * Leva o foco pra dentro, pra quem usa teclado ou leitor de tela não
+     * continuar navegando na lista que ficou atrás.
+     *
+     * ⚠️ `preventScroll` é obrigatório aqui. Sem ele, dar foco faz o
+     * navegador rolar até o elemento — e como a gaveta é `fixed`, ele rolava
+     * o CARDÁPIO até o fim. A pessoa fechava o doce e caía num lugar
+     * completamente diferente de onde estava (1500px adiante, na medição).
+     */
+    painelRef.current?.focus({ preventScroll: true });
 
     return () => {
       document.removeEventListener("keydown", noEsc);
-      document.body.style.overflow = rolagemAntes;
+      document.body.style.overflow = overflowAntes;
+      /*
+       * Devolve o cardápio ao lugar. Instantâneo de propósito: o
+       * `scroll-behavior: smooth` do CSS faria a lista deslizar sozinha
+       * depois que a gaveta já sumiu, e o efeito é de site com defeito.
+       */
+      window.scrollTo({ top: rolagemDoCardapio, behavior: "instant" as ScrollBehavior });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

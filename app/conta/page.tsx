@@ -71,24 +71,26 @@ export default function ContaPage() {
               {a.rotulo}
             </button>
           ))}
+
+          {/*
+           * Sair fica na mesma fileira, mas NÃO é uma aba: é uma ação, e
+           * ainda por cima a única sem volta. Por isso o contorno vazado em
+           * vez do preenchimento das abas — fica à mão sem competir com elas.
+           *
+           * Estava no rodapé de cada aba antes, e ninguém achava.
+           */}
+          <button
+            onClick={sair}
+            className="shrink-0 ml-auto px-4 py-3 rounded-full text-sm font-body font-semibold border border-cherryDark/40 text-cherryDark bg-transparent hover:bg-cherryDark hover:text-white transition-colors"
+          >
+            Sair
+          </button>
         </div>
 
         <div className="mt-6">
           {aba === "pedidos" && <MeusPedidos />}
           {aba === "pontos" && <PontosECupons />}
           {aba === "dados" && <MeusDados />}
-        </div>
-
-        {/* Sair fica aqui embaixo: no celular o cabeçalho não tem espaço, e
-            este é o lugar onde a pessoa mexe na conta. Em vermelho porque é
-            uma ação de saída — antes era um link cinza que ninguém achava. */}
-        <div className="mt-10 flex justify-center">
-          <button
-            onClick={sair}
-            className="font-body text-sm font-semibold bg-cherryDark text-white rounded-full px-6 py-3 hover:bg-cherryMid active:scale-[0.98] transition-all"
-          >
-            Sair da minha conta
-          </button>
         </div>
       </main>
       <Footer />

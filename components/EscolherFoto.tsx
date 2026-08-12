@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import PreviaNoSite from "./PreviaNoSite";
 import { enviarFotoProduto } from "@/lib/api";
 
 /**
@@ -14,6 +15,7 @@ export default function EscolherFoto({
   onChange,
   label = "Foto do doce",
   vazio = "🍰",
+  previa,
 }: {
   valor: string;
   onChange: (url: string) => void;
@@ -21,6 +23,12 @@ export default function EscolherFoto({
   label?: string;
   /** Emoji que ocupa o quadrado enquanto não há foto. */
   vazio?: string;
+  /**
+   * Mostra como a imagem vai ficar no site, no recorte de verdade. Fora
+   * quando o corte não muda nada (a foto do rodapé, por exemplo, que já tem
+   * a própria prévia na tela "Sobre mim").
+   */
+  previa?: "doce" | "banner";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
@@ -100,6 +108,8 @@ export default function EscolherFoto({
           Escolha da galeria do celular ou do computador. Até 8 MB.
         </span>
       )}
+
+      {previa && valor && !enviando && <PreviaNoSite url={valor} formato={previa} />}
     </div>
   );
 }

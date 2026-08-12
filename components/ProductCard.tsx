@@ -178,6 +178,15 @@ export default function ProductCard({ produto }: { produto: Produto }) {
               <Link
                 key={`${url}-${i}`}
                 href={`/doce/${slugDoProduto(produto)}`}
+                /*
+                 * `scroll={false}` é o que mantém o cardápio parado.
+                 *
+                 * A gaveta é uma rota paralela: ao abrir, o Next rola até o
+                 * conteúdo novo — que fica no FIM do documento. O cardápio
+                 * saltava mais de mil pixels, e fechar o doce devolvia a
+                 * pessoa num lugar que ela nunca tinha visitado.
+                 */
+                scroll={false}
                 // Só a primeira foto entra na navegação por teclado: são todas
                 // o mesmo link, e três paradas por doce cansariam o caminho.
                 tabIndex={i > 0 ? -1 : undefined}
@@ -204,6 +213,7 @@ export default function ProductCard({ produto }: { produto: Produto }) {
         ) : (
           <Link
             href={`/doce/${slugDoProduto(produto)}`}
+                scroll={false}
             aria-label={`Ver ${produto.nome}`}
             className="flex items-center justify-center w-full h-full text-5xl"
           >
@@ -257,7 +267,11 @@ export default function ProductCard({ produto }: { produto: Produto }) {
 
       <div className="p-4 flex flex-col gap-1 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <Link href={`/doce/${slugDoProduto(produto)}`} className="min-w-0">
+          <Link
+            href={`/doce/${slugDoProduto(produto)}`}
+            scroll={false}
+            className="min-w-0"
+          >
             <h3 className="font-display text-lg text-cherryDark hover:text-cherryMid transition-colors">
               {produto.nome}
             </h3>
@@ -355,6 +369,7 @@ export default function ProductCard({ produto }: { produto: Produto }) {
 
         <Link
           href={`/doce/${slugDoProduto(produto)}`}
+                scroll={false}
           className="text-xs text-cherryDark underline font-body inline-flex items-center min-h-[44px] justify-self-start"
         >
           {sabores.length > 1
