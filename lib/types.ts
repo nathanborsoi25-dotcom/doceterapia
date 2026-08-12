@@ -10,6 +10,12 @@ export interface Produto {
   /** Quando entrou no cardápio (ISO). Usado pra ordenar o painel. */
   criadoEm?: string;
   preco: number; // em reais
+  /**
+   * Preço de promoção. Preenchido, é ele que o cliente paga, e o `preco`
+   * aparece riscado ao lado. Nulo ou zero = sem promoção (ver
+   * `lib/promocao.ts`).
+   */
+  precoPromocional?: number | null;
   /** Quanto custa produzir (ingredientes + embalagem). Alimenta o lucro. */
   custo?: number;
   /** Foto principal, a que vai pro cardápio. */
@@ -38,6 +44,11 @@ export interface SaborDoDoce {
   nome: string;
   fotoUrl: string;
   preco?: number | null;
+  /**
+   * Preço de promoção deste recheio. Cada um tem o seu, então dá pra pôr só o
+   * de Nutella em oferta (ver `lib/promocao.ts`).
+   */
+  precoPromocional?: number | null;
   /** Quanto custa produzir este recheio (alimenta o lucro). */
   custo?: number;
   estoque?: number | null;
@@ -88,6 +99,16 @@ export interface ItemPedido {
    */
   saborId?: string;
   saborNome?: string;
+  /**
+   * Este item entrou com preço de promoção.
+   *
+   * Fica gravado no item porque é o preço DAQUELE momento que vale ali — e
+   * porque é ele que decide se o cupom pode encostar neste item. Quem confere
+   * de verdade é o servidor, que refaz a conta a partir do banco.
+   */
+  emPromocao?: boolean;
+  /** Preço cheio, pro cliente ver de quanto por quanto ficou. */
+  precoCheio?: number;
 }
 
 export type StatusPedido =

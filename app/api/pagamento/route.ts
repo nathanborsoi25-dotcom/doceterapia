@@ -403,21 +403,57 @@ export async function POST(req: Request) {
   // `lib/preferencia-mp.ts`, compartilhada com a retomada do pagamento.
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
 
-  const url = await criarPreferenciaDoPedido(client, {
-    pedidoId: id,
-    itens,
-    valorFrete,
-    desconto,
-    descontoPix,
-    cupomCodigo,
-    comprador: {
-      nome: cliente.nome,
-      email: cliente.email,
-      telefone: cliente.telefone,
-    },
-    origin,
-    formaPagamento,
-  });
+  let url: string | null = null;
+  try {
+    url = await criarPreferenciaDoPedido(client, {
+      pedidoId: id,
+      itens,
+      valorFrete,
+      desconto,
+      descontoPix,
+      cupomCodigo,
+      comprador: {
+        nome: cliente.nome,
+        email: cliente.email,
+        telefone: cliente.telefone,
+      },
+      origin,
+      formaPagamento,
+    });
+  } catch (e) {
+    /*
+     * O Mercado Pago recusou a preferência.
+     *
+     * O pedido já está gravado a esta altura, e sem desfazer isso cada
+     * tentativa deixaria um pedido fantasma em "aguardando pagamento" no
+     * painel da Camily — foi o que aconteceu quando um valor inválido em
+     * `excluded_payment_types` derrubou o Checkout: o site respondia 500 e o
+     * painel enchia de pedidos que ninguém fez.
+     *
+     * Então desfazemos tudo o que a criação mexeu: o pedido sai, o uso do
+     * cupom volta, e o carrinho continua no navegador do cliente pra ele
+     * tentar de novo.
+     */
+    console.error("Mercado Pago recusou a preferência:", e);
+
+    await db.delete(pedidos).where(eq(pedidos.id, id));
+    if (cupomCodigo) {
+      await db
+        .update(cupons)
+        .set({ usos: sql`greatest(${cupons.usos} - 1, 0)` })
+        .where(eq(cupons.codigo, cupomCodigo));
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          "Não consegui abrir a tela de pagamento agora. Seu carrinho está guardado — tente de novo em instantes, e se continuar assim me chame no WhatsApp.",
+        // Ajuda a achar o motivo sem depender do log da Vercel.
+        detalhe: e instanceof Error ? e.message.slice(0, 300) : String(e).slice(0, 300),
+      },
+      { status: 502 }
+    );
+  }
 
   return NextResponse.json({
     pedidoId: id,

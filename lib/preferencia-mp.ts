@@ -43,12 +43,18 @@ export type DadosDaPreferencia = {
 };
 
 /**
- * Todos os tipos de pagamento que o Mercado Pago pode oferecer.
+ * Os tipos de pagamento do Mercado Pago.
  *
- * A lista existe porque a regra abaixo funciona ao contrário: em vez de dizer
- * o que tirar — e esquecer algum —, ela diz o que FICA e tira todo o resto.
- * Foi o esquecimento que deixou o saldo em conta (`account_money`) e o
- * Mercado Crédito (`consumer_credits`) aparecerem na tela do Pix.
+ * A regra abaixo funciona ao contrário: em vez de dizer o que tirar — e
+ * esquecer algum —, ela diz o que FICA e tira todo o resto. Foi o
+ * esquecimento que deixou o saldo em conta aparecer na tela do Pix.
+ *
+ * ⚠️ **Só entram aqui `payment_type_id` de verdade.** O Mercado Pago recusa a
+ * preferência inteira (erro 400, que chega como 500 na nossa tela) se um valor
+ * desconhecido for para `excluded_payment_types`. Foi exatamente isso que
+ * derrubou o pagamento em 11/08/2026: `consumer_credits` e `credits` estavam
+ * nesta lista, mas são **método**, não tipo — o lugar deles é
+ * `excluded_payment_methods`, mais abaixo.
  */
 const TIPOS_DO_MERCADO_PAGO = [
   "credit_card",
@@ -62,8 +68,6 @@ const TIPOS_DO_MERCADO_PAGO = [
   "digital_wallet", // é por aqui que o Apple Pay aparece
   "voucher_card",
   "crypto_transfer",
-  "consumer_credits", // Mercado Crédito: a linha de crédito deles
-  "credits",
 ];
 
 /**
