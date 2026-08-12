@@ -193,7 +193,13 @@ export type NovoPedido = Pick<
 export async function validarCupom(
   codigo: string,
   itens: ItemPedido[]
-): Promise<{ codigo: string; descricao: string; desconto: number }> {
+): Promise<{
+  codigo: string;
+  descricao: string;
+  desconto: number;
+  /** O cupom pegou só parte do carrinho — o resto já estava em promoção. */
+  valeuEmParte?: boolean;
+}> {
   const res = await fetch("/api/cupons/validar", POST_JSON({ codigo, itens }));
   if (!res.ok) {
     throw new Error(await erroDoServidor(res, "Não consegui conferir esse cupom."));

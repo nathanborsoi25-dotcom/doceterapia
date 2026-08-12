@@ -85,6 +85,8 @@ export default function CheckoutPage() {
   const [cupomAplicado, setCupomAplicado] = useState<{
     codigo: string;
     desconto: number;
+    /** Pegou só parte do carrinho: o resto já estava em promoção. */
+    valeuEmParte?: boolean;
   } | null>(null);
 
   // Presente e bilhete.
@@ -223,7 +225,11 @@ export default function CheckoutPage() {
     setConferindoCupom(true);
     try {
       const r = await validarCupom(codigoCupom, carrinho);
-      setCupomAplicado({ codigo: r.codigo, desconto: r.desconto });
+      setCupomAplicado({
+        codigo: r.codigo,
+        desconto: r.desconto,
+        valeuEmParte: r.valeuEmParte,
+      });
       setMostrarCupom(false);
     } catch (e) {
       setErroCupom(
@@ -657,17 +663,27 @@ export default function CheckoutPage() {
               Tenho um cupom de desconto
             </button>
           ) : cupomAplicado ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-              <span className="font-body text-sm text-green-800">
-                Cupom <strong>{cupomAplicado.codigo}</strong> aplicado — você
-                economizou {reais(cupomAplicado.desconto)}. 🍒
-              </span>
-              <button
-                onClick={tirarCupom}
-                className="font-body text-xs text-ink/50 underline inline-flex items-center min-h-[44px]"
-              >
-                Tirar
-              </button>
+            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 grid gap-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-body text-sm text-green-800">
+                  Cupom <strong>{cupomAplicado.codigo}</strong> aplicado — você
+                  economizou {reais(cupomAplicado.desconto)}. 🍒
+                </span>
+                <button
+                  onClick={tirarCupom}
+                  className="font-body text-xs text-ink/50 underline inline-flex items-center min-h-[44px]"
+                >
+                  Tirar
+                </button>
+              </div>
+              {/* Sem este aviso, a pessoa vê um desconto menor do que esperava
+                  e acha que o cupom veio errado. */}
+              {cupomAplicado.valeuEmParte && (
+                <span className="font-body text-xs text-green-800/80">
+                  O desconto valeu só nos doces fora de promoção — os que já
+                  estão em oferta não acumulam cupom.
+                </span>
+              )}
             </div>
           ) : (
             <div className="grid gap-2">

@@ -43,6 +43,7 @@ export async function buscarDocePorSlug(slug: string): Promise<DoceCompleto | nu
       descricao: linha.descricao,
       sabor: linha.sabor,
       preco: linha.preco,
+      precoPromocional: linha.precoPromocional,
       fotoUrl: linha.fotoUrl,
       fotos: linha.fotos ?? [],
       disponibilidade: linha.disponibilidade as Produto["disponibilidade"],
@@ -51,13 +52,23 @@ export async function buscarDocePorSlug(slug: string): Promise<DoceCompleto | nu
       ativo: linha.ativo,
       notaMedia: media?.media ?? 0,
       totalAvaliacoes: media?.total ?? 0,
+      /*
+       * O recheio vai INTEIRO. Esta lista era montada campo a campo e
+       * esquecia `disponibilidade` e `prazoDias`, então a tela do doce dizia
+       * "pronta entrega" num recheio que a Camily marcou como encomenda de 7
+       * dias — e agora esqueceria a promoção também.
+       */
       sabores: recheios.map((s) => ({
         id: s.id,
         produtoId: s.produtoId,
         nome: s.nome,
         fotoUrl: s.fotoUrl,
         preco: s.preco,
+        precoPromocional: s.precoPromocional,
+        custo: s.custo,
         estoque: s.estoque,
+        disponibilidade: s.disponibilidade as Produto["disponibilidade"] | null,
+        prazoDias: s.prazoDias,
         ordem: s.ordem,
         ativo: s.ativo,
       })),

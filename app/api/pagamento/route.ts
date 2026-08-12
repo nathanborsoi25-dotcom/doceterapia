@@ -15,6 +15,7 @@ import { descontoDoPix } from "@/lib/desconto-pix";
 import { avisoDeFechada, lojaAberta } from "@/lib/funcionamento";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
 import { criarPreferenciaDoPedido } from "@/lib/preferencia-mp";
+import { precoAPagar, precoCheio, subtotalQueAceitaCupom } from "@/lib/promocao";
 import { prazoDoSabor } from "@/lib/sabores";
 import { sql } from "drizzle-orm";
 import type { ItemPedido, Pedido } from "@/lib/types";
@@ -122,13 +123,25 @@ export async function POST(req: Request) {
       );
     }
 
+    /*
+     * O preço sai do banco, e a promoção também. O que vem do navegador não
+     * decide nada aqui — nem o preço cheio, nem se o doce está em oferta —,
+     * senão dava pra forjar uma promoção que não existe.
+     */
+    const cheio = precoCheio(produto, sabor);
+    const aPagar = precoAPagar(produto, sabor);
+
     itens.push({
       produtoId: produto.id,
       nome: produto.nome,
-      precoUnitario: sabor?.preco != null ? sabor.preco : produto.preco,
+      precoUnitario: aPagar,
       quantidade,
       saborId: sabor?.id,
       saborNome: sabor?.nome,
+      // Guardado no item porque é o que decide se o cupom encosta nele, e
+      // porque o pedido precisa continuar legível depois que a oferta acabar.
+      emPromocao: aPagar < cheio,
+      precoCheio: aPagar < cheio ? cheio : undefined,
     });
   }
 
@@ -318,6 +331,13 @@ export async function POST(req: Request) {
   const agora = new Date();
   const prazoEm = dataMinimaRetirada(prazoDias, agora);
 
+  /*
+   * Qual botão de pagar a pessoa apertou. Fica aqui em cima porque o cupom
+   * também olha pra isso (existe cupom antigo que só valia no Pix), e a
+   * cobrança sai travada nesta forma — ver `lib/preferencia-mp.ts`.
+   */
+  const formaPagamento = body.formaPagamento === "credito" ? "credito" : "pix";
+
   // 5) Cupom de desconto, se o cliente informou. A regra e o valor saem do
   // banco: o desconto que vier do navegador é ignorado.
   const subtotal = itens.reduce((a, i) => a + i.precoUnitario * i.quantidade, 0);
@@ -330,7 +350,15 @@ export async function POST(req: Request) {
       .select()
       .from(cupons)
       .where(eq(cupons.codigo, codigoInformado));
-    const r = avaliarCupom(cupom, subtotal, cliente.id);
+    // A base do desconto é o carrinho SEM os doces em promoção — e ela é
+    // calculada aqui, a partir dos itens que o servidor remontou.
+    const r = avaliarCupom(
+      cupom,
+      subtotal,
+      cliente.id,
+      formaPagamento,
+      subtotalQueAceitaCupom(itens)
+    );
     if (!r.valido) {
       return NextResponse.json({ error: r.motivo }, { status: 400 });
     }
@@ -339,12 +367,11 @@ export async function POST(req: Request) {
   }
 
   /*
-   * 5b) Desconto de quem paga no Pix. Vem da configuração da loja, nunca do
-   * navegador — o que chega de lá é só QUAL botão a pessoa apertou. E a
-   * cobrança sai travada nessa forma (ver `lib/preferencia-mp.ts`), senão
-   * bastaria clicar em Pix, ganhar o desconto e pagar no cartão.
+   * 5b) Desconto de quem paga no Pix. O percentual vem da configuração da
+   * loja, nunca do navegador. Vale em TUDO, inclusive nos doces em promoção:
+   * ele não é desconto de verdade, é a diferença de taxa que a Camily deixa
+   * de pagar ao receber no Pix.
    */
-  const formaPagamento = body.formaPagamento === "credito" ? "credito" : "pix";
   const descontoPix = descontoDoPix(
     formaPagamento,
     Math.max(0, subtotal - desconto + valorFrete),

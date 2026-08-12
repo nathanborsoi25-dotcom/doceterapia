@@ -26,6 +26,11 @@ export const produtos = pgTable("produtos", {
    */
   categoria: text("categoria").notNull().default(""),
   preco: doublePrecision("preco").notNull().default(0),
+  /**
+   * Preço de promoção. Preenchido, é ele que o cliente paga e o `preco` fica
+   * riscado ao lado; nulo, não há promoção. Ver `lib/promocao.ts`.
+   */
+  precoPromocional: doublePrecision("preco_promocional"),
   // Quanto custa PRODUZIR este doce (ingredientes + embalagem). É o que
   // permite calcular lucro de verdade nas métricas — sem isso só dá pra
   // mostrar faturamento. Zero significa "ainda não informado".
@@ -88,6 +93,8 @@ export const sabores = pgTable("sabores", {
   fotoUrl: text("foto_url").notNull().default(""),
   /** Nulo = cobra o preço do doce. Preencher só quando o sabor custa outro valor. */
   preco: doublePrecision("preco"),
+  /** Promoção deste recheio — cada um tem a sua. */
+  precoPromocional: doublePrecision("preco_promocional"),
   /**
    * Quanto custa produzir ESTE recheio. Fica no sabor porque é aqui que a
    * diferença aparece: uma torta de Nutella gasta mais que uma de brigadeiro,

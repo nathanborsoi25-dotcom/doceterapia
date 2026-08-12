@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import CampoNumero from "./CampoNumero";
+import CampoPromocao from "./CampoPromocao";
 import SobraPorUnidade from "./SobraPorUnidade";
 import { enviarFotoProduto } from "@/lib/api";
 import { reais } from "@/lib/formato";
@@ -197,10 +198,16 @@ export default function EditorSabores({
                   </div>
 
                   {/* Cada recheio tem preço e custo próprios, então a conta
-                      do que sobra também é de cada um. */}
+                      do que sobra — e a promoção — também são de cada um. */}
                   <SobraPorUnidade
                     preco={sabor.preco ?? produto.preco}
                     custo={sabor.custo ?? 0}
+                  />
+                  <CampoPromocao
+                    compacto
+                    preco={sabor.preco ?? produto.preco}
+                    promocional={sabor.precoPromocional ?? null}
+                    onChange={(v) => mudar(sabor.id, "precoPromocional", v)}
                   />
                 </div>
               </div>

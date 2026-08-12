@@ -41,7 +41,18 @@ export function avaliarCupom(
   cupom: Cupom | undefined,
   subtotal: number,
   clienteId: string,
-  formaPagamento?: string
+  formaPagamento?: string,
+  /**
+   * Quanto do carrinho o cupom pode abater — o subtotal MENOS os doces que já
+   * estão em promoção. Quando não vem, vale o carrinho inteiro (é o caso de
+   * quem chama sem saber de promoção nenhuma).
+   *
+   * Dois descontos em cima do mesmo doce comem a margem inteira. O cupom foi
+   * feito pra trazer gente de volta, não pra somar com a oferta — mas quem
+   * leva um doce em promoção junto de outros não perde o cupom por isso: ele
+   * simplesmente não encosta na parte que já está com desconto.
+   */
+  subtotalQueAceita?: number
 ): ResultadoCupom {
   if (!cupom || !cupom.ativo) {
     return { valido: false, motivo: "Cupom não encontrado." };
@@ -72,6 +83,8 @@ export function avaliarCupom(
     return { valido: false, motivo: "Cupom não encontrado." };
   }
 
+  // O pedido mínimo olha o carrinho INTEIRO: é o quanto a pessoa está
+  // gastando, tenha ou não doce em promoção no meio.
   if (subtotal < cupom.pedidoMinimo) {
     return {
       valido: false,
@@ -79,12 +92,22 @@ export function avaliarCupom(
     };
   }
 
-  const bruto =
-    cupom.tipo === "percentual" ? (subtotal * cupom.valor) / 100 : cupom.valor;
+  const base = subtotalQueAceita ?? subtotal;
 
-  // O desconto nunca passa do subtotal: o frete continua sendo pago, e o
-  // pedido jamais fica com valor negativo.
-  const desconto = Math.min(Math.max(bruto, 0), subtotal);
+  if (base <= 0) {
+    return {
+      valido: false,
+      motivo:
+        "Os doces do seu carrinho já estão em promoção, e o cupom não vale junto com ela. O desconto do Pix continua valendo. 🍒",
+    };
+  }
+
+  const bruto = cupom.tipo === "percentual" ? (base * cupom.valor) / 100 : cupom.valor;
+
+  // O desconto nunca passa da parte que ele pode abater: o frete continua
+  // sendo pago, o doce em promoção não é descontado de novo, e o pedido
+  // jamais fica com valor negativo.
+  const desconto = Math.min(Math.max(bruto, 0), base);
 
   return { valido: true, desconto: Math.round(desconto * 100) / 100, cupom };
 }

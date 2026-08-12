@@ -13,11 +13,11 @@ import {
   doceEsgotado,
   estoqueDoSabor,
   prazoDoSabor,
-  precoDoSabor,
   saborEsgotado,
   saboresVisiveis,
 } from "@/lib/sabores";
 import { reais } from "@/lib/formato";
+import { emPromocao, precoAPagar, precoCheio } from "@/lib/promocao";
 import { fotosDoProduto } from "@/lib/fotos";
 import { slugDoProduto } from "@/lib/slug";
 import type { Produto } from "@/lib/types";
@@ -64,7 +64,11 @@ export default function ProductCard({ produto }: { produto: Produto }) {
   // Por isso o trilho de fotos só existe no doce SEM recheios — com eles,
   // trocar de recheio é que troca a foto.
   const fotosDoCard = sabor?.fotoUrl ? [sabor.fotoUrl] : fotos;
-  const preco = precoDoSabor(produto, sabor);
+
+  // Com promoção, `preco` é o que ela paga e `precoDeLista` é o riscado.
+  const preco = precoAPagar(produto, sabor);
+  const precoDeLista = precoCheio(produto, sabor);
+  const estaEmPromocao = emPromocao(produto, sabor);
   const estoque = estoqueDoSabor(produto, sabor);
   const disponibilidade = disponibilidadeDoSabor(produto, sabor);
   const prazo = prazoDoSabor(produto, sabor);
@@ -360,8 +364,21 @@ export default function ProductCard({ produto }: { produto: Produto }) {
 
         <div className="grid gap-2 mt-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-display text-lg text-ink shrink-0">
-              {reais(preco)}
+            {/* Em promoção, o preço cheio fica riscado em cima e o novo
+                embaixo: é a leitura que a pessoa faz sem precisar comparar. */}
+            <span className="shrink-0 grid">
+              {estaEmPromocao && (
+                <span className="font-body text-xs text-ink/45 line-through leading-none">
+                  {reais(precoDeLista)}
+                </span>
+              )}
+              <span
+                className={`font-display text-lg leading-tight ${
+                  estaEmPromocao ? "text-cherryDark font-bold" : "text-ink"
+                }`}
+              >
+                {reais(preco)}
+              </span>
             </span>
 
             {esgotado ? (

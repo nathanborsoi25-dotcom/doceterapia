@@ -21,6 +21,7 @@ import {
   resumoDePreco,
   situacaoDoEstoque,
 } from "@/lib/catalogo";
+import CampoPromocao from "@/components/CampoPromocao";
 import SobraPorUnidade from "@/components/SobraPorUnidade";
 import { fotosDoProduto } from "@/lib/fotos";
 import type { Produto, SaborDoDoce } from "@/lib/types";
@@ -367,6 +368,12 @@ export default function AdminProdutosPage() {
                           />
                         </label>
                       </div>
+
+                      <CampoPromocao
+                        preco={produto.preco}
+                        promocional={produto.precoPromocional ?? null}
+                        onChange={(v) => handleCampo(produto.id, "precoPromocional", v)}
+                      />
 
                       <SobraPorUnidade
                         preco={produto.preco}

@@ -1,6 +1,7 @@
 "use client";
 
-import { chaveDoItem, precoDoSabor } from "./sabores";
+import { chaveDoItem } from "./sabores";
+import { precoAPagar, precoCheio } from "./promocao";
 import type { ItemPedido, Produto, SaborDoDoce } from "./types";
 
 /**
@@ -115,13 +116,19 @@ export function definirQuantidadeNoCarrinho(
   if (existente) {
     existente.quantidade = desejada;
   } else if (desejada > 0) {
+    // O preço promocional entra aqui já — mas quem manda é o servidor, que
+    // refaz esta conta a partir do banco na hora de fechar o pedido.
+    const cheio = precoCheio(produto, sabor);
+    const aPagar = precoAPagar(produto, sabor);
     itens.push({
       produtoId: produto.id,
       nome: produto.nome,
-      precoUnitario: precoDoSabor(produto, sabor),
+      precoUnitario: aPagar,
       quantidade: desejada,
       saborId: sabor?.id,
       saborNome: sabor?.nome,
+      emPromocao: aPagar < cheio,
+      precoCheio: aPagar < cheio ? cheio : undefined,
     });
   }
 

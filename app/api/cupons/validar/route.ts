@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { cupons, produtos } from "@/lib/db/schema";
+import { cupons, produtos, sabores } from "@/lib/db/schema";
 import { getClienteLogado } from "@/lib/cliente-logado";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
+import { precoAPagar, precoCheio } from "@/lib/promocao";
 import type { ItemPedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -34,19 +35,38 @@ export async function POST(req: Request) {
   const ids = Array.from(
     new Set((body.itens ?? []).map((i) => i?.produtoId).filter(Boolean) as string[])
   );
-  const doBanco = ids.length
-    ? await db.select().from(produtos).where(inArray(produtos.id, ids))
-    : [];
-  const precoPorId = new Map(doBanco.map((p) => [p.id, p.preco]));
 
-  const subtotal = (body.itens ?? []).reduce((a, i) => {
-    const preco = precoPorId.get(i?.produtoId) ?? 0;
-    const q = Math.floor(Number(i?.quantidade)) || 0;
-    return a + preco * Math.max(0, q);
-  }, 0);
+  // Os recheios entram na conta: um recheio pode custar mais que o doce, e
+  // pode estar em promoção sozinho. Sem eles o subtotal saía errado.
+  const [doBanco, recheios] = await Promise.all([
+    ids.length ? db.select().from(produtos).where(inArray(produtos.id, ids)) : [],
+    ids.length ? db.select().from(sabores).where(inArray(sabores.produtoId, ids)) : [],
+  ]);
+  const porId = new Map(doBanco.map((p) => [p.id, p]));
+  const saborPorId = new Map(recheios.map((s) => [s.id, s]));
+
+  /*
+   * Duas somas: o carrinho inteiro (que decide o pedido mínimo) e só a parte
+   * fora de promoção (que é onde o cupom pode encostar). Os preços saem do
+   * banco — o que vem do navegador não serve nem aqui, senão dava pra inflar
+   * o desconto ou forjar uma promoção.
+   */
+  let subtotal = 0;
+  let subtotalQueAceita = 0;
+
+  for (const item of body.itens ?? []) {
+    const produto = porId.get(item?.produtoId);
+    if (!produto) continue;
+    const sabor = item?.saborId ? saborPorId.get(item.saborId) : undefined;
+    const q = Math.max(0, Math.floor(Number(item?.quantidade)) || 0);
+
+    const aPagar = precoAPagar(produto, sabor);
+    subtotal += aPagar * q;
+    if (aPagar >= precoCheio(produto, sabor)) subtotalQueAceita += aPagar * q;
+  }
 
   const [cupom] = await db.select().from(cupons).where(eq(cupons.codigo, codigo));
-  const r = avaliarCupom(cupom, subtotal, cliente.id);
+  const r = avaliarCupom(cupom, subtotal, cliente.id, undefined, subtotalQueAceita);
 
   if (!r.valido) {
     return NextResponse.json({ error: r.motivo }, { status: 400 });
@@ -56,5 +76,8 @@ export async function POST(req: Request) {
     codigo: r.cupom.codigo,
     descricao: r.cupom.descricao,
     desconto: r.desconto,
+    /* A tela avisa quando o cupom valeu só em parte do carrinho, pra pessoa
+       não achar que o desconto veio menor por engano. */
+    valeuEmParte: subtotalQueAceita > 0 && subtotalQueAceita < subtotal,
   });
 }

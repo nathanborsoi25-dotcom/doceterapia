@@ -28,6 +28,7 @@ export async function GET() {
       nome: s.nome,
       fotoUrl: s.fotoUrl,
       preco: s.preco,
+      precoPromocional: s.precoPromocional,
       custo: s.custo,
       estoque: s.estoque,
       disponibilidade: s.disponibilidade as SaborDoDoce["disponibilidade"],
@@ -69,6 +70,16 @@ export async function POST(req: Request) {
     sabor: p.sabor ?? "",
     categoria: (p.categoria ?? "").trim().slice(0, 40),
     preco: p.preco ?? 0,
+    /*
+     * Promoção: zero ou vazio significa "sem promoção", e vira null. Um valor
+     * MAIOR que o preço normal é erro de digitação — guardamos assim mesmo
+     * (pra ela ver e corrigir), e quem ignora é `lib/promocao.ts`, que só
+     * aplica a promoção quando ela é realmente menor.
+     */
+    precoPromocional: (() => {
+      const n = Number(p.precoPromocional);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    })(),
     custo: Math.max(0, Number(p.custo) || 0),
     fotoUrl: p.fotoUrl ?? "",
     // No máximo 3, sem repetidas e sem vazias. A primeira é a do cardápio.
@@ -103,6 +114,11 @@ export async function POST(req: Request) {
         nome: s.nome.trim().slice(0, 60),
         fotoUrl: typeof s.fotoUrl === "string" ? s.fotoUrl : "",
         preco: numeroOuNulo(s.preco),
+        // Cada recheio tem a sua promoção.
+        precoPromocional: (() => {
+          const n = numeroOuNulo(s.precoPromocional);
+          return n != null && n > 0 ? n : null;
+        })(),
         custo: Math.max(0, Number(s.custo) || 0),
         estoque: (() => {
           const n = numeroOuNulo(s.estoque);

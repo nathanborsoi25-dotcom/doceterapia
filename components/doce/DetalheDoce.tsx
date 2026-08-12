@@ -10,10 +10,10 @@ import {
   doceEsgotado,
   estoqueDoSabor,
   prazoDoSabor,
-  precoDoSabor,
   saborEsgotado,
   saboresVisiveis,
 } from "@/lib/sabores";
+import { emPromocao, precoAPagar, precoCheio } from "@/lib/promocao";
 import type { Avaliacao, Produto } from "@/lib/types";
 
 /**
@@ -52,7 +52,9 @@ export default function DetalheDoce({
   const fotos = sabor?.fotoUrl ? [sabor.fotoUrl] : galeria;
   const fotoAtual = fotos[Math.min(foto, fotos.length - 1)];
 
-  const preco = precoDoSabor(produto, sabor);
+  const preco = precoAPagar(produto, sabor);
+  const precoDeLista = precoCheio(produto, sabor);
+  const estaEmPromocao = emPromocao(produto, sabor);
   const estoque = estoqueDoSabor(produto, sabor);
   const disponibilidade = disponibilidadeDoSabor(produto, sabor);
   const prazo = prazoDoSabor(produto, sabor);
@@ -185,7 +187,9 @@ export default function DetalheDoce({
               {sabores.map((s) => {
                 const acabou = saborEsgotado(s);
                 const escolhido = s.id === saborId;
-                const precoDele = precoDoSabor(produto, s);
+                // O botão do recheio mostra o preço que vale — se aquele
+                // recheio está em oferta, é o da oferta.
+                const precoDele = precoAPagar(produto, s);
                 return (
                   <button
                     key={s.id}
@@ -249,7 +253,34 @@ export default function DetalheDoce({
           </p>
         )}
 
-        <p className="font-display text-3xl text-ink mt-1">{reais(preco)}</p>
+        {/* Preço. Em promoção, o cheio riscado vem antes e o selo diz quanto
+            ela economiza — o número sozinho não conta essa história. */}
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          {estaEmPromocao && (
+            <span className="font-body text-base text-ink/45 line-through">
+              {reais(precoDeLista)}
+            </span>
+          )}
+          <p
+            className={`font-display text-3xl ${
+              estaEmPromocao ? "text-cherryDark" : "text-ink"
+            }`}
+          >
+            {reais(preco)}
+          </p>
+          {estaEmPromocao && (
+            <span className="font-body text-xs font-bold bg-cherryDark text-white rounded-full px-3 py-1.5">
+              Economize {reais(precoDeLista - preco)}
+            </span>
+          )}
+        </div>
+
+        {estaEmPromocao && (
+          <p className="font-body text-xs text-ink/55">
+            Doce em promoção não aceita cupom — mas o desconto do Pix continua
+            valendo.
+          </p>
+        )}
 
         {/* Quantidade + adicionar */}
         {esgotado ? (

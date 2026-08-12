@@ -259,6 +259,10 @@ async function main() {
     DEFAULT '{"abreAs":9,"fechaAs":22,"ativo":true}'::jsonb
   `;
 
+  console.log("15) Preco de promocao no doce e em cada recheio...");
+  await sql`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS preco_promocional double precision`;
+  await sql`ALTER TABLE sabores ADD COLUMN IF NOT EXISTS preco_promocional double precision`;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns
