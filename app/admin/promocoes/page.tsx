@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import AvisoSalvo from "@/components/AvisoSalvo";
 import CampoNumero from "@/components/CampoNumero";
 import VoltarAoPainel from "@/components/VoltarAoPainel";
 import EscolherFoto from "@/components/EscolherFoto";
+import { useAvisoSalvo } from "@/lib/usar-aviso-salvo";
 import {
   bannerVazio,
   bannersDaLoja,
@@ -62,6 +64,7 @@ export default function AdminPromocoesPage() {
   /** Desconto automático de quem paga no Pix, em %. Zero desliga. */
   const [descontoPix, setDescontoPix] = useState<number | null>(null);
   const [salvandoPix, setSalvandoPix] = useState(false);
+  const { aviso: avisoSalvo, avisarErro } = useAvisoSalvo();
   const [pixSalvo, setPixSalvo] = useState(false);
 
   const [novo, setNovo] = useState({
@@ -108,14 +111,19 @@ export default function AdminPromocoesPage() {
     setSalvandoPix(true);
     setPixSalvo(false);
     try {
-      await fetch("/api/config-loja", {
+      const r = await fetch("/api/config-loja", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ descontoPix: descontoPix ?? 0 }),
       });
+      // Sem esta conferência o botão dizia "Salvo ✓" mesmo quando o servidor
+      // recusava — e o desconto continuava o antigo, sem ninguém saber.
+      if (!r.ok) throw new Error("recusado");
       router.refresh();
       setPixSalvo(true);
       setTimeout(() => setPixSalvo(false), 3000);
+    } catch {
+      avisarErro("Não consegui salvar o desconto do Pix. Tenta de novo?");
     } finally {
       setSalvandoPix(false);
     }
@@ -210,16 +218,19 @@ export default function AdminPromocoesPage() {
     setSalvandoBanner(true);
     setBannerSalvo(false);
     try {
-      await fetch("/api/config-loja", {
+      const r = await fetch("/api/config-loja", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ banners }),
       });
+      if (!r.ok) throw new Error("recusado");
       // Limpa o que o navegador guardou das telas do cliente: sem isso ela
       // vai ver o banner antigo ao sair daqui e voltar pelo menu.
       router.refresh();
       setBannerSalvo(true);
       setTimeout(() => setBannerSalvo(false), 3000);
+    } catch {
+      avisarErro("Não consegui salvar os banners. Tenta de novo?");
     } finally {
       setSalvandoBanner(false);
     }
@@ -572,6 +583,8 @@ export default function AdminPromocoesPage() {
           </div>
         ))}
       </div>
+
+      <AvisoSalvo aviso={avisoSalvo} />
     </main>
   );
 }

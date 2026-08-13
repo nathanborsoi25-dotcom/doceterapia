@@ -6,9 +6,16 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import BannerPromocao from "@/components/BannerPromocao";
+import ConviteInstalar from "@/components/ConviteInstalar";
 import CherryDivider from "@/components/CherryDivider";
 import { getCategorias, getProdutos } from "@/lib/api";
-import { agruparPorCategoria, categoriaDoProduto, categoriasDe } from "@/lib/catalogo";
+import {
+  agruparPorCategoria,
+  categoriaDoProduto,
+  categoriasDe,
+  combinaComBusca,
+  ordenarPorNota,
+} from "@/lib/catalogo";
 import type { Produto } from "@/lib/types";
 
 /** Vira "tortas-de-chocolate" — serve de id da seção e de alvo do atalho. */
@@ -37,6 +44,39 @@ export default function CatalogoPage() {
    */
   const [categoriaVisivel, setCategoriaVisivel] = useState("");
   const fileiraRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Busca do cardápio.
+   *
+   * O campo mora no MESMO lugar da fileira de categorias, e um substitui o
+   * outro: os dois juntos empilhariam quase 90px de barra grudada no topo,
+   * comendo um quinto da tela de um celular justamente enquanto a pessoa
+   * tenta ver doce. Durante a busca as categorias não fazem falta — quem
+   * digitou "nutella" não quer mais navegar por seção.
+   */
+  const [busca, setBusca] = useState("");
+  const [campoAberto, setCampoAberto] = useState(false);
+  const campoRef = useRef<HTMLInputElement>(null);
+
+  const termo = busca.trim();
+  /** `null` = ninguém buscou nada; o cardápio inteiro continua na tela. */
+  const resultados = useMemo(
+    () =>
+      termo ? ordenarPorNota(produtos.filter((p) => combinaComBusca(p, termo))) : null,
+    [produtos, termo]
+  );
+
+  function abrirBusca() {
+    setCampoAberto(true);
+    // `preventScroll` porque o foco puxaria a página até o campo, e ele já
+    // está à vista — a tela daria um salto sem motivo.
+    requestAnimationFrame(() => campoRef.current?.focus({ preventScroll: true }));
+  }
+
+  function fecharBusca() {
+    setBusca("");
+    setCampoAberto(false);
+  }
 
   useEffect(() => {
     getProdutos()
@@ -77,6 +117,8 @@ export default function CatalogoPage() {
    */
   useEffect(() => {
     if (secoes.length === 0) return;
+    // Durante a busca não há seções na tela pra acompanhar.
+    if (resultados) return;
 
     /** Altura da fileira fixa mais um respiro. */
     const LINHA = 96;
@@ -98,7 +140,7 @@ export default function CatalogoPage() {
       window.removeEventListener("scroll", aoRolar);
       window.removeEventListener("resize", aoRolar);
     };
-  }, [secoes]);
+  }, [secoes, resultados]);
 
   /**
    * Mantém a categoria acesa à vista na fileira.
@@ -149,6 +191,7 @@ export default function CatalogoPage() {
 
         <CherryDivider />
         <BannerPromocao />
+        <ConviteInstalar />
 
         {/*
          * Categorias: grudam no topo enquanto o cardápio rola, e a que está
@@ -159,33 +202,72 @@ export default function CatalogoPage() {
          * As margens negativas levam a fileira até a beirada da tela, pra
          * rolagem lateral começar onde o dedo já está.
          */}
-        {categorias.length > 1 && (
-          <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 md:-mx-12 px-4 sm:px-6 md:px-12 bg-cream/95 backdrop-blur border-b border-cherryLight/25 mb-5">
-            <div
-              ref={fileiraRef}
-              className="max-w-5xl mx-auto flex gap-2 overflow-x-auto py-2.5"
-            >
-              {categorias.map((c) => {
-                const ativa = categoriaVisivel === c;
-                return (
-                  <button
-                    key={c}
-                    data-chip={c}
-                    onClick={() => irPara(c)}
-                    aria-current={ativa ? "true" : undefined}
-                    className={`shrink-0 px-4 py-2.5 rounded-full text-sm font-body border transition-colors ${
-                      ativa
-                        ? "bg-cherryDark text-white border-cherryDark font-semibold"
-                        : "bg-white/70 text-ink/70 border-cherryLight/50 hover:border-cherryDark"
-                    }`}
+        <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 md:-mx-12 px-4 sm:px-6 md:px-12 bg-cream/95 backdrop-blur border-b border-cherryLight/25 mb-5">
+          <div className="max-w-5xl mx-auto flex items-center gap-2 py-2.5">
+            {campoAberto ? (
+              <>
+                <span aria-hidden className="text-cherryMid shrink-0">
+                  <IconeLupa />
+                </span>
+                <input
+                  ref={campoRef}
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  onKeyDown={(e) => e.key === "Escape" && fecharBusca()}
+                  type="search"
+                  enterKeyHint="search"
+                  placeholder="Buscar doce, recheio..."
+                  aria-label="Buscar no cardápio"
+                  className="min-w-0 flex-1 bg-transparent font-body text-ink placeholder:text-ink/40 focus:outline-none"
+                />
+                <button
+                  onClick={fecharBusca}
+                  className="shrink-0 font-body text-sm text-cherryDark px-2"
+                >
+                  Fechar
+                </button>
+              </>
+            ) : (
+              <>
+                {/* A lupa fica FORA da fileira que rola: buscar não pode
+                    depender de a pessoa achar o botão empurrado pro lado. */}
+                <button
+                  onClick={abrirBusca}
+                  aria-label="Buscar no cardápio"
+                  className="shrink-0 w-11 h-11 rounded-full bg-white/70 border border-cherryLight/50 text-cherryMid flex items-center justify-center hover:border-cherryDark transition-colors"
+                >
+                  <IconeLupa />
+                </button>
+
+                {categorias.length > 1 && (
+                  <div
+                    ref={fileiraRef}
+                    className="min-w-0 flex-1 flex gap-2 overflow-x-auto"
                   >
-                    {c}
-                  </button>
-                );
-              })}
-            </div>
+                    {categorias.map((c) => {
+                      const ativa = categoriaVisivel === c;
+                      return (
+                        <button
+                          key={c}
+                          data-chip={c}
+                          onClick={() => irPara(c)}
+                          aria-current={ativa ? "true" : undefined}
+                          className={`shrink-0 px-4 py-2.5 rounded-full text-sm font-body border transition-colors ${
+                            ativa
+                              ? "bg-cherryDark text-white border-cherryDark font-semibold"
+                              : "bg-white/70 text-ink/70 border-cherryLight/50 hover:border-cherryDark"
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        )}
+        </div>
 
         {carregando ? (
           <p className="text-center font-body text-ink/60">Carregando cardápio...</p>
@@ -193,6 +275,44 @@ export default function CatalogoPage() {
           <p className="text-center font-body text-ink/60">
             Nenhum doce no cardápio ainda.
           </p>
+        ) : resultados ? (
+          /* Resultado da busca: uma lista só, sem separar por categoria — quem
+             procurou pelo nome quer ver o doce, não em que seção ele mora. */
+          <div className="max-w-5xl mx-auto">
+            {resultados.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-5xl" aria-hidden>
+                  🔍
+                </p>
+                <p className="font-display text-xl text-cherryDark mt-3">
+                  Não achei nenhum doce com “{termo}”
+                </p>
+                <p className="font-body text-sm text-ink/65 mt-2">
+                  Tente outra palavra — ou dê uma olhada no cardápio inteiro,
+                  que tem coisa boa esperando. 🍒
+                </p>
+                <button
+                  onClick={fecharBusca}
+                  className="mt-4 bg-cherryDark text-white rounded-full px-6 py-3 font-body font-semibold hover:bg-cherryMid transition-colors"
+                >
+                  Ver o cardápio inteiro
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="font-body text-sm text-ink/60 mb-4">
+                  {resultados.length}{" "}
+                  {resultados.length === 1 ? "doce encontrado" : "doces encontrados"}{" "}
+                  para “{termo}”
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {resultados.map((produto) => (
+                    <ProductCard key={produto.id} produto={produto} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         ) : (
           <div className="max-w-5xl mx-auto grid gap-10">
             {secoes.map(({ categoria: nome, doces }) => (
@@ -226,5 +346,27 @@ export default function CatalogoPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+/**
+ * A lupa, feita de geometria simples: um círculo e um risco saindo dele.
+ * Ícone pequeno com path escrito à mão é onde já saiu borrão antes (o símbolo
+ * do Pix precisou de três tentativas) — aqui não há curva pra errar.
+ */
+function IconeLupa() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="6.5" />
+      <line x1="15.8" y1="15.8" x2="20" y2="20" />
+    </svg>
   );
 }

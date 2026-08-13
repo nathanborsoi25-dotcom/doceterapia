@@ -21,7 +21,12 @@ import {
 import { prazoMaximoEmDias } from "@/lib/prazo";
 import { pontosDaLoja, type PontoRetirada } from "@/lib/retirada";
 import type { Cliente, ItemPedido } from "@/lib/types";
-import { calcularFretePorEndereco } from "@/lib/shipping";
+import {
+  calcularFretePorEndereco,
+  faltaParaFreteGratis,
+  minimoFreteGratis,
+  type CalculoFrete,
+} from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
 import { useSobre } from "@/lib/usar-sobre";
 import type { ConfiguracaoFrete, FormaPagamento, TipoEntrega } from "@/lib/types";
@@ -32,7 +37,7 @@ export default function CheckoutPage() {
   const [pontoRetirada, setPontoRetirada] = useState("");
   /** Os endereços de retirada que a Camily configurou no painel. */
   const [pontos, setPontos] = useState<PontoRetirada[]>([]);
-  const [frete, setFrete] = useState<{ distanciaKm: number; valor: number | null } | null>(null);
+  const [frete, setFrete] = useState<CalculoFrete | null>(null);
   const [config, setConfig] = useState<ConfiguracaoFrete | null>(null);
   /**
    * Qual botão de pagar está em andamento — ou `null`. Guarda a forma, e não
@@ -95,6 +100,15 @@ export default function CheckoutPage() {
   const [querBilhete, setQuerBilhete] = useState(false);
   const [bilhete, setBilhete] = useState("");
   const subtotal = carrinho.reduce((acc, i) => acc + i.precoUnitario * i.quantidade, 0);
+  // O desconto nunca come o frete: ele abate o valor dos doces, e no máximo
+  // até zerá-los. Quem confere isso de verdade é o servidor.
+  const desconto = Math.min(cupomAplicado?.desconto ?? 0, subtotal);
+  /**
+   * O que a cliente paga em doces, já sem o cupom. É este valor que decide o
+   * frete grátis — usar o subtotal cheio daria entrega de graça por um
+   * carrinho que o cupom derrubou pela metade.
+   */
+  const valorEmDoces = Math.max(0, subtotal - desconto);
 
   // Dias de encomenda do carrinho: o prazo vem do produto no banco, não do
   // carrinho salvo no navegador (que pode estar desatualizado).
@@ -162,14 +176,23 @@ export default function CheckoutPage() {
   const enderecoIncompleto =
     !enderecoEmBranco && (!enderecoAtual?.rua || !enderecoAtual?.numero);
 
+  /*
+   * O frete acompanha o carrinho: cada doce a mais pode ser o que zera a
+   * entrega, e a linha do frete precisa mudar na mesma hora. Por isso o
+   * `valorEmDoces` entra na conta junto com o endereço.
+   */
   useEffect(() => {
     if (tipoEntrega !== "entrega" || !enderecoAtual || !config) return;
     if (enderecoAtual.lat && enderecoAtual.lng) {
-      setFrete(calcularFretePorEndereco(enderecoAtual.lat, enderecoAtual.lng, config));
+      setFrete(
+        calcularFretePorEndereco(enderecoAtual.lat, enderecoAtual.lng, config, {
+          valorEmDoces,
+        })
+      );
     } else {
       setFrete(null);
     }
-  }, [tipoEntrega, enderecoAtual, config]);
+  }, [tipoEntrega, enderecoAtual, config, valorEmDoces]);
 
   // A Doceterapia só atende Arapongas-PR: endereço de outra cidade trava a
   // compra inteira (entrega e retirada) e manda pro WhatsApp da Camily.
@@ -203,10 +226,21 @@ export default function CheckoutPage() {
   const compraBloqueada = tipoEntrega === "entrega" && (!area.atendido || freteIndisponivel);
 
   const valorFrete = tipoEntrega === "retirada" ? 0 : frete?.valor ?? 0;
-  // O desconto nunca come o frete: ele abate o valor dos doces, e no máximo
-  // até zerá-los. Quem confere isso de verdade é o servidor.
-  const desconto = Math.min(cupomAplicado?.desconto ?? 0, subtotal);
   const total = subtotal - desconto + valorFrete;
+
+  /**
+   * Quanto falta pra entrega sair de graça.
+   *
+   * Só aparece na ENTREGA e quando falta pouco de verdade: dizer "faltam
+   * R$ 80" pra quem tem um brigadeiro no carrinho não convida, cobra.
+   */
+  const minimoGratis = config ? minimoFreteGratis(config) : 0;
+  const faltaGratis = faltaParaFreteGratis(valorEmDoces, minimoGratis);
+  const mostrarQuantoFalta =
+    tipoEntrega === "entrega" &&
+    faltaGratis > 0 &&
+    valorEmDoces > 0 &&
+    faltaGratis <= minimoGratis * 0.6;
 
   /**
    * Quanto o Pix abate deste pedido. A mesma conta roda no servidor na hora
@@ -363,7 +397,14 @@ export default function CheckoutPage() {
                     <span className="text-cherryMid"> · {i.saborNome}</span>
                   )}
                 </span>
+                {/* O preço cheio riscado segue até aqui: é na hora de pagar
+                    que a cliente confere se a oferta que a trouxe valeu. */}
                 <span className="shrink-0 tabular-nums">
+                  {i.emPromocao && i.precoCheio && (
+                    <span className="line-through text-ink/40 mr-1.5">
+                      {reais(i.precoCheio * i.quantidade)}
+                    </span>
+                  )}
                   {reais(i.precoUnitario * i.quantidade)}
                 </span>
               </li>
@@ -479,10 +520,38 @@ export default function CheckoutPage() {
                 <BotaoWhatsApp mensagem="Oi, Camily! Meu endereço aparece como distante demais no site da Doceterapia. Consigo receber mesmo assim?" />
               </AvisoFrete>
             ) : frete ? (
-              <p className="text-sm font-body text-ink/70">
-                Distância até você: {frete.distanciaKm} km — frete:{" "}
-                {reais(frete.valor ?? 0)}
-              </p>
+              <div className="grid gap-2">
+                <p className="text-sm font-body text-ink/70">
+                  Distância até você: {frete.distanciaKm} km — frete:{" "}
+                  {frete.valor === 0 ? (
+                    <strong className="text-green-700">grátis</strong>
+                  ) : (
+                    reais(frete.valor ?? 0)
+                  )}
+                </p>
+
+                {/* Conquistou o frete grátis: vale dizer com todas as letras,
+                    senão o zero na linha do frete passa despercebido. */}
+                {frete.gratisPorValor && (
+                  <p className="text-sm font-body text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                    <strong>Sua entrega saiu de graça!</strong> Pedidos a partir
+                    de {reais(minimoGratis)} em doces não pagam frete. 🍒
+                  </p>
+                )}
+
+                {/* Falta pouco: o frete do Uber custa quase o mesmo em
+                    qualquer valor, então mais um doce aqui rende sem custar
+                    entrega nova. */}
+                {mostrarQuantoFalta && (
+                  <p className="text-sm font-body text-cherryDark bg-blush/60 border border-cherryLight/50 rounded-xl px-4 py-3">
+                    Faltam <strong>{reais(faltaGratis)}</strong> em doces pra
+                    sua entrega sair de graça.{" "}
+                    <a href="/catalogo" className="underline">
+                      Ver o cardápio
+                    </a>
+                  </p>
+                )}
+              </div>
             ) : null)}
 
           {/*
@@ -731,8 +800,16 @@ export default function CheckoutPage() {
           )}
           <div className="flex justify-between gap-3">
             <span>{tipoEntrega === "retirada" ? "Retirada" : "Frete"}</span>
-            <span className="tabular-nums">
-              {tipoEntrega === "retirada" ? "Grátis" : reais(valorFrete)}
+            <span
+              className={`tabular-nums ${
+                tipoEntrega === "entrega" && frete?.gratisPorValor
+                  ? "text-green-700 font-semibold"
+                  : ""
+              }`}
+            >
+              {tipoEntrega === "retirada" || valorFrete === 0
+                ? "Grátis"
+                : reais(valorFrete)}
             </span>
           </div>
           <div className="flex justify-between gap-3 font-display text-lg mt-2">

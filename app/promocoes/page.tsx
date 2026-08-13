@@ -107,7 +107,7 @@ export default function PromocoesPage() {
       titulo: "Postando nos stories",
       texto:
         regras && regras.pontosPorStory > 0
-          ? `${regras.pontosPorStory} pontos: poste marcando @doceterapia_28, mande o print em Meus pedidos e a Camily libera.`
+          ? `${regras.pontosPorStory} pontos: poste marcando @doceterapia_28, mande o print em Meus pedidos e a Camily libera os pontos.`
           : "Poste o doce marcando @doceterapia_28 e mande o print.",
     },
   ];

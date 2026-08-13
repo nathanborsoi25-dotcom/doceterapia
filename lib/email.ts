@@ -126,16 +126,140 @@ export async function enviarEmail(opcoes: {
  * filtro de spam associa a disparo em massa. Conversa que tem volta pesa a
  * favor de quem manda.
  */
-function moldura(conteudo: string): string {
+function moldura(conteudo: string, rodape?: string): string {
   return `<div style="font-family:Nunito,Segoe UI,Arial,sans-serif;background:#fdf0ea;padding:32px 16px">
   <div style="max-width:480px;margin:0 auto;background:#fffaf7;border:1px solid #f0c9d3;border-radius:20px;padding:32px;text-align:center">
     <p style="font-size:26px;margin:0 0 4px;color:#a3243c;font-weight:700">doce<span style="color:#e2879b;font-weight:400">terapia</span></p>
     ${conteudo}
     <p style="color:#3b1a1f;opacity:.45;font-size:12px;margin:28px 0 0;border-top:1px solid #f0c9d3;padding-top:16px">
-      Doceterapia — doces artesanais da Camily Vilasboa, em Arapongas-PR.<br>Precisa de alguma coisa? É só responder este e-mail que eu leio.
+      ${
+        rodape ??
+        "Doceterapia — doces artesanais da Camily Vilasboa, em Arapongas-PR.<br>Precisa de alguma coisa? É só responder este e-mail que eu leio."
+      }
     </p>
   </div>
 </div>`;
+}
+
+/**
+ * Pra onde vão os avisos de venda — a caixa da Camily, não a da cliente.
+ *
+ * Cai em `EMAIL_RESPOSTA` quando `EMAIL_LOJA` não existe: aquele já é o
+ * endereço dela (é pra lá que as respostas das clientes vão), então o aviso
+ * funciona sem precisar criar variável nova na Vercel. Quando ela quiser
+ * separar as duas caixas, é só definir `EMAIL_LOJA`.
+ */
+export function emailDaLoja(): string | null {
+  for (const bruto of [process.env.EMAIL_LOJA, process.env.EMAIL_RESPOSTA]) {
+    const valor = (bruto ?? "").trim();
+    if (!valor) continue;
+    const endereco = valor.match(/<([^>]+)>/)?.[1]?.trim() || valor;
+    if (PARECE_EMAIL.test(endereco)) return endereco;
+  }
+  return null;
+}
+
+/**
+ * Aviso de venda, pra Camily.
+ *
+ * Antes disto, o pagamento caía e o site não contava pra ninguém: ela só
+ * descobria a venda se abrisse o painel por conta própria. Numa loja de uma
+ * pessoa só, isso é encomenda parada esperando alguém lembrar de olhar.
+ *
+ * O e-mail traz tudo que ela precisa pra COMEÇAR a produzir sem abrir o
+ * painel — o que fazer, pra quando, pra onde e o telefone de quem comprou.
+ */
+export function emailVendaNova(dados: {
+  clienteNome: string;
+  clienteTelefone?: string | null;
+  itens: Array<{ nome: string; quantidade: number; saborNome?: string | null }>;
+  total: number;
+  formaPagamento?: string;
+  tipoEntrega: string;
+  enderecoEntrega?: string | null;
+  pontoRetirada?: string | null;
+  prazoEm?: string | null;
+  ehPresente?: boolean;
+  nomeQuemRecebe?: string | null;
+  bilhete?: string | null;
+}) {
+  const ehEntrega = dados.tipoEntrega === "entrega";
+  const forma = dados.formaPagamento === "credito" ? "cartão de crédito" : "Pix";
+  const valor = `R$ ${dados.total.toFixed(2).replace(".", ",")}`;
+
+  const prazo = dados.prazoEm
+    ? new Date(dados.prazoEm).toLocaleDateString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "2-digit",
+        month: "2-digit",
+      })
+    : null;
+
+  const comoRecebe = ehEntrega
+    ? `Entrega em ${dados.enderecoEntrega || "endereço não informado"}`
+    : `Retirada em ${dados.pontoRetirada || "ponto não informado"}`;
+
+  const linhas = dados.itens.map(
+    (i) => `${i.quantidade}× ${i.nome}${i.saborNome ? ` (${i.saborNome})` : ""}`
+  );
+
+  const presente = dados.ehPresente
+    ? `Presente para ${dados.nomeQuemRecebe || "outra pessoa"}.${
+        dados.bilhete ? ` Bilhete: "${dados.bilhete}"` : ""
+      }`
+    : null;
+
+  const texto = `Entrou uma venda no site!
+
+Cliente: ${dados.clienteNome}${dados.clienteTelefone ? ` — ${dados.clienteTelefone}` : ""}
+Pago com ${forma}. Total: ${valor}
+
+Pedido:
+${linhas.map((l) => `- ${l}`).join("\n")}
+
+${comoRecebe}${prazo ? `\nPrecisa estar pronto até ${prazo}` : ""}${presente ? `\n${presente}` : ""}
+
+Abra o painel para ver tudo: https://doceterapia.net.br/admin/pedidos`;
+
+  const html = moldura(
+    `
+    <p style="color:#3b1a1f;font-size:19px;margin:20px 0 6px;font-weight:700">Entrou uma venda! 🍒</p>
+    <p style="color:#3b1a1f;opacity:.75;font-size:14px;margin:8px 0 20px">
+      <strong>${dados.clienteNome}</strong> acabou de pagar ${valor} com ${forma}.
+    </p>
+
+    <div style="background:#fdf0ea;border-radius:14px;padding:16px;text-align:left">
+      <p style="margin:0 0 8px;font-size:13px;color:#a3243c;font-weight:700">O que fazer</p>
+      <ul style="margin:0;padding-left:18px;color:#3b1a1f;font-size:14px">
+        ${linhas.map((l) => `<li style="margin:2px 0">${l}</li>`).join("")}
+      </ul>
+      <p style="margin:12px 0 0;font-size:14px;color:#3b1a1f"><strong>${comoRecebe}</strong></p>
+      ${
+        prazo
+          ? `<p style="margin:6px 0 0;font-size:14px;color:#a3243c;font-weight:700">Pronto até ${prazo}</p>`
+          : ""
+      }
+      ${
+        dados.clienteTelefone
+          ? `<p style="margin:6px 0 0;font-size:14px;color:#3b1a1f">Telefone: ${dados.clienteTelefone}</p>`
+          : ""
+      }
+      ${
+        presente
+          ? `<p style="margin:10px 0 0;font-size:13px;color:#3b1a1f;opacity:.8">🎁 ${presente}</p>`
+          : ""
+      }
+    </div>
+
+    <a href="https://doceterapia.net.br/admin/pedidos" style="display:inline-block;background:#a3243c;color:#fff;text-decoration:none;font-weight:700;font-size:15px;border-radius:999px;padding:14px 28px;margin:20px 0 0">Abrir o painel</a>`,
+    "Aviso automático do site da Doceterapia, só para a Camily."
+  );
+
+  return {
+    assunto: `Venda nova: ${valor} — ${dados.clienteNome.split(" ")[0]} 🍒`,
+    html,
+    texto,
+  };
 }
 
 /** Modelo do e-mail com o código de redefinição, na identidade da loja. */

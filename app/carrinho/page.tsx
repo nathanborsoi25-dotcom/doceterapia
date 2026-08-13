@@ -73,6 +73,15 @@ export default function CarrinhoPage() {
   }
 
   const total = itens.reduce((acc, i) => acc + i.precoUnitario * i.quantidade, 0);
+  /** Quanto as promoções do carrinho já abateram. Zero = nenhuma oferta aqui. */
+  const economia = itens.reduce(
+    (acc, i) =>
+      acc +
+      (i.emPromocao && i.precoCheio
+        ? Math.max(0, i.precoCheio - i.precoUnitario) * i.quantidade
+        : 0),
+    0
+  );
   /** Algum doce do carrinho esgotou ou não tem quantidade suficiente. */
   const temProblema = itens.some((i) => {
     const max = limite(i);
@@ -138,8 +147,23 @@ export default function CarrinhoPage() {
                           Recheio: {item.saborNome}
                         </p>
                       )}
+                      {/* Em promoção, o cheio riscado vem junto: a cliente
+                          escolheu o doce por causa da oferta, e o carrinho é
+                          onde ela confere se a oferta veio mesmo. */}
                       <p className="text-sm text-ink/60 font-body">
-                        {reais(item.precoUnitario)} cada
+                        {item.emPromocao && item.precoCheio ? (
+                          <>
+                            <span className="line-through text-ink/40">
+                              {reais(item.precoCheio)}
+                            </span>{" "}
+                            <span className="text-cherryDark font-semibold">
+                              {reais(item.precoUnitario)}
+                            </span>{" "}
+                            cada
+                          </>
+                        ) : (
+                          <>{reais(item.precoUnitario)} cada</>
+                        )}
                       </p>
 
                       {(acabou || passouDoEstoque) && (
@@ -209,6 +233,11 @@ export default function CarrinhoPage() {
               <span>Subtotal</span>
               <span className="tabular-nums">{reais(total)}</span>
             </div>
+            {economia > 0 && (
+              <p className="-mt-3 text-right font-body text-sm text-green-700">
+                Você está economizando {reais(economia)} nas promoções 🍒
+              </p>
+            )}
             <p className="text-xs text-ink/50 font-body -mt-2">
               O frete é calculado na próxima etapa, de acordo com a distância
               ou a retirada.

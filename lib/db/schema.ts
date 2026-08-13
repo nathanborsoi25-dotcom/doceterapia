@@ -453,5 +453,12 @@ export const configLoja = pgTable("config_loja", {
 export const configFrete = pgTable("config_frete", {
   id: text("id").primaryKey(),
   origem: jsonb("origem").$type<ConfiguracaoFrete["origem"]>().notNull(),
+  /**
+   * De onde a entrega sai no sábado e no domingo. Nulo = sai sempre da
+   * `origem`, que é como era antes desta coluna existir.
+   */
+  origemFimDeSemana: jsonb("origem_fim_de_semana").$type<ConfiguracaoFrete["origem"] | null>(),
+  /** Frete grátis a partir deste valor em doces. 0 ou nulo = desligado. */
+  freteGratisAcimaDe: doublePrecision("frete_gratis_acima_de"),
   faixas: jsonb("faixas").$type<FaixaFrete[]>().notNull(),
 });

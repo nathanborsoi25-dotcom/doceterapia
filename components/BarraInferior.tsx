@@ -14,8 +14,12 @@ import { EVENTO_CARRINHO, totalDeItens } from "@/lib/store";
  * quatro caminhos do site ficam onde o dedo já está, do mesmo jeito que os
  * apps de delivery que a cliente usa todo dia.
  *
- * Só aparece nas telas do cliente: no painel da Camily ela atrapalharia, e no
- * checkout ela brigaria com o botão de pagar.
+ * Só aparece nas telas do cliente: no painel da Camily ela atrapalharia, e nas
+ * telas de entrar/cadastrar ela convida a sair no meio do caminho.
+ *
+ * No checkout ela FICA. A ideia de tirá-la de lá era não brigar com o botão de
+ * pagar, mas quem está pagando é justamente quem mais precisa voltar ao
+ * carrinho pra conferir o pedido — e sem a barra o caminho de volta some.
  */
 
 const ITENS = [
@@ -26,7 +30,7 @@ const ITENS = [
 ] as const;
 
 /** Telas onde a barra atrapalha mais do que ajuda. */
-const ESCONDER_EM = ["/admin", "/checkout", "/entrar", "/cadastro", "/esqueci-senha", "/redefinir-senha"];
+const ESCONDER_EM = ["/admin", "/entrar", "/cadastro", "/esqueci-senha", "/redefinir-senha"];
 
 export default function BarraInferior() {
   const caminho = usePathname() ?? "";

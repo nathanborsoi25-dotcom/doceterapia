@@ -6,6 +6,19 @@ export const metadata: Metadata = {
   title: "Doceterapia | Doces artesanais em Arapongas",
   description:
     "Peça online os doces artesanais da Camily Vilasboa. Entrega e retirada agendadas em Arapongas, PR.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/icone-192.png", sizes: "192x192", type: "image/png" }],
+    // O iPhone ignora o manifest e usa ESTE ícone quando alguém adiciona o
+    // site à tela de início. Sem ele, o atalho vira um retrato borrado da
+    // página — que é o que aconteceria com a maior parte das clientes.
+    apple: [{ url: "/icone-180.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Doceterapia",
+    statusBarStyle: "default",
+  },
 };
 
 /**

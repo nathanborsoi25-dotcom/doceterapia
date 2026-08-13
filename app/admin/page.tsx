@@ -6,6 +6,7 @@ import { logoutAdmin } from "@/lib/api";
 
 const atalhos = [
   { href: "/admin/pedidos", label: "Meus pedidos", desc: "Ver e acompanhar os pedidos recebidos" },
+  { href: "/admin/cardapio", label: "Ver meu site", desc: "Conferir o cardápio do jeito que a cliente vê" },
   { href: "/admin/metricas", label: "Meus números", desc: "Vendas, faturamento, lucro e mais vendidos" },
   { href: "/admin/avaliacoes", label: "Avaliações", desc: "O que os clientes acharam de cada doce" },
   { href: "/admin/stories", label: "Stories", desc: "Aprovar quem postou o doce e liberar os pontos" },

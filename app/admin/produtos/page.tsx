@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import AvisoSalvo from "@/components/AvisoSalvo";
 import CampoNumero from "@/components/CampoNumero";
 import EditorSabores from "@/components/EditorSabores";
 import GaleriaFotos from "@/components/GaleriaFotos";
@@ -24,6 +25,7 @@ import {
 import CampoPromocao from "@/components/CampoPromocao";
 import SobraPorUnidade from "@/components/SobraPorUnidade";
 import { fotosDoProduto } from "@/lib/fotos";
+import { useAvisoSalvo } from "@/lib/usar-aviso-salvo";
 import type { Produto, SaborDoDoce } from "@/lib/types";
 
 /** Doce com recheio guarda preço, custo e estoque em cada um deles. */
@@ -47,6 +49,7 @@ export default function AdminProdutosPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
   const [abertos, setAbertos] = useState<string[]>([]);
+  const { aviso, avisarSalvo, avisarErro } = useAvisoSalvo();
 
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState("todas");
@@ -85,10 +88,23 @@ export default function AdminProdutosPage() {
     );
   }
 
+  /**
+   * Salva o doce e DIZ que salvou.
+   *
+   * Antes esta função gravava calada: a Camily apertava "Salvar", o botão
+   * voltava ao normal e nada mais acontecia — ela não tinha como saber se a
+   * mudança foi. Pior, o erro também era mudo: quando a gravação falhava, a
+   * tela seguia mostrando o preço novo que o banco nunca recebeu.
+   */
   async function salvar(produto: Produto) {
     setSalvandoId(produto.id);
     try {
       await upsertProduto(produto);
+      avisarSalvo(`${produto.nome || "O doce"} foi salvo. 🍒`);
+    } catch {
+      avisarErro(
+        `Não consegui salvar ${produto.nome || "o doce"}. Confira sua internet e tente de novo.`
+      );
     } finally {
       setSalvandoId(null);
     }
@@ -491,6 +507,7 @@ export default function AdminProdutosPage() {
         })}
       </div>
 
+      <AvisoSalvo aviso={aviso} />
     </main>
   );
 }

@@ -155,7 +155,12 @@ export async function getConfiguracaoFrete(): Promise<ConfiguracaoFrete> {
 
 export async function salvarConfiguracaoFrete(
   config: ConfiguracaoFrete
-): Promise<{ ok: boolean; origem?: ConfiguracaoFrete["origem"] }> {
+): Promise<{
+  ok: boolean;
+  origem?: ConfiguracaoFrete["origem"];
+  /** Nulo quando a Camily deixou o endereço de fim de semana em branco. */
+  origemFimDeSemana?: ConfiguracaoFrete["origem"] | null;
+}> {
   const res = await fetch("/api/frete", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

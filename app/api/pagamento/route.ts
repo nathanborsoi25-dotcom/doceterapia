@@ -270,18 +270,29 @@ export async function POST(req: Request) {
     }
   }
 
-  // 3) Recalcula o frete NO SERVIDOR. O valor que vem do navegador não é
-  // confiável (dá pra forjar), então ele é ignorado: as coordenadas saem do
-  // cadastro salvo no banco e a tabela de faixas também.
-  let valorFrete = 0;
+  /*
+   * 3) A tabela de frete da loja, e a conferência de que dá pra entregar
+   * neste endereço.
+   *
+   * O VALOR do frete só é fechado lá embaixo, depois do cupom: o frete grátis
+   * olha quanto a cliente paga em doces já com o desconto aplicado. Aqui a
+   * gente só garante que o endereço tem coordenadas e cai dentro de alguma
+   * faixa — as duas coisas que podem recusar a compra.
+   */
+  let configDoFrete = configuracaoFretePadrao;
   if (tipoEntrega === "entrega") {
     const [linhaCfg] = await db
       .select()
       .from(configFrete)
       .where(eq(configFrete.id, "default"));
-    const config = linhaCfg
-      ? { origem: linhaCfg.origem, faixas: linhaCfg.faixas }
-      : configuracaoFretePadrao;
+    if (linhaCfg) {
+      configDoFrete = {
+        origem: linhaCfg.origem,
+        origemFimDeSemana: linhaCfg.origemFimDeSemana ?? null,
+        freteGratisAcimaDe: linhaCfg.freteGratisAcimaDe ?? 0,
+        faixas: linhaCfg.faixas,
+      };
+    }
 
     const { lat, lng } = enderecoDestino;
 
@@ -292,8 +303,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const calculo = calcularFretePorEndereco(lat, lng, config);
-    if (calculo.valor === null) {
+    // Sem `valorEmDoces`: aqui interessa só se o endereço cai em alguma faixa.
+    if (calcularFretePorEndereco(lat, lng, configDoFrete).valor === null) {
       return NextResponse.json(
         {
           error:
@@ -302,7 +313,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    valorFrete = calculo.valor;
   }
 
   /**
@@ -367,7 +377,37 @@ export async function POST(req: Request) {
   }
 
   /*
-   * 5b) Desconto de quem paga no Pix. O percentual vem da configuração da
+   * 5b) Agora sim, o valor do frete.
+   *
+   * Vem depois do cupom porque o frete grátis olha o que a cliente paga em
+   * DOCES, já sem o desconto — senão um cupom de metade do carrinho ganharia
+   * entrega de graça de brinde, e a Camily pagaria as duas coisas. O valor
+   * que o navegador mandou continua sendo ignorado por completo.
+   *
+   * De onde a entrega sai depende do dia da semana (fim de semana tem
+   * endereço próprio), e quem decide isso é `origemDoDia`, no fuso de
+   * Brasília. A conferência de área já foi feita lá em cima.
+   */
+  let valorFrete = 0;
+  if (tipoEntrega === "entrega") {
+    const { lat, lng } = enderecoDestino;
+    const calculo = calcularFretePorEndereco(lat!, lng!, configDoFrete, {
+      valorEmDoces: Math.max(0, subtotal - desconto),
+    });
+    // Não deveria acontecer (a área já foi conferida), mas deixar passar
+    // gravaria um pedido de entrega com frete R$ 0,00 — e o prejuízo seria da
+    // Camily, calado.
+    if (calculo.valor === null) {
+      return NextResponse.json(
+        { error: "Não foi possível calcular o frete para o seu endereço." },
+        { status: 400 }
+      );
+    }
+    valorFrete = calculo.valor;
+  }
+
+  /*
+   * 5c) Desconto de quem paga no Pix. O percentual vem da configuração da
    * loja, nunca do navegador. Vale em TUDO, inclusive nos doces em promoção:
    * ele não é desconto de verdade, é a diferença de taxa que a Camily deixa
    * de pagar ao receber no Pix.

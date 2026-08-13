@@ -5,7 +5,7 @@ import { configFrete } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { geocodificarTexto } from "@/lib/geocode";
 import { configuracaoFretePadrao } from "@/lib/shipping";
-import type { ConfiguracaoFrete } from "@/lib/types";
+import type { ConfiguracaoFrete, OrigemFrete } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,24 @@ export async function GET() {
     return NextResponse.json(configuracaoFretePadrao);
   }
   const r = rows[0];
-  return NextResponse.json({ origem: r.origem, faixas: r.faixas });
+  return NextResponse.json({
+    origem: r.origem,
+    origemFimDeSemana: r.origemFimDeSemana ?? null,
+    freteGratisAcimaDe: r.freteGratisAcimaDe ?? 0,
+    faixas: r.faixas,
+  });
+}
+
+/**
+ * Localiza o endereço no mapa antes de gravar.
+ *
+ * Se o Nominatim não achar, ficam as coordenadas que já vieram — trocar por
+ * zero faria a distância ser medida a partir do Golfo da Guiné, e todo mundo
+ * cairia fora da área de entrega de uma vez.
+ */
+async function comCoordenadas(origem: OrigemFrete): Promise<OrigemFrete> {
+  const coords = await geocodificarTexto(origem.endereco);
+  return coords ? { ...origem, lat: coords.lat, lng: coords.lng } : origem;
 }
 
 // Alterar a configuração de frete: só o admin logado.
@@ -28,20 +45,38 @@ export async function PUT(req: Request) {
 
   const config = (await req.json()) as ConfiguracaoFrete;
 
-  // Geocodifica o endereço da loja pra as distâncias saírem certas.
-  // Se o Nominatim não achar, mantém as coordenadas que já vieram.
-  const coords = await geocodificarTexto(config.origem.endereco);
-  const origem = coords
-    ? { ...config.origem, lat: coords.lat, lng: coords.lng }
-    : config.origem;
+  const origem = await comCoordenadas(config.origem);
+
+  /*
+   * O endereço de fim de semana é opcional: campo em branco volta a nulo, e
+   * aí a entrega sai da origem única todos os dias. Sem esse caminho de
+   * volta, a Camily não teria como desfazer a troca depois de ligá-la.
+   */
+  const bruta = config.origemFimDeSemana;
+  const origemFimDeSemana =
+    bruta && typeof bruta.endereco === "string" && bruta.endereco.trim()
+      ? await comCoordenadas({ ...bruta, endereco: bruta.endereco.trim() })
+      : null;
+
+  // Valor negativo ou lixo digitado vira zero, que é "sem frete grátis".
+  const minimo = Number(config.freteGratisAcimaDe);
+  const freteGratisAcimaDe = Number.isFinite(minimo) && minimo > 0 ? minimo : 0;
+
+  const valores = {
+    origem,
+    origemFimDeSemana,
+    freteGratisAcimaDe,
+    faixas: config.faixas,
+  };
 
   const db = getDb();
   await db
     .insert(configFrete)
-    .values({ id: ID, origem, faixas: config.faixas })
+    .values({ id: ID, ...valores })
     .onConflictDoUpdate({
       target: configFrete.id,
-      set: { origem, faixas: config.faixas },
+      set: valores,
     });
-  return NextResponse.json({ ok: true, origem });
+
+  return NextResponse.json({ ok: true, origem, origemFimDeSemana });
 }

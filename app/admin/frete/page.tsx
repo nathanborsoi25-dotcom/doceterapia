@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AvisoSalvo from "@/components/AvisoSalvo";
 import CampoNumero from "@/components/CampoNumero";
 import VoltarAoPainel from "@/components/VoltarAoPainel";
+import { reais } from "@/lib/formato";
 import { getConfiguracaoFrete, salvarConfiguracaoFrete } from "@/lib/api";
+import { useAvisoSalvo } from "@/lib/usar-aviso-salvo";
 import type { ConfiguracaoFrete, FaixaFrete } from "@/lib/types";
 
 export default function AdminFretePage() {
   const [config, setConfig] = useState<ConfiguracaoFrete | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const { aviso, avisarSalvo, avisarErro } = useAvisoSalvo();
 
   useEffect(() => {
     getConfiguracaoFrete()
@@ -46,30 +50,66 @@ export default function AdminFretePage() {
     setConfig((c) => (c ? { ...c, origem: { ...c.origem, endereco } } : c));
   }
 
+  /**
+   * O endereço de fim de semana nasce quando ela começa a digitar e volta a
+   * nulo quando ela apaga tudo — vazio é como se desliga a troca.
+   */
+  function atualizarOrigemFimDeSemana(endereco: string) {
+    setConfig((c) =>
+      c
+        ? {
+            ...c,
+            origemFimDeSemana: endereco.trim()
+              ? { endereco, lat: c.origemFimDeSemana?.lat ?? 0, lng: c.origemFimDeSemana?.lng ?? 0 }
+              : null,
+          }
+        : c
+    );
+  }
+
   async function salvar() {
     if (!config) return;
     setSalvando(true);
     try {
       const resultado = await salvarConfiguracaoFrete(config);
-      if (resultado.origem) {
-        // Atualiza a tela com as coordenadas encontradas.
-        setConfig((c) => (c ? { ...c, origem: resultado.origem! } : c));
-      }
-      const achou =
-        resultado.origem &&
-        Number.isFinite(resultado.origem.lat) &&
-        Number.isFinite(resultado.origem.lng);
-      alert(
-        achou
-          ? "Configuração de frete salva! Endereço da loja localizado no mapa. ✅"
-          : "Configuração salva, mas não consegui localizar o endereço da loja no mapa. Confira se ele está completo (rua, número, cidade)."
+      if (!resultado.ok) throw new Error("recusado");
+
+      // Devolve pra tela as coordenadas que o mapa encontrou.
+      setConfig((c) =>
+        c
+          ? {
+              ...c,
+              origem: resultado.origem ?? c.origem,
+              origemFimDeSemana: resultado.origemFimDeSemana ?? null,
+            }
+          : c
       );
+
+      const localizada = (o?: { lat: number; lng: number } | null) =>
+        !!o && Number.isFinite(o.lat) && Number.isFinite(o.lng) && !(o.lat === 0 && o.lng === 0);
+
+      const faltaAchar = [
+        localizada(resultado.origem) ? null : "o endereço de segunda a sexta",
+        config.origemFimDeSemana && !localizada(resultado.origemFimDeSemana)
+          ? "o endereço de fim de semana"
+          : null,
+      ].filter(Boolean);
+
+      if (faltaAchar.length > 0) {
+        avisarErro(
+          `Salvei, mas não achei ${faltaAchar.join(" nem ")} no mapa. Confira se tem rua, número e cidade.`
+        );
+      } else {
+        avisarSalvo("Prontinho, o frete está salvo. 🍒");
+      }
     } catch {
-      alert("Não foi possível salvar. Tente novamente.");
+      avisarErro();
     } finally {
       setSalvando(false);
     }
   }
+
+  const minimoGratis = Number(config.freteGratisAcimaDe) || 0;
 
   return (
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-2xl mx-auto">
@@ -80,8 +120,11 @@ export default function AdminFretePage() {
         <VoltarAoPainel />
       </div>
 
-      <label className="grid gap-1 text-sm font-body text-ink/80 mt-4">
-        Endereço da loja (ponto de partida do frete)
+      {/* ---------- De onde sai a entrega ---------- */}
+      <h2 className="font-display text-lg text-ink mt-6">De onde sai a entrega</h2>
+
+      <label className="grid gap-1 text-sm font-body text-ink/80 mt-2">
+        Endereço de segunda a sexta
         <input
           value={config.origem.endereco}
           onChange={(e) => atualizarOrigem(e.target.value)}
@@ -94,7 +137,57 @@ export default function AdminFretePage() {
         </span>
       </label>
 
-      <div className="grid gap-3 mt-6">
+      <label className="grid gap-1 text-sm font-body text-ink/80 mt-4">
+        Endereço de sábado e domingo{" "}
+        <span className="text-ink/45">(opcional)</span>
+        <input
+          value={config.origemFimDeSemana?.endereco ?? ""}
+          onChange={(e) => atualizarOrigemFimDeSemana(e.target.value)}
+          placeholder="Ex: Rua Ariramba Pardo, 597 - Arapongas, PR"
+          className="border border-cherryLight/60 rounded-xl px-4 py-2 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
+        />
+        <span className="text-xs text-ink/50">
+          No sábado e no domingo o site calcula o frete a partir deste
+          endereço, sozinho. Deixe em branco para sair do mesmo lugar todos os
+          dias.
+        </span>
+      </label>
+
+      {/* ---------- Frete grátis ---------- */}
+      <h2 className="font-display text-lg text-ink mt-8">Frete grátis</h2>
+
+      <label className="grid gap-1 text-sm font-body text-ink/80 mt-2">
+        Frete grátis em pedidos a partir de (R$)
+        <CampoNumero
+          valor={config.freteGratisAcimaDe ?? 0}
+          onChange={(v) =>
+            setConfig((c) => (c ? { ...c, freteGratisAcimaDe: v ?? 0 } : c))
+          }
+          className="w-36 border border-cherryLight/60 rounded-xl px-4 py-2 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
+        />
+        <span className="text-xs text-ink/50">
+          {minimoGratis > 0 ? (
+            <>
+              Quem levar <strong>{reais(minimoGratis)}</strong> ou mais em doces
+              não paga entrega — e o site mostra pra cliente quanto falta pra
+              chegar lá. O valor conta os doces já com o cupom, sem o frete.
+            </>
+          ) : (
+            <>
+              Deixe <strong>0</strong> para cobrar entrega em todo pedido. O
+              frete do Uber é quase o mesmo em qualquer valor, então esse
+              limite é o que faz a cliente somar mais um doce no carrinho.
+            </>
+          )}
+        </span>
+      </label>
+
+      {/* ---------- Faixas por distância ---------- */}
+      <h2 className="font-display text-lg text-ink mt-8">
+        Quanto cobrar por distância
+      </h2>
+
+      <div className="grid gap-3 mt-2">
         {config.faixas.map((faixa) => (
           <div
             key={faixa.id}
@@ -147,6 +240,8 @@ export default function AdminFretePage() {
       >
         {salvando ? "Salvando..." : "Salvar configuração de frete"}
       </button>
+
+      <AvisoSalvo aviso={aviso} />
     </main>
   );
 }

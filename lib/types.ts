@@ -225,11 +225,29 @@ export interface FaixaFrete {
   valor: number;
 }
 
+/** De onde a entrega sai. A distância até a cliente é medida a partir daqui. */
+export interface OrigemFrete {
+  endereco: string; // ex: "Rua Ajaja, 41 - Arapongas, PR"
+  lat: number;
+  lng: number;
+}
+
 export interface ConfiguracaoFrete {
-  origem: {
-    endereco: string; // ex: "Rua Ajaja, 41 - Arapongas, PR"
-    lat: number;
-    lng: number;
-  };
+  origem: OrigemFrete;
+  /**
+   * De onde o pedido sai no sábado e no domingo.
+   *
+   * A Camily passa o fim de semana no outro endereço, e a entrega sai de lá —
+   * medir a distância a partir da casa de segunda-feira daria frete errado
+   * justamente nos dias de maior movimento. Vazio = sai sempre da `origem`.
+   */
+  origemFimDeSemana?: OrigemFrete | null;
+  /**
+   * Valor em doces a partir do qual a entrega sai de graça. Zero desliga.
+   *
+   * É a alavanca de ticket médio: o frete do Uber é quase fixo (~R$ 7), então
+   * cada real a mais no mesmo pedido rende sem custar entrega nova.
+   */
+  freteGratisAcimaDe?: number;
   faixas: FaixaFrete[];
 }

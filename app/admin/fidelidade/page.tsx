@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AvisoSalvo from "@/components/AvisoSalvo";
 import CampoNumero from "@/components/CampoNumero";
 import VoltarAoPainel from "@/components/VoltarAoPainel";
+import { useAvisoSalvo } from "@/lib/usar-aviso-salvo";
 
 type Recompensa = {
   id: string;
@@ -23,6 +25,7 @@ export default function AdminFidelidadePage() {
   const [pontosDoPremio, setPontosDoPremio] = useState<number | null>(null);
   const [criando, setCriando] = useState(false);
   const [aviso, setAviso] = useState("");
+  const { aviso: avisoSalvo, avisarSalvo, avisarErro } = useAvisoSalvo();
 
   function carregarRecompensas() {
     fetch("/api/recompensas", { cache: "no-store" })
@@ -47,7 +50,7 @@ export default function AdminFidelidadePage() {
     setSalvandoRegras(true);
     try {
       const atual = await fetch("/api/config-loja").then((r) => r.json());
-      await fetch("/api/config-loja", {
+      const r = await fetch("/api/config-loja", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -57,6 +60,10 @@ export default function AdminFidelidadePage() {
           pontosPorStory: Math.round(pontosPorStory ?? 0),
         }),
       });
+      if (!r.ok) throw new Error("recusado");
+      avisarSalvo("Prontinho, as regras de pontos estão salvas. 🍒");
+    } catch {
+      avisarErro();
     } finally {
       setSalvandoRegras(false);
     }
@@ -237,6 +244,8 @@ export default function AdminFidelidadePage() {
           </div>
         ))}
       </div>
+
+      <AvisoSalvo aviso={avisoSalvo} />
     </main>
   );
 }

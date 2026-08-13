@@ -263,6 +263,12 @@ async function main() {
   await sql`ALTER TABLE produtos ADD COLUMN IF NOT EXISTS preco_promocional double precision`;
   await sql`ALTER TABLE sabores ADD COLUMN IF NOT EXISTS preco_promocional double precision`;
 
+  console.log("16) Frete: origem de fim de semana e frete gratis acima de X...");
+  // Nulos de propósito: quem não configurou continua com a regra de antes —
+  // sai sempre da origem única e o frete nunca é zerado por valor.
+  await sql`ALTER TABLE config_frete ADD COLUMN IF NOT EXISTS origem_fim_de_semana jsonb`;
+  await sql`ALTER TABLE config_frete ADD COLUMN IF NOT EXISTS frete_gratis_acima_de double precision`;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns

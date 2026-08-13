@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { pedidos } from "@/lib/db/schema";
 import { getMpClient } from "@/lib/mercadopago";
 import { avisarMudancaDeStatus } from "@/lib/avisar-cliente";
+import { avisarLojaDeVendaPaga } from "@/lib/avisar-loja";
 import {
   devolverPagamentoDePedidoCancelado,
   registrarCancelamentoDoMercadoPago,
@@ -131,6 +132,15 @@ export async function POST(req: Request) {
       // estoque baixa. Fazer isso na criação do pedido daria pontos por
       // compra nunca paga e seguraria doce de carrinho abandonado.
       if (novoStatus === "pago") {
+        /*
+         * E a Camily descobre a venda na hora.
+         *
+         * Este aviso vem DEPOIS do UPDATE com condição, então ele sai uma vez
+         * só — o Mercado Pago repete a mesma notificação, e a segunda não
+         * encontra linha pra alterar e para antes daqui.
+         */
+        await avisarLojaDeVendaPaga(pedidoId);
+
         const [p] = await db.select().from(pedidos).where(eq(pedidos.id, pedidoId));
         if (p) await baixarEstoque(p.itens);
         if (p?.clienteId) {
