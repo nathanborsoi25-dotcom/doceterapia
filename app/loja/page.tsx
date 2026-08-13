@@ -148,8 +148,10 @@ export default function LojaPage() {
                 key={p.id}
                 className="bg-white/70 border border-cherryLight/30 rounded-2xl p-4 font-body text-sm"
               >
+                {/* Cereja no lugar do pin: é o símbolo da casa, o mesmo da
+                    logo e do divisor, e diz "aqui" com a cara da loja. */}
                 <p className="font-display text-base text-cherryDark">
-                  📍 {p.endereco}
+                  <span aria-hidden="true">🍒</span> {p.endereco}
                 </p>
                 <ul className="text-ink/70 mt-1.5 grid gap-0.5">
                   {p.horarios.filter(Boolean).map((h) => (

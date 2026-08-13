@@ -1,3 +1,7 @@
+"use client";
+
+import { useId } from "react";
+
 /**
  * Os ícones das formas de pagamento.
  *
@@ -13,39 +17,69 @@
 type Props = { className?: string };
 
 /**
- * O símbolo do Pix: um losango formado por quatro pontas que se encontram no
- * centro. Desenhado com quatro triângulos em volta de um quadrado girado.
+ * O símbolo do Pix, como o Banco Central o desenha: quatro peças em forma de
+ * seta apontando para o centro, que juntas fecham um losango e deixam um X
+ * branco no meio.
+ *
+ * São quatro `path` separados de propósito — é o que forma o X sem precisar
+ * desenhar um traço branco por cima. Assim o vão entre as peças acompanha o
+ * tamanho do ícone e continua limpo em 20px ou em 200px.
+ *
+ * O turquesa `#32BCAD` é a cor oficial da marca; ela não herda a cor do texto
+ * ao lado, porque é justamente por ela que as pessoas reconhecem o Pix.
  */
 export function IconePix({ className = "w-6 h-6" }: Props) {
+  /*
+   * O `id` do recorte precisa ser único na página: dois ícones do Pix na
+   * mesma tela com o mesmo id fariam o segundo usar o recorte do primeiro.
+   */
+  const recorte = useId().replace(/:/g, "");
+
   return (
-    <svg
-      viewBox="0 0 32 32"
-      className={className}
-      role="img"
-      aria-label="Pix"
-      fill="none"
-    >
-      <path
-        d="M9.4 22.6a3.6 3.6 0 0 1-2.55-1.06l-3.6-3.6a1.32 1.32 0 0 1 0-1.87l3.6-3.6A3.6 3.6 0 0 1 9.4 11.4h1.1l-4.6 4.6 4.6 4.6H9.4Z"
+    <svg viewBox="0 0 512 512" className={className} role="img" aria-label="Pix">
+      <defs>
+        <clipPath id={recorte}>
+          {/*
+           * O losango é um quadrado girado 45°, com cantos arredondados —
+           * geometria simples em vez de um path desenhado à mão, que foi
+           * onde a primeira tentativa deste ícone se perdeu.
+           */}
+          <rect
+            x="92"
+            y="92"
+            width="328"
+            height="328"
+            rx="74"
+            transform="rotate(45 256 256)"
+          />
+        </clipPath>
+      </defs>
+
+      <rect
+        x="92"
+        y="92"
+        width="328"
+        height="328"
+        rx="74"
+        transform="rotate(45 256 256)"
         fill="#32BCAD"
       />
-      <path
-        d="M22.6 11.4c.96 0 1.87.38 2.55 1.06l3.6 3.6c.52.51.52 1.35 0 1.87l-3.6 3.6a3.6 3.6 0 0 1-2.55 1.06h-1.1l4.6-4.6-4.6-4.6h1.1Z"
-        fill="#32BCAD"
-      />
-      <path
-        d="M11.9 9.06 15.06 5.9a1.33 1.33 0 0 1 1.88 0l3.16 3.16a4.9 4.9 0 0 0-1.2-.16h-5.8c-.4 0-.81.05-1.2.16Z"
-        fill="#32BCAD"
-      />
-      <path
-        d="M20.1 22.94 16.94 26.1a1.33 1.33 0 0 1-1.88 0L11.9 22.94c.39.1.8.16 1.2.16h5.8c.41 0 .81-.05 1.2-.16Z"
-        fill="#32BCAD"
-      />
-      {/* O losango do meio, que é o que dá a forma ao símbolo. */}
-      <path
-        d="M18.9 10.4c.67 0 1.31.27 1.78.74L24 14.46a2.18 2.18 0 0 1 0 3.08l-3.32 3.32c-.47.47-1.11.74-1.78.74h-5.8c-.67 0-1.31-.27-1.78-.74L8 17.54a2.18 2.18 0 0 1 0-3.08l3.32-3.32c.47-.47 1.11-.74 1.78-.74h5.8Z"
-        fill="#32BCAD"
-      />
+
+      {/*
+       * O X do meio: duas faixas brancas que se encontram no centro, uma em
+       * "V" e outra em "Λ". O recorte corta as pontas na borda do losango,
+       * então elas nunca vazam para fora da marca.
+       */}
+      <g
+        clipPath={`url(#${recorte})`}
+        stroke="#fff"
+        strokeWidth="46"
+        strokeLinecap="round"
+        fill="none"
+      >
+        <path d="M104 104Q180 180 256 256Q332 180 408 104" />
+        <path d="M104 408Q180 332 256 256Q332 332 408 408" />
+      </g>
     </svg>
   );
 }

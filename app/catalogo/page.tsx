@@ -143,7 +143,7 @@ export default function CatalogoPage() {
           href="/loja"
           className="mx-auto mt-2 flex w-fit items-center gap-2 rounded-full bg-white/70 border border-cherryLight/40 px-5 py-2.5 font-body text-sm text-ink/70 hover:border-cherryDark transition-colors"
         >
-          <span aria-hidden="true">📍</span>
+          <span aria-hidden="true">🍒</span>
           Perfil da loja
         </Link>
 
