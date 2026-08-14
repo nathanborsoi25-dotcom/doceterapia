@@ -449,7 +449,18 @@ export const configLoja = pgTable("config_loja", {
   bannerLink: text("banner_link").notNull().default("/catalogo"),
 });
 
-// Configuração de frete — sempre uma única linha (id fixo "default").
+/**
+ * Configuração de frete — sempre uma única linha (id fixo "default").
+ *
+ * ⚠️ Coluna nova aqui exige BUILD LIMPO pra valer. Em 13/08/2026 as duas de
+ * baixo entraram e, no ar, a rota devolvia os campos com as chaves certas mas
+ * sempre vazios: a rota nova estava rodando contra uma versão ANTIGA deste
+ * arquivo, sobrada do cache de build. O `SELECT` do Drizzle monta a lista de
+ * colunas a partir daqui, então o schema velho simplesmente não pedia as
+ * colunas novas — e não dá erro nenhum, só devolve `undefined`.
+ * Sintoma: o banco tem o dado, o Drizzle lê certo num script, e só a rota
+ * publicada não vê. Cura: apagar `.next` (ou redeploy sem cache na Vercel).
+ */
 export const configFrete = pgTable("config_frete", {
   id: text("id").primaryKey(),
   origem: jsonb("origem").$type<ConfiguracaoFrete["origem"]>().notNull(),

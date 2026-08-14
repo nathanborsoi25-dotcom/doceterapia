@@ -6,7 +6,8 @@ import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import { reais } from "@/lib/formato";
-import { getProdutos } from "@/lib/api";
+import { getConfiguracaoFrete, getProdutos } from "@/lib/api";
+import { faltaParaFreteGratis, minimoFreteGratis } from "@/lib/shipping";
 import { chaveDoItem } from "@/lib/sabores";
 import { getCarrinho, salvarCarrinho } from "@/lib/store";
 import type { ItemPedido } from "@/lib/types";
@@ -17,6 +18,19 @@ export default function CarrinhoPage() {
   const [estoques, setEstoques] = useState<Map<string, number | null>>(new Map());
   /** Foto de cada doce, pra cliente reconhecer o que comprou de relance. */
   const [fotos, setFotos] = useState<Map<string, string>>(new Map());
+  /**
+   * A partir de quanto a entrega sai de graça. Zero = a Camily não ligou.
+   *
+   * Isto vive no carrinho, e não só no checkout, porque é AQUI que a pessoa
+   * decide somar mais um doce — no checkout ela já está com o cartão na mão.
+   */
+  const [minimoGratis, setMinimoGratis] = useState(0);
+
+  useEffect(() => {
+    getConfiguracaoFrete()
+      .then((c) => setMinimoGratis(minimoFreteGratis(c)))
+      .catch(() => setMinimoGratis(0));
+  }, []);
 
   useEffect(() => {
     setItens(getCarrinho());
@@ -238,6 +252,31 @@ export default function CarrinhoPage() {
                 Você está economizando {reais(economia)} nas promoções 🍒
               </p>
             )}
+
+            {/* O aviso do frete grátis, no lugar onde ainda dá pra somar mais
+                um doce. Só aparece quando a Camily ligou a regra. */}
+            {minimoGratis > 0 &&
+              (total >= minimoGratis ? (
+                <p className="flex items-start gap-2.5 font-body text-sm text-green-800 bg-green-50 border border-green-300 rounded-xl px-4 py-3.5">
+                  <span aria-hidden className="text-lg leading-none">🎉</span>
+                  <span>
+                    <strong className="block text-base">
+                      Você ganhou frete grátis!
+                    </strong>
+                    Escolhendo entrega, o frete é por nossa conta. 🍒
+                  </span>
+                </p>
+              ) : (
+                <p className="font-body text-sm text-cherryDark bg-blush/60 border border-cherryLight/50 rounded-xl px-4 py-3.5">
+                  Faltam{" "}
+                  <strong>{reais(faltaParaFreteGratis(total, minimoGratis))}</strong>{" "}
+                  pra sua entrega sair de graça.{" "}
+                  <Link href="/catalogo" className="underline">
+                    Ver mais doces
+                  </Link>
+                </p>
+              ))}
+
             <p className="text-xs text-ink/50 font-body -mt-2">
               O frete é calculado na próxima etapa, de acordo com a distância
               ou a retirada.

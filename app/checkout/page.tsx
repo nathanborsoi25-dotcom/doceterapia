@@ -530,12 +530,24 @@ export default function CheckoutPage() {
                   )}
                 </p>
 
-                {/* Conquistou o frete grátis: vale dizer com todas as letras,
-                    senão o zero na linha do frete passa despercebido. */}
+                {/*
+                 * Conquistou o frete grátis.
+                 *
+                 * O texto é o mesmo do banner do cardápio de propósito: a
+                 * pessoa entrou por causa daquela promessa, e é aqui, na hora
+                 * de pagar, que ela confere se foi cumprida. O zero na linha
+                 * do frete, sozinho, passa despercebido.
+                 */}
                 {frete.gratisPorValor && (
-                  <p className="text-sm font-body text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-                    <strong>Sua entrega saiu de graça!</strong> Pedidos a partir
-                    de {reais(minimoGratis)} em doces não pagam frete. 🍒
+                  <p className="flex items-start gap-2.5 text-sm font-body text-green-800 bg-green-50 border border-green-300 rounded-xl px-4 py-3.5">
+                    <span aria-hidden className="text-lg leading-none">🎉</span>
+                    <span>
+                      <strong className="block text-base">
+                        Você ganhou frete grátis!
+                      </strong>
+                      Seu pedido passou de {reais(minimoGratis)} em doces, então
+                      a entrega é por nossa conta. 🍒
+                    </span>
                   </p>
                 )}
 
