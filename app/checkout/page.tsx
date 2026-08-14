@@ -10,7 +10,16 @@ import { descontoDoPix, percentualDoPix, percentualEscrito } from "@/lib/descont
 import { avisoDeFechada, limparFuncionamento, lojaAberta } from "@/lib/funcionamento";
 import { reais } from "@/lib/formato";
 import { prazoDoSabor } from "@/lib/sabores";
-import { getCarrinho, type EnderecoVisitante as EnderecoDeVisitante } from "@/lib/store";
+import {
+  conferirPrecos,
+  contarMudanca,
+  type MudancaNoCarrinho,
+} from "@/lib/precos-carrinho";
+import {
+  getCarrinho,
+  salvarCarrinho,
+  type EnderecoVisitante as EnderecoDeVisitante,
+} from "@/lib/store";
 import {
   getClienteLogado,
   getConfiguracaoFrete,
@@ -145,6 +154,35 @@ export default function CheckoutPage() {
         );
       })
       .catch(() => setPrazoDias(0));
+  }, [carrinho]);
+
+  /**
+   * Confere os preços contra o cardápio de agora, na última tela antes de
+   * pagar.
+   *
+   * O carrinho pode ter sido montado dias atrás. Sem isto a pessoa via um
+   * total aqui e o Mercado Pago cobrava outro — o servidor sempre refez a
+   * conta pelo banco, então quem estava errada era a tela.
+   *
+   * Não dá laço: depois de corrigido, a conferência seguinte não acha mais
+   * nada pra mudar.
+   */
+  const [mudancas, setMudancas] = useState<MudancaNoCarrinho[]>([]);
+  useEffect(() => {
+    if (carrinho.length === 0) return;
+    getProdutos()
+      .then((lista) => {
+        const conferido = conferirPrecos(carrinho, lista);
+        if (conferido.mudancas.length === 0) return;
+        setMudancas(conferido.mudancas);
+        setCarrinho(conferido.itens);
+        salvarCarrinho(conferido.itens);
+        // O cupom foi calculado sobre os preços antigos; com o carrinho outro,
+        // ele precisa ser conferido de novo pra não prometer desconto que o
+        // servidor vai recusar.
+        setCupomAplicado(null);
+      })
+      .catch(() => {});
   }, [carrinho]);
 
   /**
@@ -369,6 +407,38 @@ export default function CheckoutPage() {
               buscar seus doces com a Camily — ou falar com ela pelo WhatsApp.
             </p>
             <BotaoWhatsApp mensagem="Oi, Camily! Vi o site da Doceterapia, mas meu endereço não é de Arapongas. Consigo fazer um pedido?" />
+          </div>
+        )}
+
+        {/* O cardápio mudou depois que ela montou o carrinho. Aparece ANTES do
+            resumo porque muda os números que vêm logo abaixo. */}
+        {mudancas.length > 0 && (
+          <div
+            className={`rounded-xl border px-4 py-3.5 mb-6 ${
+              mudancas.some((m) => m.tipo === "sumiu" || (m.para ?? 0) > (m.de ?? 0))
+                ? "bg-blush/60 border-cherryLight/60"
+                : "bg-green-50 border-green-200"
+            }`}
+          >
+            <p className="font-body text-sm font-semibold text-ink/85">
+              Confere só uma coisa antes de pagar
+            </p>
+            <ul className="grid gap-1 mt-1.5">
+              {mudancas.map((m) => (
+                <li key={m.chave} className="font-body text-sm text-ink/70">
+                  {contarMudanca(m)}
+                  {m.tipo === "preco" && (
+                    <span className="text-ink/50">
+                      {" "}
+                      ({reais(m.de ?? 0)} → <strong>{reais(m.para ?? 0)}</strong>)
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="font-body text-xs text-ink/50 mt-2">
+              O valor abaixo já está atualizado.
+            </p>
           </div>
         )}
 

@@ -9,6 +9,11 @@ import { reais } from "@/lib/formato";
 import { getConfiguracaoFrete, getProdutos } from "@/lib/api";
 import { faltaParaFreteGratis, minimoFreteGratis } from "@/lib/shipping";
 import { chaveDoItem } from "@/lib/sabores";
+import {
+  conferirPrecos,
+  contarMudanca,
+  type MudancaNoCarrinho,
+} from "@/lib/precos-carrinho";
 import { getCarrinho, salvarCarrinho } from "@/lib/store";
 import type { ItemPedido } from "@/lib/types";
 
@@ -32,6 +37,9 @@ export default function CarrinhoPage() {
       .catch(() => setMinimoGratis(0));
   }, []);
 
+  /** O que mudou de preço desde que a pessoa montou o carrinho. */
+  const [mudancas, setMudancas] = useState<MudancaNoCarrinho[]>([]);
+
   useEffect(() => {
     setItens(getCarrinho());
     getProdutos()
@@ -50,6 +58,22 @@ export default function CarrinhoPage() {
         }
         setEstoques(porEstoque);
         setFotos(porFoto);
+
+        /*
+         * Os preços são conferidos contra o cardápio de AGORA.
+         *
+         * O carrinho mora no navegador e pode ser de ontem. Sem esta conferência
+         * a tela mostrava o preço de quando o doce entrou, e o servidor — que
+         * refaz a conta pelo banco — cobrava outro: a cliente via R$ 12,00 e
+         * pagava R$ 16,00. O valor gravado é corrigido aqui, e o que mudou é
+         * dito com todas as letras logo abaixo.
+         */
+        const conferido = conferirPrecos(getCarrinho(), lista);
+        if (conferido.mudancas.length > 0) {
+          setItens(conferido.itens);
+          salvarCarrinho(conferido.itens);
+          setMudancas(conferido.mudancas);
+        }
       })
       .catch(() => {});
   }, []);
@@ -108,6 +132,43 @@ export default function CarrinhoPage() {
       <main className="px-4 sm:px-6 md:px-12 pb-16 max-w-2xl mx-auto">
         <h1 className="font-display text-2xl sm:text-3xl text-center text-cherryDark">Seu carrinho</h1>
         <CherryDivider />
+
+        {/*
+         * O que mudou no cardápio desde que a pessoa montou o carrinho.
+         *
+         * Trocar o preço calado seria tão desonesto quanto mostrar o antigo:
+         * ela escolheu o doce por um valor e precisa saber que ele é outro
+         * ANTES de chegar na tela de pagar.
+         */}
+        {mudancas.length > 0 && (
+          <div
+            className={`rounded-xl border px-4 py-3.5 mb-5 ${
+              mudancas.some((m) => m.tipo === "sumiu" || (m.para ?? 0) > (m.de ?? 0))
+                ? "bg-blush/60 border-cherryLight/60"
+                : "bg-green-50 border-green-200"
+            }`}
+          >
+            <p className="font-body text-sm font-semibold text-ink/85">
+              O cardápio mudou desde a sua última visita
+            </p>
+            <ul className="grid gap-1 mt-1.5">
+              {mudancas.map((m) => (
+                <li key={m.chave} className="font-body text-sm text-ink/70">
+                  {contarMudanca(m)}
+                  {m.tipo === "preco" && (
+                    <span className="text-ink/50">
+                      {" "}
+                      ({reais(m.de ?? 0)} → <strong>{reais(m.para ?? 0)}</strong>)
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="font-body text-xs text-ink/50 mt-2">
+              Os valores abaixo já estão atualizados.
+            </p>
+          </div>
+        )}
 
         {itens.length === 0 ? (
           <p className="text-center font-body text-ink/70">
