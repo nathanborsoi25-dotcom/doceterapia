@@ -45,7 +45,7 @@ function Conteudo() {
 
         <div className="grid gap-2 mt-8">
           {pedidoId ? (
-            <BotaoPagarPedido pedidoId={pedidoId} rotulo="Tentar pagar de novo" />
+            <BotaoPagarPedido pedidoId={pedidoId} />
           ) : (
             // Sem o id (link antigo ou aberto direto), o caminho é o checkout.
             <Link

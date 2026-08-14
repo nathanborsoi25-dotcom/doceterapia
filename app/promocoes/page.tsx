@@ -8,6 +8,8 @@ import RodapeLinks from "@/components/RodapeLinks";
 import { bannersVisiveis, type BannerDaLoja } from "@/lib/banners";
 import { reais } from "@/lib/formato";
 import { getMinhaConta, type MinhaConta } from "@/lib/api";
+import { EVENTO_NOVIDADES } from "@/lib/novidades";
+import { marcarPromocoesVistas } from "@/lib/promocoes-vistas";
 import { podeResgatar } from "@/lib/resgate";
 import {
   getCarrinho,
@@ -96,6 +98,11 @@ export default function PromocoesPage() {
     // durante a renderização faria o servidor desenhar uma tela diferente da
     // do cliente.
     setItensDoCarrinho(getCarrinho());
+
+    // Ela abriu a tela: a bolinha de "promoção nova" apaga. O evento avisa a
+    // barra de baixo, que senão só perceberia na próxima troca de tela.
+    marcarPromocoesVistas();
+    window.dispatchEvent(new Event(EVENTO_NOVIDADES));
   }, []);
 
   /** Põe o prêmio no carrinho. Os pontos só saem no pagamento confirmado. */

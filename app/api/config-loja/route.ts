@@ -91,10 +91,22 @@ export async function PUT(req: Request) {
     ),
   };
 
-  const { id: _id, ...atualizacao } = valores;
+  /*
+   * Banner novo é novidade pra cliente, e acende a bolinha em "Promoções".
+   *
+   * O carimbo entra JUNTO com o resto, na mesma gravação: numa chamada
+   * separada, salvar o banner e falhar o carimbo deixaria o aviso mudo, e um
+   * carimbo sem banner acenderia a bolinha à toa.
+   */
+  const mexeuNasPromocoes = b.banners !== undefined;
+
+  const { id: _id, ...atualizacao } = {
+    ...valores,
+    ...(mexeuNasPromocoes ? { promocoesEm: new Date() } : {}),
+  };
   await getDb()
     .insert(configLoja)
-    .values(valores)
+    .values({ ...valores, ...(mexeuNasPromocoes ? { promocoesEm: new Date() } : {}) })
     .onConflictDoUpdate({ target: configLoja.id, set: atualizacao });
 
   /*

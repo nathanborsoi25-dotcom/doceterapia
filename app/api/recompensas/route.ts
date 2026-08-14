@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { recompensas } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
+import { marcarPromocoesAtualizadas } from "@/lib/config-loja";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,9 @@ export async function POST(req: Request) {
     .insert(recompensas)
     .values(valores)
     .onConflictDoUpdate({ target: recompensas.id, set: atualizacao });
+
+  // Prêmio novo no catálogo acende a bolinha em "Promoções".
+  await marcarPromocoesAtualizadas();
 
   return NextResponse.json({ ok: true, id });
 }

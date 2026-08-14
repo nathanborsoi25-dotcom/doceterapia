@@ -6,6 +6,8 @@ import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
 import { criarPreferenciaDoPedido } from "@/lib/preferencia-mp";
+import { descontoDoPix } from "@/lib/desconto-pix";
+import { getConfigLoja } from "@/lib/config-loja";
 import type { ItemPedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -92,17 +94,44 @@ export async function POST(
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
 
   /*
-   * A retomada repete a MESMA forma de pagamento do pedido original, e o
-   * Checkout abre travado nela. É o que protege o desconto do Pix: quem
-   * ganhou os 4% por escolher Pix não pode voltar por aqui e pagar no cartão
-   * com o valor já abatido.
+   * Ela pode TROCAR a forma de pagamento ao voltar.
+   *
+   * Quem desistiu do cartão e resolveu pagar no Pix ganha os 4% agora; quem
+   * fez o contrário perde o desconto. Antes a retomada repetia a forma do
+   * pedido original, e a única saída pra trocar era cancelar e refazer o
+   * carrinho inteiro.
+   *
+   * ⚠️ O valor do desconto é RECALCULADO aqui, nunca aproveitado do pedido.
+   * Reabrir no cartão mantendo o abatimento do Pix faria a Camily pagar os 4%
+   * E a taxa cheia do cartão — que é exatamente o buraco que a trava de forma
+   * existe pra fechar.
    */
+  const corpo = (await req.json().catch(() => ({}))) as { formaPagamento?: string };
+  const formaPagamento = corpo.formaPagamento === "credito" ? "credito" : "pix";
+
+  const configLoja = await getConfigLoja();
+  const subtotal = itens.reduce((a, i) => a + i.precoUnitario * i.quantidade, 0);
+  const descontoPix = descontoDoPix(
+    formaPagamento,
+    Math.max(0, subtotal - pedido.desconto + pedido.valorFrete),
+    configLoja.descontoPix
+  );
+
+  // O pedido passa a valer o que ela escolheu agora — é este valor que o
+  // painel mostra, que as métricas usam pra taxa e que o e-mail conta.
+  if (formaPagamento !== pedido.formaPagamento || descontoPix !== pedido.descontoPix) {
+    await db
+      .update(pedidos)
+      .set({ formaPagamento, descontoPix })
+      .where(eq(pedidos.id, pedido.id));
+  }
+
   const url = await criarPreferenciaDoPedido(client, {
     pedidoId: pedido.id,
     itens,
     valorFrete: pedido.valorFrete,
     desconto: pedido.desconto,
-    descontoPix: pedido.descontoPix,
+    descontoPix,
     cupomCodigo: pedido.cupomCodigo,
     comprador: {
       nome: cliente.nome,
@@ -110,7 +139,7 @@ export async function POST(
       telefone: cliente.telefone,
     },
     origin,
-    formaPagamento: pedido.formaPagamento,
+    formaPagamento,
   });
 
   if (!url) {

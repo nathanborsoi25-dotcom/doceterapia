@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { clientes, cupons } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { donosDoCupom, normalizarCodigo } from "@/lib/cupom";
+import { marcarPromocoesAtualizadas } from "@/lib/config-loja";
 
 export const dynamic = "force-dynamic";
 
@@ -134,6 +135,10 @@ export async function POST(req: Request) {
     expiraEm,
     limiteUsos: Math.max(0, Math.floor(Number(b.limiteUsos) || 0)),
   });
+
+  // Cupom novo acende a bolinha em "Promoções" — inclusive o pessoal, que
+  // aparece na tela só de quem tem direito a ele.
+  await marcarPromocoesAtualizadas();
 
   return NextResponse.json({ ok: true, codigo });
 }

@@ -34,6 +34,8 @@ export const CONFIG_PADRAO: ConfigLoja = {
   descontoPix: DESCONTO_PIX_PADRAO,
   funcionamento: FUNCIONAMENTO_PADRAO,
   entrega: ENTREGA_PADRAO,
+  /** Loja sem linha salva não tem promoção nova pra anunciar. */
+  promocoesEm: null,
   banners: [],
   bannerAtivo: false,
   bannerTitulo: "",
@@ -50,6 +52,30 @@ export async function getConfigLoja(): Promise<ConfigLoja> {
     .from(configLoja)
     .where(eq(configLoja.id, ID_CONFIG));
   return linha ?? CONFIG_PADRAO;
+}
+
+/**
+ * Carimba a hora em que a tela de promoções mudou.
+ *
+ * Chamado quando a Camily salva um banner, cria um cupom ou põe um prêmio
+ * novo no catálogo. É esse carimbo que acende a bolinha em "Promoções" — a
+ * cliente guarda no próprio navegador quando viu a tela pela última vez.
+ *
+ * Nunca lança: é um enfeite de navegação, e derrubar a criação de um cupom
+ * por causa dele seria trocar o essencial pelo acessório.
+ */
+export async function marcarPromocoesAtualizadas(): Promise<void> {
+  try {
+    await getDb()
+      .insert(configLoja)
+      .values({ id: ID_CONFIG, promocoesEm: new Date() })
+      .onConflictDoUpdate({
+        target: configLoja.id,
+        set: { promocoesEm: new Date() },
+      });
+  } catch (e) {
+    console.error("Não consegui carimbar a mudança nas promoções:", e);
+  }
 }
 
 /**

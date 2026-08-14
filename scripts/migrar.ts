@@ -274,6 +274,27 @@ async function main() {
   // sáb-dom 9h-22h), que foi o combinado com a Camily.
   await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS entrega jsonb`;
 
+  console.log("18) Aviso de novidade no pedido (o que a cliente ja viu)...");
+  await sql`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS status_visto text`;
+  /*
+   * Tudo que já existe nasce como LIDO.
+   *
+   * Sem isto, a bolinha estreia com o histórico inteiro: numa conta de teste
+   * daqui ela apareceu com 17 avisos, de pedidos concluídos e cancelados
+   * meses atrás. Aviso que já nasce velho é aviso que a pessoa aprende a
+   * ignorar. Só o que mudar de aqui em diante acende.
+   *
+   * O pedido esperando pagamento continua aparecendo mesmo assim, e deve
+   * mesmo: ali não é aviso de leitura, é coisa pendente pra fazer.
+   */
+  await sql`UPDATE pedidos SET status_visto = status WHERE status_visto IS NULL`;
+
+  console.log("19) Carimbo de quando as promocoes mudaram...");
+  await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS promocoes_em timestamptz`;
+  // Nasce com a data de agora: assim a bolinha não acende pra todo mundo por
+  // causa de banner que já estava no ar antes desta coluna existir.
+  await sql`UPDATE config_loja SET promocoes_em = now() WHERE promocoes_em IS NULL`;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns

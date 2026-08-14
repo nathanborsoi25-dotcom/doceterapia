@@ -10,6 +10,9 @@ import {
   getMeusStories,
 } from "@/lib/api";
 import { reais } from "@/lib/formato";
+import BotaoPagarPedido from "@/components/BotaoPagarPedido";
+import { percentualDoPix } from "@/lib/desconto-pix";
+import { EVENTO_NOVIDADES } from "@/lib/novidades";
 import { SITUACAO_PARA_CLIENTE, textoDoReembolso } from "@/lib/status-pedido";
 import type { PedidoDoCliente, StoryEnviado } from "@/lib/types";
 
@@ -22,6 +25,21 @@ export default function MeusPedidos() {
   const [pedidos, setPedidos] = useState<PedidoDoCliente[]>([]);
   const [stories, setStories] = useState<StoryEnviado[]>([]);
   const [carregando, setCarregando] = useState(true);
+  /**
+   * O desconto do Pix de HOJE — não o de quando o pedido nasceu.
+   *
+   * Quem volta pra pagar escolhe a forma de novo, e o abatimento é o que a
+   * Camily pratica agora. Quem recalcula de verdade é o servidor; aqui é só
+   * pra ela ver o valor antes de tocar no botão.
+   */
+  const [percentualPix, setPercentualPix] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/config-loja", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => setPercentualPix(percentualDoPix(c?.descontoPix)))
+      .catch(() => setPercentualPix(0));
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -31,6 +49,20 @@ export default function MeusPedidos() {
       .then(([p, s]) => {
         setPedidos(p);
         setStories(s);
+
+        /*
+         * Ela abriu a lista: as novidades foram lidas.
+         *
+         * Só depois de os pedidos chegarem na tela — marcar antes apagaria o
+         * aviso de uma lista que talvez nem tenha carregado. O evento avisa a
+         * barra de baixo, que senão só apagaria a bolinha na próxima tela.
+         *
+         * O pedido esperando pagamento continua marcado de propósito: ali não
+         * é aviso de leitura, é uma coisa pendente pra ela fazer.
+         */
+        fetch("/api/cliente/novidades", { method: "POST" })
+          .then(() => window.dispatchEvent(new Event(EVENTO_NOVIDADES)))
+          .catch(() => {});
       })
       .finally(() => setCarregando(false));
   }, []);
@@ -68,6 +100,7 @@ export default function MeusPedidos() {
           key={p.id}
           pedido={p}
           story={stories.find((s) => s.pedidoId === p.id) ?? null}
+          percentualPix={percentualPix}
           onMudou={recarregar}
         />
       ))}
@@ -78,48 +111,23 @@ export default function MeusPedidos() {
 function CartaoPedido({
   pedido,
   story,
+  percentualPix,
   onMudou,
 }: {
   pedido: PedidoDoCliente;
   story: StoryEnviado | null;
+  /** Quanto o Pix abate hoje, pra mostrar no botão de retomar o pagamento. */
+  percentualPix: number;
   onMudou: () => void;
 }) {
   const [cancelando, setCancelando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
-  const [pagando, setPagando] = useState(false);
   const [erro, setErro] = useState("");
 
   const situacao = SITUACAO_PARA_CLIENTE[pedido.status];
   const subtotal = pedido.itens.reduce((a, i) => a + i.precoUnitario * i.quantidade, 0);
   const total = subtotal - pedido.desconto + pedido.valorFrete;
   const reembolso = textoDoReembolso(pedido.statusReembolso);
-
-  /**
-   * Volta para a tela de pagamento deste pedido.
-   *
-   * Quem fecha o Mercado Pago no meio ficava sem saída: o pedido existia,
-   * mas não havia botão nenhum para concluir. O servidor reabre a MESMA
-   * cobrança, com os valores já gravados — nada é recalculado.
-   */
-  async function pagarAgora() {
-    setErro("");
-    setPagando(true);
-    try {
-      const r = await fetch(`/api/cliente/pedidos/${pedido.id}/pagar`, {
-        method: "POST",
-      });
-      const corpo = await r.json();
-      if (!r.ok || !corpo.url) {
-        setErro(corpo.error ?? "Não consegui abrir o pagamento agora. Tenta de novo?");
-        return;
-      }
-      window.location.href = corpo.url;
-    } catch {
-      setErro("Não consegui abrir o pagamento agora. Confere a internet e tenta de novo?");
-    } finally {
-      setPagando(false);
-    }
-  }
 
   async function cancelar() {
     setErro("");
@@ -255,15 +263,18 @@ function CartaoPedido({
       )}
 
       {/* Pedido parado esperando pagamento: o caminho de volta pra concluir.
-          Vem antes do "cancelar" porque é o que ela quer fazer. */}
+          Vem antes do "cancelar" porque é o que ela quer fazer.
+
+          As duas formas aparecem porque quem parou no meio muitas vezes parou
+          por causa DA FORMA — o cartão foi recusado, ou ela viu o desconto do
+          Pix depois. Trocar aqui recalcula o valor no servidor. */}
       {pedido.status === "aguardando_pagamento" && (
-        <button
-          onClick={pagarAgora}
-          disabled={pagando}
-          className="bg-cherryDark text-white rounded-full px-5 py-3 font-semibold hover:bg-cherryMid active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          {pagando ? "Abrindo o pagamento..." : `Pagar agora · ${reais(total)}`}
-        </button>
+        <BotaoPagarPedido
+          pedidoId={pedido.id}
+          total={total}
+          percentualPix={percentualPix}
+          compacto
+        />
       )}
 
       {erro && <p className="text-cherryDark text-sm">{erro}</p>}

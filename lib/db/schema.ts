@@ -186,6 +186,15 @@ export const pedidos = pgTable("pedidos", {
   descontoPix: doublePrecision("desconto_pix").notNull().default(0),
   formaPagamento: text("forma_pagamento").notNull(),
   status: text("status").notNull().default("aguardando_pagamento"),
+  /**
+   * A última situação que a CLIENTE já viu neste pedido.
+   *
+   * É o que faz a bolinha de aviso aparecer no ícone da conta: enquanto isto
+   * for diferente de `status`, há novidade que ela não leu. Fica no pedido, e
+   * não no navegador, pra ela ver o aviso também no celular do trabalho.
+   * Nulo = nunca abriu (pedido novo conta como novidade).
+   */
+  statusVisto: text("status_visto"),
   // Quando este pedido precisa estar pronto. Calculado no servidor na hora
   // da compra: na retirada é a data agendada; na entrega é a data do pedido
   // mais o maior prazo de encomenda entre os doces do carrinho. Guardar o
@@ -437,6 +446,14 @@ export const configLoja = pgTable("config_loja", {
    * pedido (ver `lib/entrega-horario.ts`). Nulo cai no padrão.
    */
   entrega: jsonb("entrega").$type<HorarioDeEntrega | null>(),
+  /**
+   * Quando a tela de promoções mudou pela última vez — banner, cupom ou
+   * prêmio novo. É o que acende a bolinha em "Promoções" na barra de baixo.
+   *
+   * Um carimbo só, e não uma data por coisa: o que interessa à cliente é "tem
+   * novidade lá", não qual das três mudou.
+   */
+  promocoesEm: timestamp("promocoes_em", { withTimezone: true }),
   /**
    * Os destaques do topo do cardápio, em carrossel (ver `lib/banners.ts`).
    * Lista vazia cai no banner único das colunas antigas, logo abaixo.

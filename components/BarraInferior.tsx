@@ -5,6 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getClienteLogado } from "@/lib/api";
 import { EVENTO_CARRINHO, totalDeItens } from "@/lib/store";
+import {
+  contarNovidadesEscrito,
+  EVENTO_NOVIDADES,
+  SEM_NOVIDADES,
+  type Novidades,
+} from "@/lib/novidades";
+import { temPromocaoNova } from "@/lib/promocoes-vistas";
 
 /**
  * A barra de navegação fixa no rodapé.
@@ -37,12 +44,39 @@ export default function BarraInferior() {
   const [itens, setItens] = useState(0);
   /** `null` enquanto a resposta não chega — aí o último item não pisca. */
   const [logado, setLogado] = useState<boolean | null>(null);
+  /** Pedido esperando pagamento ou com situação nova, ainda não vista. */
+  const [novidades, setNovidades] = useState<Novidades>(SEM_NOVIDADES);
+  /** Tem banner, cupom ou prêmio novo que esta pessoa ainda não viu. */
+  const [promocaoNova, setPromocaoNova] = useState(false);
 
   useEffect(() => {
     getClienteLogado()
       .then((c) => setLogado(Boolean(c)))
       .catch(() => setLogado(false));
   }, []);
+
+  /*
+   * Os avisos são conferidos a cada troca de tela, e não só na primeira: a
+   * situação do pedido muda pelo lado da Camily, enquanto a cliente navega.
+   * Trocar de tela é o momento barato de perguntar — sem relógio batendo no
+   * servidor de quem só está olhando o cardápio.
+   */
+  useEffect(() => {
+    function buscar() {
+      fetch("/api/cliente/novidades", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : SEM_NOVIDADES))
+        .then((n: Novidades) => {
+          setNovidades(n);
+          // Quem compara é o navegador: a tela de promoções serve visitante
+          // sem conta, e a última visita dela mora aqui, não no banco.
+          setPromocaoNova(temPromocaoNova(n.promocoesEm));
+        })
+        .catch(() => setNovidades(SEM_NOVIDADES));
+    }
+    buscar();
+    window.addEventListener(EVENTO_NOVIDADES, buscar);
+    return () => window.removeEventListener(EVENTO_NOVIDADES, buscar);
+  }, [caminho]);
 
   // Mesmo contador do cabeçalho: reage a quem adiciona por aqui (evento
   // próprio) e a quem mexe no carrinho em outra aba (evento storage).
@@ -106,6 +140,33 @@ export default function BarraInferior() {
                       {itens}
                     </span>
                   )}
+                  {/*
+                   * O aviso da conta, na mesma quina e do mesmo tamanho do
+                   * contador do carrinho — duas marcas diferentes na mesma
+                   * barra fariam a pessoa achar que significam coisas
+                   * distintas.
+                   *
+                   * É um `<span>`, e não um botão: o CSS global estica
+                   * qualquer `<button>` para 44px no toque, e foi assim que
+                   * as bolinhas do carrossel viraram duas barras brancas no
+                   * meio da foto, em 10/08.
+                   */}
+                  {item.href === "/conta" && novidades.total > 0 && (
+                    <span className="absolute -top-1 -right-2.5 min-w-[18px] h-[18px] px-1 rounded-full bg-cherryDark text-white text-[10px] font-semibold flex items-center justify-center tabular-nums">
+                      {novidades.total}
+                    </span>
+                  )}
+                  {/*
+                   * Promoção nova: bolinha SEM número.
+                   *
+                   * Não há o que contar aqui — a cliente não quer saber
+                   * "3 novidades", quer saber que vale a pena olhar. Um
+                   * número inventado (banners + cupons + prêmios) só criaria
+                   * a pergunta "três o quê?".
+                   */}
+                  {item.href === "/promocoes" && promocaoNova && (
+                    <span className="absolute top-0 -right-1.5 w-2.5 h-2.5 rounded-full bg-cherryDark ring-2 ring-white" />
+                  )}
                 </span>
                 <span
                   className={`text-[10px] leading-none ${ativo ? "font-semibold" : ""}`}
@@ -116,6 +177,16 @@ export default function BarraInferior() {
                   <span className="sr-only">
                     {itens} {itens === 1 ? "item" : "itens"} no carrinho
                   </span>
+                )}
+                {/* Pro leitor de tela o número sozinho não diz nada: aqui vai
+                    a frase inteira, dizendo de que aviso se trata. */}
+                {item.href === "/conta" && novidades.total > 0 && (
+                  <span className="sr-only">
+                    {contarNovidadesEscrito(novidades)}
+                  </span>
+                )}
+                {item.href === "/promocoes" && promocaoNova && (
+                  <span className="sr-only">tem novidade nas promoções</span>
                 )}
               </Link>
             </li>
