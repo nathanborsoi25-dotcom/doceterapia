@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_noStore as noStore } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { configFrete } from "@/lib/db/schema";
@@ -8,14 +9,30 @@ import { configuracaoFretePadrao } from "@/lib/shipping";
 import type { ConfiguracaoFrete, OrigemFrete } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const ID = "default";
 
+/**
+ * Marcador da versão desta rota.
+ *
+ * Existe porque em 13/08/2026 a resposta publicada ficou congelada: o banco
+ * mudava e o site continuava devolvendo os valores de antes, sem erro nenhum.
+ * Com o marcador dá pra saber, de fora, QUAL código está de fato respondendo —
+ * sem isso a única saída é adivinhar entre cache e deploy velho.
+ */
+const VERSAO = "2026-08-13-c";
+
 export async function GET() {
+  // `force-dynamic` sozinho não bastou. O driver do Neon fala com o banco por
+  // `fetch`, e o Next embrulha o `fetch` global com cache próprio — a leitura
+  // do banco virava resposta guardada, e a rota devolvia sempre o mesmo.
+  noStore();
+
   const db = getDb();
   const rows = await db.select().from(configFrete).where(eq(configFrete.id, ID));
   if (rows.length === 0) {
-    return NextResponse.json(configuracaoFretePadrao);
+    return NextResponse.json({ ...configuracaoFretePadrao, _versao: VERSAO });
   }
   const r = rows[0];
   return NextResponse.json({
@@ -23,6 +40,7 @@ export async function GET() {
     origemFimDeSemana: r.origemFimDeSemana ?? null,
     freteGratisAcimaDe: r.freteGratisAcimaDe ?? 0,
     faixas: r.faixas,
+    _versao: VERSAO,
   });
 }
 
