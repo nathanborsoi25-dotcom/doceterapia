@@ -1,6 +1,11 @@
 "use client";
 
 import { chaveDoItem } from "./sabores";
+import {
+  itemDeResgate,
+  jaEstaNoCarrinho,
+  type RecompensaResgatavel,
+} from "./resgate";
 import { precoAPagar, precoCheio } from "./promocao";
 import type { ItemPedido, Produto, SaborDoDoce } from "./types";
 
@@ -146,6 +151,25 @@ export function adicionarAoCarrinho(
     sabor,
     quantidadeNoCarrinho(produto.id, sabor?.id) + quantidade
   );
+}
+
+/**
+ * Põe um prêmio de pontos no carrinho, por R$ 0,00.
+ *
+ * Os pontos NÃO saem daqui: eles só são debitados quando o pagamento é
+ * confirmado. Até lá o prêmio fica reservado no carrinho, e o servidor
+ * confere o saldo de novo na hora de fechar o pedido — este é o navegador, e
+ * o que ele diz nunca vale como verdade.
+ */
+export function resgatarParaOCarrinho(recompensa: RecompensaResgatavel) {
+  const itens = getCarrinho();
+  if (jaEstaNoCarrinho(itens, recompensa.id)) return;
+  salvarCarrinho([...itens, itemDeResgate(recompensa)]);
+}
+
+/** Devolve o prêmio: tira do carrinho e libera os pontos de novo. */
+export function tirarResgateDoCarrinho(recompensaId: string) {
+  salvarCarrinho(getCarrinho().filter((i) => i.recompensaId !== recompensaId));
 }
 
 export function limparCarrinho() {

@@ -10,7 +10,7 @@ import {
   devolverPagamentoDePedidoCancelado,
   registrarCancelamentoDoMercadoPago,
 } from "@/lib/cancelamento";
-import { creditarPontosDoPedido } from "@/lib/fidelidade";
+import { creditarPontosDoPedido, debitarResgatesDoPedido } from "@/lib/fidelidade";
 import { baixarEstoque } from "@/lib/estoque";
 import type { Pedido } from "@/lib/types";
 
@@ -153,6 +153,9 @@ export async function POST(req: Request) {
             p.id,
             Math.max(0, subtotal - p.desconto)
           );
+          // Os prêmios trocados por pontos saem do saldo agora, e não no
+          // clique do resgate: pedido não pago não gasta ponto de ninguém.
+          await debitarResgatesDoPedido(p.clienteId, p.id, p.itens);
         }
       }
     }

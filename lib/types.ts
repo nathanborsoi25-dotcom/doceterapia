@@ -109,6 +109,15 @@ export interface ItemPedido {
   emPromocao?: boolean;
   /** Preço cheio, pro cliente ver de quanto por quanto ficou. */
   precoCheio?: number;
+  /**
+   * Este item é um PRÊMIO trocado por pontos, e por isso custa R$ 0,00.
+   *
+   * Guarda o id da recompensa e quantos pontos ela custou. Quem confere se a
+   * cliente tem esse saldo é o servidor, na hora de fechar o pedido — o
+   * navegador poderia jurar qualquer coisa aqui.
+   */
+  recompensaId?: string;
+  pontosGastos?: number;
 }
 
 export type StatusPedido =

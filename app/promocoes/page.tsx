@@ -8,6 +8,13 @@ import RodapeLinks from "@/components/RodapeLinks";
 import { bannersVisiveis, type BannerDaLoja } from "@/lib/banners";
 import { reais } from "@/lib/formato";
 import { getMinhaConta, type MinhaConta } from "@/lib/api";
+import { podeResgatar } from "@/lib/resgate";
+import {
+  getCarrinho,
+  resgatarParaOCarrinho,
+  tirarResgateDoCarrinho,
+} from "@/lib/store";
+import type { ItemPedido } from "@/lib/types";
 
 /**
  * Tudo o que está em promoção, num lugar só.
@@ -51,6 +58,8 @@ export default function PromocoesPage() {
   const [premios, setPremios] = useState<Recompensa[]>([]);
   const [conta, setConta] = useState<MinhaConta | null>(null);
   const [carregando, setCarregando] = useState(true);
+  /** O carrinho de agora, pra saber quais prêmios já foram resgatados. */
+  const [itensDoCarrinho, setItensDoCarrinho] = useState<ItemPedido[]>([]);
 
   useEffect(() => {
     fetch("/api/config-loja", { cache: "no-store" })
@@ -82,7 +91,24 @@ export default function PromocoesPage() {
     getMinhaConta()
       .then(setConta)
       .catch(() => setConta(null));
+
+    // O carrinho é lido depois de montar: ele mora no navegador, e lê-lo
+    // durante a renderização faria o servidor desenhar uma tela diferente da
+    // do cliente.
+    setItensDoCarrinho(getCarrinho());
   }, []);
+
+  /** Põe o prêmio no carrinho. Os pontos só saem no pagamento confirmado. */
+  function pegarPremio(premio: { id: string; nome: string; pontos: number }) {
+    resgatarParaOCarrinho(premio);
+    setItensDoCarrinho(getCarrinho());
+  }
+
+  /** Devolve o prêmio pro catálogo e libera os pontos de novo. */
+  function tirarPremio(recompensaId: string) {
+    tirarResgateDoCarrinho(recompensaId);
+    setItensDoCarrinho(getCarrinho());
+  }
 
   const cupons = conta?.cupons ?? [];
   const vazia = !carregando && banners.length === 0 && cupons.length === 0;
@@ -267,15 +293,23 @@ export default function PromocoesPage() {
               <div className="grid gap-2 mt-2">
                 {premios.map((p) => {
                   // Só quem está logado tem saldo pra comparar.
-                  const falta = conta ? p.pontos - conta.saldoPontos : null;
-                  const podeResgatar = falta !== null && falta <= 0;
+                  const noCarrinho = itensDoCarrinho.some(
+                    (i) => i.recompensaId === p.id
+                  );
+                  const resultado = conta
+                    ? podeResgatar(conta.saldoPontos, itensDoCarrinho, p)
+                    : null;
+                  const liberado = resultado?.pode === true;
+
                   return (
                     <div
                       key={p.id}
-                      className={`flex flex-wrap items-center justify-between gap-2 border rounded-xl px-4 py-3 font-body text-sm ${
-                        podeResgatar
-                          ? "bg-green-50 border-green-200"
-                          : "bg-white/70 border-cherryLight/30"
+                      className={`flex flex-wrap items-center justify-between gap-3 border rounded-xl px-4 py-3 font-body text-sm ${
+                        noCarrinho
+                          ? "bg-green-50 border-green-300"
+                          : liberado
+                            ? "bg-green-50 border-green-200"
+                            : "bg-white/70 border-cherryLight/30"
                       }`}
                     >
                       <div className="min-w-0">
@@ -283,15 +317,48 @@ export default function PromocoesPage() {
                         {p.descricao && (
                           <p className="text-xs text-ink/55">{p.descricao}</p>
                         )}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-cherryDark font-semibold">
+                        <p className="text-cherryDark font-semibold mt-0.5">
                           {p.pontos} pts
+                          {resultado && !resultado.pode && resultado.falta ? (
+                            <span className="text-ink/55 font-normal">
+                              {" "}
+                              · faltam {resultado.falta}
+                            </span>
+                          ) : null}
                         </p>
-                        {falta !== null && (
-                          <p className="text-xs text-ink/55">
-                            {podeResgatar ? "você já pode!" : `faltam ${falta}`}
-                          </p>
+                      </div>
+
+                      {/*
+                       * O resgate acontece AQUI, sem passar pelo WhatsApp: o
+                       * prêmio vai pro carrinho por R$ 0,00 e viaja junto com
+                       * o pedido. Os pontos só saem do saldo quando o
+                       * pagamento é confirmado — quem confere isso é o
+                       * servidor, na hora de fechar.
+                       */}
+                      <div className="shrink-0">
+                        {!conta ? (
+                          <a
+                            href="/entrar?voltar=%2Fpromocoes"
+                            className="inline-flex items-center min-h-[44px] text-xs text-cherryDark underline"
+                          >
+                            Entre para resgatar
+                          </a>
+                        ) : noCarrinho ? (
+                          <button
+                            onClick={() => tirarPremio(p.id)}
+                            className="rounded-full border border-cherryDark/30 px-4 py-2.5 text-xs font-body text-ink/70 hover:border-cherryDark transition-colors"
+                          >
+                            No carrinho · tirar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => pegarPremio(p)}
+                            disabled={!liberado}
+                            title={resultado?.motivo}
+                            className="rounded-full bg-cherryDark text-white px-5 py-2.5 text-xs font-body font-semibold hover:bg-cherryMid transition-colors disabled:opacity-35"
+                          >
+                            Resgatar
+                          </button>
                         )}
                       </div>
                     </div>
@@ -299,8 +366,10 @@ export default function PromocoesPage() {
                 })}
               </div>
               <p className="font-body text-xs text-ink/50 mt-2">
-                Para resgatar, é só falar com a Camily no WhatsApp na hora de
-                fazer o pedido.
+                O prêmio entra no carrinho custando R$ 0,00 e fica lá até você
+                fechar o pedido. Os pontos só saem do seu saldo quando o
+                pagamento é confirmado — escolhendo entrega, você paga só o
+                frete. 🍒
               </p>
             </>
           )}

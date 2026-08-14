@@ -1,4 +1,5 @@
 import { chaveDoItem } from "./sabores";
+import { ehResgate } from "./resgate";
 import { emPromocao, precoAPagar, precoCheio } from "./promocao";
 import type { ItemPedido, Produto } from "./types";
 
@@ -62,6 +63,14 @@ export function conferirPrecos(
   const novos: ItemPedido[] = [];
 
   for (const item of itens) {
+    // Prêmio trocado por pontos não mora no cardápio: ele custa zero, não tem
+    // preço pra conferir, e procurá-lo entre os doces o faria ser tratado como
+    // "saiu do cardápio" — sumindo do carrinho sozinho.
+    if (ehResgate(item)) {
+      novos.push(item);
+      continue;
+    }
+
     const chave = chaveDoItem(item.produtoId, item.saborId);
     const produto = porId.get(item.produtoId);
     const sabor = item.saborId

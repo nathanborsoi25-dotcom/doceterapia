@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { pontos } from "./db/schema";
 import { getConfigLoja } from "./config-loja";
+import type { ItemPedido } from "./types";
 
 /**
  * Pontos de fidelidade. O saldo é sempre a SOMA do extrato — nunca um número
@@ -66,3 +67,41 @@ export async function creditarPontosDoPedido(
   });
   return ganhos;
 }
+
+/**
+ * Desconta os pontos dos prêmios que vieram no pedido.
+ *
+ * Só é chamado quando o pagamento é confirmado, igual ao crédito da compra:
+ * debitar no clique do resgate cobraria por um pedido que talvez nunca fosse
+ * pago, e obrigaria a devolver os pontos em todo carrinho abandonado.
+ *
+ * O saldo já foi conferido na criação do pedido; aqui é o lançamento.
+ */
+export async function debitarResgatesDoPedido(
+  clienteId: string,
+  pedidoId: string,
+  itens: ItemPedido[]
+): Promise<number> {
+  const premios = itens.filter((i) => i.recompensaId && (i.pontosGastos ?? 0) > 0);
+  let total = 0;
+
+  for (const premio of premios) {
+    const custo = (premio.pontosGastos ?? 0) * premio.quantidade;
+    await lancarPontos({
+      clienteId,
+      quantidade: -custo,
+      motivo: "resgate",
+      descricao: `Resgate: ${premio.nome}`,
+      pedidoId,
+    });
+    total += custo;
+  }
+  return total;
+}
+
+/*
+ * A devolução dos pontos de um prêmio em pedido cancelado NÃO mora aqui: quem
+ * faz isso é `estornarPontosDoPedido`, em `lib/cancelamento.ts`, que lança o
+ * oposto de tudo que o pedido movimentou — ganho e gasto de uma vez. Ter duas
+ * funções mexendo no mesmo extrato acabaria devolvendo em dobro.
+ */

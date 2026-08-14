@@ -107,7 +107,20 @@ export function totalDoPedido(pedido: {
   );
 }
 
-/** Tira do extrato os pontos que a compra tinha dado. */
+/**
+ * Desfaz no extrato tudo que aquele pedido movimentou.
+ *
+ * Lança o OPOSTO da soma, e por isso funciona nos dois sentidos: tira os
+ * pontos que a compra deu e **devolve os que foram gastos num prêmio**. Um
+ * pedido que deu 50 e gastou 100 soma −50; o lançamento de +50 zera a conta e
+ * a cliente fica como antes de comprar.
+ *
+ * ⚠️ A guarda é `=== 0`, não `<= 0`. Com `<= 0`, um pedido em que o resgate
+ * pesou mais que o ganho saía sem devolução nenhuma — a cliente perdia os
+ * pontos do prêmio num pedido que foi cancelado. Zero continua parando a
+ * função, que é o que garante que chamar duas vezes não credite em dobro:
+ * depois do estorno a soma daquele pedido é exatamente zero.
+ */
 async function estornarPontosDoPedido(pedidoId: string, clienteId: string) {
   const db = getDb();
   const [linha] = await db
@@ -115,10 +128,8 @@ async function estornarPontosDoPedido(pedidoId: string, clienteId: string) {
     .from(pontos)
     .where(eq(pontos.pedidoId, pedidoId));
 
-  // Soma o que aquele pedido movimentou. Se já está zerado, o estorno já foi
-  // feito antes — chamar de novo não pode deixar o cliente com saldo negativo.
   const total = linha?.total ?? 0;
-  if (total <= 0) return;
+  if (total === 0) return;
 
   await db.insert(pontos).values({
     id: crypto.randomUUID(),

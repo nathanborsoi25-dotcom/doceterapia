@@ -11,6 +11,7 @@ import { avisoDeFechada, limparFuncionamento, lojaAberta } from "@/lib/funcionam
 import { avisoDeEntregaHoje, limparHorarioDeEntrega } from "@/lib/entrega-horario";
 import { reais } from "@/lib/formato";
 import { prazoDoSabor } from "@/lib/sabores";
+import { ehResgate } from "@/lib/resgate";
 import {
   conferirPrecos,
   contarMudanca,
@@ -472,20 +473,36 @@ export default function CheckoutPage() {
                 className="flex justify-between gap-3"
               >
                 <span className="min-w-0">
+                  {ehResgate(i) && <span aria-hidden>🎁 </span>}
                   {i.quantidade}× {i.nome}
                   {i.saborNome && (
                     <span className="text-cherryMid"> · {i.saborNome}</span>
                   )}
+                  {ehResgate(i) && (
+                    <span className="block text-xs text-green-700">
+                      Prêmio · {i.pontosGastos} pontos
+                    </span>
+                  )}
                 </span>
                 {/* O preço cheio riscado segue até aqui: é na hora de pagar
                     que a cliente confere se a oferta que a trouxe valeu. */}
-                <span className="shrink-0 tabular-nums">
-                  {i.emPromocao && i.precoCheio && (
-                    <span className="line-through text-ink/40 mr-1.5">
-                      {reais(i.precoCheio * i.quantidade)}
-                    </span>
+                <span
+                  className={`shrink-0 tabular-nums ${
+                    ehResgate(i) ? "text-green-700 font-semibold" : ""
+                  }`}
+                >
+                  {ehResgate(i) ? (
+                    "Grátis"
+                  ) : (
+                    <>
+                      {i.emPromocao && i.precoCheio && (
+                        <span className="line-through text-ink/40 mr-1.5">
+                          {reais(i.precoCheio * i.quantidade)}
+                        </span>
+                      )}
+                      {reais(i.precoUnitario * i.quantidade)}
+                    </>
                   )}
-                  {reais(i.precoUnitario * i.quantidade)}
                 </span>
               </li>
             ))}

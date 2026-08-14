@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { carrinhos, configFrete, cupons, pedidos, produtos, sabores } from "@/lib/db/schema";
+import {
+  carrinhos,
+  configFrete,
+  cupons,
+  pedidos,
+  produtos,
+  recompensas,
+  sabores,
+} from "@/lib/db/schema";
+import { saldoDePontos } from "@/lib/fidelidade";
+import { PREFIXO_RESGATE } from "@/lib/resgate";
 import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
@@ -78,26 +88,41 @@ export async function POST(req: Request) {
     );
   }
 
-  // 1) Remonta os itens A PARTIR DO BANCO. Nome e preço que vêm do navegador
+  /*
+   * 1) Prêmios de pontos e doces são separados aqui.
+   *
+   * O prêmio não está no cardápio: ele vale R$ 0,00 e sai do saldo de pontos.
+   * O que o navegador manda sobre ele — nome, preço, quantos pontos custa — é
+   * descartado do mesmo jeito que o preço de um doce: tudo é remontado a
+   * partir da tabela de recompensas, mais abaixo.
+   */
+  const resgatesRecebidos = recebidos.filter((i) => i?.recompensaId);
+  const docesRecebidos = recebidos.filter((i) => !i?.recompensaId);
+
+  // 1b) Remonta os itens A PARTIR DO BANCO. Nome e preço que vêm do navegador
   // são descartados — só o produtoId e a quantidade são aproveitados —, senão
   // dava pra comprar uma torta de R$ 65,00 por R$ 1,00.
   const ids = Array.from(
-    new Set(recebidos.map((i) => i?.produtoId).filter(Boolean) as string[])
+    new Set(docesRecebidos.map((i) => i?.produtoId).filter(Boolean) as string[])
   );
-  if (ids.length === 0) {
+  if (ids.length === 0 && resgatesRecebidos.length === 0) {
     return NextResponse.json({ error: "Carrinho inválido." }, { status: 400 });
   }
 
-  const doBanco = await db.select().from(produtos).where(inArray(produtos.id, ids));
+  const doBanco = ids.length
+    ? await db.select().from(produtos).where(inArray(produtos.id, ids))
+    : [];
   const porId = new Map(doBanco.map((p) => [p.id, p]));
 
   // Os recheios também saem do banco: o preço de um sabor é tão forjável
   // quanto o do doce se vier do navegador.
-  const recheios = await db.select().from(sabores).where(inArray(sabores.produtoId, ids));
+  const recheios = ids.length
+    ? await db.select().from(sabores).where(inArray(sabores.produtoId, ids))
+    : [];
   const saborPorId = new Map(recheios.map((s) => [s.id, s]));
 
   const itens: ItemPedido[] = [];
-  for (const recebido of recebidos) {
+  for (const recebido of docesRecebidos) {
     const produto = porId.get(recebido?.produtoId);
     if (!produto || !produto.ativo) {
       return NextResponse.json(
@@ -183,6 +208,82 @@ export async function POST(req: Request) {
       { error: "Faça login para finalizar o pedido." },
       { status: 401 }
     );
+  }
+
+  /*
+   * 2b) Os prêmios trocados por pontos.
+   *
+   * Tudo é remontado do banco: a recompensa precisa existir, estar ativa, e o
+   * custo em pontos é o que está gravado NELA — não o que o navegador disse.
+   * Sem isso dava pra pedir um prêmio de 500 pontos jurando que custa 1.
+   *
+   * O saldo é conferido AQUI, e de novo, mesmo que a tela já tenha conferido:
+   * entre montar o carrinho e pagar, a cliente pode ter gasto os pontos em
+   * outro pedido. Os pontos só saem do extrato quando o pagamento é
+   * confirmado (no webhook) — aqui é só a checagem.
+   */
+  let pontosGastos = 0;
+  if (resgatesRecebidos.length > 0) {
+    const idsResgate = Array.from(
+      new Set(resgatesRecebidos.map((i) => i!.recompensaId!).filter(Boolean))
+    );
+    const premios = await db
+      .select()
+      .from(recompensas)
+      .where(inArray(recompensas.id, idsResgate));
+    const premioPorId = new Map(premios.map((r) => [r.id, r]));
+
+    // Prêmio repetido não passa: um resgate, uma unidade.
+    const jaVistos = new Set<string>();
+
+    for (const recebido of resgatesRecebidos) {
+      const premio = premioPorId.get(recebido!.recompensaId!);
+      if (!premio || !premio.ativo) {
+        return NextResponse.json(
+          { error: "Um dos prêmios do seu carrinho não está mais disponível." },
+          { status: 400 }
+        );
+      }
+      if (jaVistos.has(premio.id)) {
+        return NextResponse.json(
+          { error: `Você só pode resgatar um ${premio.nome} por pedido.` },
+          { status: 400 }
+        );
+      }
+      jaVistos.add(premio.id);
+
+      pontosGastos += premio.pontos;
+      itens.push({
+        produtoId: `${PREFIXO_RESGATE}${premio.id}`,
+        nome: premio.nome,
+        precoUnitario: 0,
+        quantidade: 1,
+        recompensaId: premio.id,
+        pontosGastos: premio.pontos,
+      });
+    }
+
+    const saldo = await saldoDePontos(cliente.id);
+    if (saldo < pontosGastos) {
+      return NextResponse.json(
+        {
+          error: `Você tem ${saldo} ${saldo === 1 ? "ponto" : "pontos"}, e os prêmios do carrinho custam ${pontosGastos}. Tire um prêmio para continuar.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Só de prêmio, sem nenhum doce, o pedido não fecha: não há o que cobrar,
+    // e o Mercado Pago recusa uma cobrança de R$ 0,00.
+    if (itens.every((i) => i.precoUnitario === 0) && tipoEntrega === "retirada") {
+      return NextResponse.json(
+        {
+          error:
+            "Um pedido só com prêmio não passa pelo pagamento. Junte pelo menos um doce, ou escolha Entrega e pague só o frete.",
+        },
+        { status: 400 }
+      );
+    }
   }
 
   /**

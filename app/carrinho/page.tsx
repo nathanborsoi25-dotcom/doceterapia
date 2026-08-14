@@ -14,6 +14,7 @@ import {
   contarMudanca,
   type MudancaNoCarrinho,
 } from "@/lib/precos-carrinho";
+import { ehResgate, pontosDoCarrinho } from "@/lib/resgate";
 import { getCarrinho, salvarCarrinho } from "@/lib/store";
 import type { ItemPedido } from "@/lib/types";
 
@@ -111,6 +112,8 @@ export default function CarrinhoPage() {
   }
 
   const total = itens.reduce((acc, i) => acc + i.precoUnitario * i.quantidade, 0);
+  /** Quantos pontos os prêmios do carrinho vão custar. */
+  const pontosUsados = pontosDoCarrinho(itens);
   /** Quanto as promoções do carrinho já abateram. Zero = nenhuma oferta aqui. */
   const economia = itens.reduce(
     (acc, i) =>
@@ -199,7 +202,11 @@ export default function CarrinhoPage() {
                 >
                   <div className="flex items-start gap-3 min-w-0 sm:flex-1">
                     <div className="w-14 h-14 shrink-0 rounded-lg bg-blush overflow-hidden flex items-center justify-center text-xl">
-                      {foto ? (
+                      {ehResgate(item) ? (
+                        // Prêmio não tem foto de cardápio: o presente diz o que
+                        // é sem precisar de legenda.
+                        <span aria-hidden>🎁</span>
+                      ) : foto ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={foto}
@@ -226,7 +233,11 @@ export default function CarrinhoPage() {
                           escolheu o doce por causa da oferta, e o carrinho é
                           onde ela confere se a oferta veio mesmo. */}
                       <p className="text-sm text-ink/60 font-body">
-                        {item.emPromocao && item.precoCheio ? (
+                        {ehResgate(item) ? (
+                          <span className="text-green-700 font-semibold">
+                            Prêmio trocado por {item.pontosGastos} pontos
+                          </span>
+                        ) : item.emPromocao && item.precoCheio ? (
                           <>
                             <span className="line-through text-ink/40">
                               {reais(item.precoCheio)}
@@ -267,30 +278,42 @@ export default function CarrinhoPage() {
                    * sobra um vão enorme no meio do card.
                    */}
                   <div className="flex items-center justify-between gap-2 mt-3 sm:mt-0 sm:gap-4 sm:shrink-0">
-                    {/* Botões de 44px: tamanho confortável para o dedo */}
-                    <div className="flex items-center gap-1 font-body shrink-0">
-                      <button
-                        onClick={() => atualizarQuantidade(item, -1)}
-                        aria-label={`Tirar um ${item.nome}`}
-                        className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform"
-                      >
-                        −
-                      </button>
-                      <span className="w-8 text-center tabular-nums">{item.quantidade}</span>
-                      <button
-                        onClick={() => atualizarQuantidade(item, 1)}
-                        aria-label={`Adicionar um ${item.nome}`}
-                        disabled={max != null && item.quantidade >= max}
-                        className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-35 disabled:active:scale-100"
-                      >
-                        +
-                      </button>
-                    </div>
+                    {/* Prêmio não tem contador: é uma unidade por pedido, e o
+                        "+" só criaria uma expectativa que o servidor recusa. */}
+                    {ehResgate(item) ? (
+                      <span className="font-body text-xs text-ink/50">1 unidade</span>
+                    ) : (
+                      /* Botões de 44px: tamanho confortável para o dedo */
+                      <div className="flex items-center gap-1 font-body shrink-0">
+                        <button
+                          onClick={() => atualizarQuantidade(item, -1)}
+                          aria-label={`Tirar um ${item.nome}`}
+                          className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform"
+                        >
+                          −
+                        </button>
+                        <span className="w-8 text-center tabular-nums">{item.quantidade}</span>
+                        <button
+                          onClick={() => atualizarQuantidade(item, 1)}
+                          aria-label={`Adicionar um ${item.nome}`}
+                          disabled={max != null && item.quantidade >= max}
+                          className="w-11 h-11 rounded-full bg-blush text-cherryDark text-lg flex items-center justify-center active:scale-95 transition-transform disabled:opacity-35 disabled:active:scale-100"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
 
                     {/* Quanto esta linha está custando: sem isso a cliente
                         precisava multiplicar de cabeça pra conferir a conta. */}
-                    <span className="font-display text-ink tabular-nums sm:w-24 sm:text-right">
-                      {reais(item.precoUnitario * item.quantidade)}
+                    <span
+                      className={`font-display tabular-nums sm:w-24 sm:text-right ${
+                        ehResgate(item) ? "text-green-700" : "text-ink"
+                      }`}
+                    >
+                      {ehResgate(item)
+                        ? "Grátis"
+                        : reais(item.precoUnitario * item.quantidade)}
                     </span>
                   </div>
 
@@ -311,6 +334,17 @@ export default function CarrinhoPage() {
             {economia > 0 && (
               <p className="-mt-3 text-right font-body text-sm text-green-700">
                 Você está economizando {reais(economia)} nas promoções 🍒
+              </p>
+            )}
+
+            {/* Os pontos ainda não saíram do saldo: isso só acontece quando o
+                pagamento é confirmado. Dizer isso aqui evita o susto de ver o
+                saldo intacto depois de resgatar. */}
+            {pontosUsados > 0 && (
+              <p className="-mt-2 font-body text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                🎁 <strong>{pontosUsados} pontos</strong> serão trocados pelos
+                prêmios deste pedido. Eles saem do seu saldo quando o pagamento
+                for confirmado.
               </p>
             )}
 
