@@ -71,12 +71,26 @@ const TIPOS_DO_MERCADO_PAGO = [
 ];
 
 /**
+ * ⚠️ **O saldo em conta do Mercado Pago NÃO pode ser excluído.**
+ *
+ * Ele recusa a preferência inteira com `account_money cannot be excluded`
+ * (400) — é política dele, não erro nosso. Em 13/08/2026 isso derrubou o Pix
+ * por horas: a loja vendia no cartão e o botão do Pix dava erro, porque a
+ * regra do Pix mandava excluir tudo menos `bank_transfer`, e nesse "tudo"
+ * estava o `account_money`. O cartão escapava só porque a lista dele já
+ * mantinha o saldo entre os permitidos.
+ *
+ * Quem descobriu foi `/api/admin/diagnostico-pagamento`, que monta as duas
+ * preferências e devolve a recusa crua — sem ela, o motivo ficava só no log
+ * da Vercel, que não dá pra ler.
+ */
+const NAO_DA_PRA_EXCLUIR = ["account_money"];
+
+/**
  * O que o Checkout NÃO deve oferecer, a partir do botão que a pessoa apertou.
  *
- * - **Pix**: fica SÓ o Pix. Sem saldo em conta, sem Mercado Crédito, sem
- *   cartão. Quem apertou "Pagar com Pix" já viu o desconto no valor — se a
- *   tela do Mercado Pago oferecesse outra forma ali, o desconto sairia do
- *   bolso da Camily sem a taxa menor que o justifica.
+ * - **Pix**: fica o Pix — e o saldo em conta junto, porque o Mercado Pago não
+ *   deixa tirá-lo. Sem Mercado Crédito e sem cartão.
  * - **Crédito**: cartão de crédito, saldo em conta e carteira digital (o
  *   Apple Pay). Fora o Mercado Crédito, que é parcelamento — e a loja não
  *   trabalha com parcelamento.
@@ -92,9 +106,9 @@ function tiposExcluidos(forma?: string): { id: string }[] {
         : // Sem forma escolhida, só o boleto sai (não deve acontecer hoje).
           TIPOS_DO_MERCADO_PAGO.filter((t) => t !== "ticket");
 
-  return TIPOS_DO_MERCADO_PAGO.filter((t) => !permitidos.includes(t)).map((id) => ({
-    id,
-  }));
+  return TIPOS_DO_MERCADO_PAGO.filter(
+    (t) => !permitidos.includes(t) && !NAO_DA_PRA_EXCLUIR.includes(t)
+  ).map((id) => ({ id }));
 }
 
 export async function criarPreferenciaDoPedido(
@@ -144,8 +158,22 @@ export async function criarPreferenciaDoPedido(
   const ehLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
   const telefone = dddETelefone(comprador.telefone);
 
-  const pref = await new Preference(client).create({
-    body: {
+  /*
+   * No Pix, tenta tirar o saldo em conta pelo NOME do método.
+   *
+   * Por tipo é proibido (`account_money cannot be excluded`), mas por método
+   * pode passar — e vale muito a pena tentar: o desconto de 4% do Pix só se
+   * paga porque o Pix custa 0,99% de taxa. Se a cliente aperta "Pagar com
+   * Pix", ganha o desconto e paga com saldo, a Camily banca os 4% E os 4,99%
+   * do saldo. É a única forma que sobra na tela dele capaz de fazer isso.
+   *
+   * Se o Mercado Pago recusar essa exclusão também, a chamada é refeita sem
+   * ela — melhor vender com o risco do que não vender.
+   */
+  const bloquearSaldoNoPix =
+    dados.formaPagamento === "pix" ? [{ id: "account_money" }] : [];
+
+  const montarCorpo = (excluirSaldo: boolean) => ({
       items,
       shipments:
         valorFrete > 0 ? { cost: valorFrete, mode: "not_specified" } : undefined,
@@ -178,11 +206,33 @@ export async function criarPreferenciaDoPedido(
          * O Mercado Pago o trata dos dois jeitos dependendo da conta, e é
          * parcelamento disfarçado — a loja não trabalha com parcelamento.
          */
-        excluded_payment_methods: [{ id: "consumer_credits" }],
+        excluded_payment_methods: [
+          { id: "consumer_credits" },
+          ...(excluirSaldo ? bloquearSaldoNoPix : []),
+        ],
       },
       ...(ehLocal ? {} : { notification_url: `${origin}/api/pagamento/webhook` }),
-    },
   });
 
-  return pref.init_point ?? pref.sandbox_init_point ?? null;
+  /** O Mercado Pago recusou porque não deixa excluir aquela forma? */
+  const ehRecusaDeExclusao = (e: unknown) =>
+    String((e as { message?: string })?.message ?? e).includes("cannot be excluded");
+
+  try {
+    const pref = await new Preference(client).create({
+      body: montarCorpo(bloquearSaldoNoPix.length > 0),
+    });
+    return pref.init_point ?? pref.sandbox_init_point ?? null;
+  } catch (e) {
+    // Só a recusa da exclusão tem segunda tentativa. Qualquer outro erro é
+    // problema de verdade e precisa subir — engolir aqui esconderia, por
+    // exemplo, um item com valor inválido.
+    if (!bloquearSaldoNoPix.length || !ehRecusaDeExclusao(e)) throw e;
+
+    console.warn(
+      "MP não deixou tirar o saldo em conta da tela do Pix; seguindo sem essa trava."
+    );
+    const pref = await new Preference(client).create({ body: montarCorpo(false) });
+    return pref.init_point ?? pref.sandbox_init_point ?? null;
+  }
 }

@@ -120,6 +120,54 @@ export async function GET(req: Request) {
     },
   ] as const;
 
+  /**
+   * O saldo em conta dá pra bloquear por FORA da lista de tipos?
+   *
+   * Ele não pode sair por `excluded_payment_types` — é o que quebrou o Pix.
+   * Se sair por `excluded_payment_methods`, a trava do Pix volta inteira e o
+   * desconto de 4% deixa de correr o risco de ser pago junto com a taxa de
+   * 4,99% do saldo. Se também não sair, o jeito é conviver com ele na tela.
+   */
+  let bloquearSaldoPorMetodo: Record<string, unknown>;
+  try {
+    const pref = await new Preference(client).create({
+      body: {
+        items: [
+          {
+            id: "teste",
+            title: "Doce de teste (diagnóstico)",
+            quantity: 1,
+            unit_price: 19,
+            currency_id: "BRL",
+          },
+        ],
+        payer: { email: base.comprador.email },
+        payment_methods: {
+          installments: 1,
+          excluded_payment_types: [
+            { id: "credit_card" },
+            { id: "debit_card" },
+            { id: "ticket" },
+          ],
+          excluded_payment_methods: [{ id: "account_money" }],
+        },
+      },
+    });
+    bloquearSaldoPorMetodo = {
+      oQueTesta:
+        "Tirar o saldo em conta por excluded_payment_methods, em vez de por tipo",
+      ok: true,
+      abriu: Boolean(pref.init_point),
+    };
+  } catch (e) {
+    bloquearSaldoPorMetodo = {
+      oQueTesta:
+        "Tirar o saldo em conta por excluded_payment_methods, em vez de por tipo",
+      ok: false,
+      ...motivoDaRecusa(e),
+    };
+  }
+
   const resultados: Record<string, unknown> = {};
 
   for (const v of variacoes) {
@@ -164,18 +212,23 @@ export async function GET(req: Request) {
 
   /** A leitura pronta, pra não precisar interpretar JSON à mão. */
   const passou = (n: string) => (resultados[n] as { ok?: boolean })?.ok === true;
-  const leitura = !passou("1-pix-como-esta-hoje")
-    ? passou("2-pix-sem-o-desconto")
+  const saldoSaiPorMetodo = bloquearSaldoPorMetodo.ok === true;
+
+  const leitura = passou("1-pix-como-esta-hoje")
+    ? saldoSaiPorMetodo
+      ? "TUDO CERTO, e ainda dá pra tirar o saldo em conta da tela do Pix (ele sai por excluded_payment_methods). Vale fechar essa porta: quem paga com saldo ganharia o desconto de 4% e ainda custaria 4,99% de taxa."
+      : "TUDO CERTO: o Pix abre. O saldo em conta continua aparecendo na tela dele e não há como tirar — o Mercado Pago não deixa, nem por tipo nem por método."
+    : passou("2-pix-sem-o-desconto")
       ? "O CULPADO É O DESCONTO: o Mercado Pago não está aceitando o item de valor negativo. Some com o item negativo e distribua o desconto no preço dos doces."
       : passou("3-pix-sem-travar-a-forma")
-        ? "O CULPADO É A TRAVA DE FORMA: alguma coisa em excluded_payment_types está sendo recusada quando sobra só o Pix."
-        : "Nem o Pix simples passou — olhe `pixNaConta`: pode ser que o Pix não esteja habilitado nessa conta do Mercado Pago."
-    : "O Pix passou aqui. Se falha na loja, o motivo está no pedido de verdade (valor, cupom ou frete), não na forma de pagamento.";
+        ? "O CULPADO É A TRAVA DE FORMA: alguma coisa em excluded_payment_types está sendo recusada quando sobra só o Pix. Olhe a `mensagem` do teste 1 — ela diz o nome exato."
+        : "Nem o Pix simples passou — olhe `pixNaConta`: pode ser que o Pix não esteja habilitado nessa conta do Mercado Pago.";
 
   return NextResponse.json({
     leitura,
     config,
     preferencias: resultados,
+    bloquearSaldoPorMetodo,
     pixNaConta: formasDaConta,
   });
 }

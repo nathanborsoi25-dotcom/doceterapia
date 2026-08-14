@@ -25,17 +25,20 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#FDF0EA",
     lang: "pt-BR",
     categories: ["food", "shopping"],
+    /*
+     * A logo da loja, em arquivo único.
+     *
+     * Ela já é 512×512, e o navegador reduz sozinho para o tamanho de que
+     * precisa — guardar três cópias recortadas só criaria três lugares para a
+     * marca ficar desatualizada no dia em que ela mudar.
+     */
     icons: [
-      { src: "/icone-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icone-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      // `maskable` avisa o Android de que a arte já tem margem de sobra, então
-      // ele pode recortar no formato do sistema sem comer a cereja.
-      {
-        src: "/icone-512.png",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "maskable",
-      },
+      { src: "/logo.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/logo.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      // `maskable` avisa o Android de que a arte já tem margem de sobra — e
+      // tem: o círculo creme deixa folga em volta do DT. Sem isso ele recorta
+      // no formato do sistema e come as cerejas.
+      { src: "/logo.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
       { name: "Cardápio", url: "/catalogo" },
