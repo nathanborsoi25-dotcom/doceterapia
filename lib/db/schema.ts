@@ -12,6 +12,7 @@ import type { Cliente, ConfiguracaoFrete, FaixaFrete, ItemPedido } from "../type
 import type { PontoRetirada } from "../retirada";
 import type { BannerDaLoja } from "../banners";
 import { FUNCIONAMENTO_PADRAO, type Funcionamento } from "../funcionamento";
+import type { HorarioDeEntrega } from "../entrega-horario";
 
 // Catálogo de doces (gerenciado pelo admin, exibido no cardápio).
 export const produtos = pgTable("produtos", {
@@ -431,6 +432,11 @@ export const configLoja = pgTable("config_loja", {
     .$type<Funcionamento>()
     .notNull()
     .default(FUNCIONAMENTO_PADRAO),
+  /**
+   * Horário em que a ENTREGA sai, que não é o mesmo em que a loja aceita
+   * pedido (ver `lib/entrega-horario.ts`). Nulo cai no padrão.
+   */
+  entrega: jsonb("entrega").$type<HorarioDeEntrega | null>(),
   /**
    * Os destaques do topo do cardápio, em carrossel (ver `lib/banners.ts`).
    * Lista vazia cai no banner único das colunas antigas, logo abaixo.

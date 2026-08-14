@@ -7,6 +7,7 @@ import { getConfigLoja, ID_CONFIG } from "@/lib/config-loja";
 import { limparBanners } from "@/lib/banners";
 import { percentualDoPix } from "@/lib/desconto-pix";
 import { limparFuncionamento } from "@/lib/funcionamento";
+import { limparHorarioDeEntrega } from "@/lib/entrega-horario";
 import { CAMPOS_POLITICA } from "@/lib/politica";
 import { limparPontos } from "@/lib/retirada";
 
@@ -76,6 +77,7 @@ export async function PUT(req: Request) {
     ),
     descontoPix: manter(b.descontoPix, atual.descontoPix, percentualDoPix),
     funcionamento: manter(b.funcionamento, atual.funcionamento, limparFuncionamento),
+    entrega: manter(b.entrega, atual.entrega, limparHorarioDeEntrega),
     banners: manter(b.banners, atual.banners, limparBanners),
     bannerAtivo: manter(b.bannerAtivo, atual.bannerAtivo, Boolean),
     bannerTitulo: manter(b.bannerTitulo, atual.bannerTitulo, (v) => texto(v, 80)),

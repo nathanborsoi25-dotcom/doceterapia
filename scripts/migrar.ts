@@ -269,6 +269,11 @@ async function main() {
   await sql`ALTER TABLE config_frete ADD COLUMN IF NOT EXISTS origem_fim_de_semana jsonb`;
   await sql`ALTER TABLE config_frete ADD COLUMN IF NOT EXISTS frete_gratis_acima_de double precision`;
 
+  console.log("17) Horario da ENTREGA (diferente do horario da loja)...");
+  // Nulo cai no padrão de `lib/entrega-horario.ts` (seg-sex 9h-16h30,
+  // sáb-dom 9h-22h), que foi o combinado com a Camily.
+  await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS entrega jsonb`;
+
   console.log("\nConferindo o resultado:");
   const cols = await sql`
     SELECT column_name FROM information_schema.columns

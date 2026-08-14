@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "./db";
 import { configLoja } from "./db/schema";
 import { DESCONTO_PIX_PADRAO } from "./desconto-pix";
+import { ENTREGA_PADRAO } from "./entrega-horario";
 import { FUNCIONAMENTO_PADRAO } from "./funcionamento";
 
 export const ID_CONFIG = "default";
@@ -32,6 +33,7 @@ export const CONFIG_PADRAO: ConfigLoja = {
   pontosPorStory: 15,
   descontoPix: DESCONTO_PIX_PADRAO,
   funcionamento: FUNCIONAMENTO_PADRAO,
+  entrega: ENTREGA_PADRAO,
   banners: [],
   bannerAtivo: false,
   bannerTitulo: "",

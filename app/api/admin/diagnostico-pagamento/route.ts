@@ -89,19 +89,49 @@ export async function GET(req: Request) {
     origin,
   };
 
+  /*
+   * As variações existem pra separar as duas suspeitas sem chutar.
+   *
+   * O Pix é a única forma que leva um item de preço NEGATIVO (o desconto de
+   * 4%), e é a única que exclui `credit_card`, `account_money` e
+   * `digital_wallet`. Testando as combinações, a que falhar aponta o culpado —
+   * e mexer no pagamento no escuro já derrubou a loja uma vez.
+   */
+  const variacoes = [
+    {
+      nome: "1-pix-como-esta-hoje",
+      oQueTesta: "Pix do jeito que a loja manda hoje (com o desconto de 4%)",
+      dados: { formaPagamento: "pix", descontoPix: 0.76 },
+    },
+    {
+      nome: "2-pix-sem-o-desconto",
+      oQueTesta: "Pix SEM o item negativo do desconto — isola o desconto",
+      dados: { formaPagamento: "pix", descontoPix: 0 },
+    },
+    {
+      nome: "3-pix-sem-travar-a-forma",
+      oQueTesta: "Com o desconto, mas sem excluir forma nenhuma — isola a trava",
+      dados: { formaPagamento: undefined, descontoPix: 0.76 },
+    },
+    {
+      nome: "4-credito-como-esta-hoje",
+      oQueTesta: "Cartão do jeito que a loja manda hoje (o que funciona)",
+      dados: { formaPagamento: "credito", descontoPix: 0 },
+    },
+  ] as const;
+
   const resultados: Record<string, unknown> = {};
 
-  for (const forma of ["pix", "credito"] as const) {
+  for (const v of variacoes) {
     try {
       const url = await criarPreferenciaDoPedido(client, {
         ...base,
-        formaPagamento: forma,
-        // O desconto do Pix entra como item negativo, igual na venda real.
-        descontoPix: forma === "pix" ? 0.76 : 0,
+        formaPagamento: v.dados.formaPagamento,
+        descontoPix: v.dados.descontoPix,
       });
-      resultados[forma] = { ok: true, abriu: Boolean(url) };
+      resultados[v.nome] = { oQueTesta: v.oQueTesta, ok: true, abriu: Boolean(url) };
     } catch (e) {
-      resultados[forma] = { ok: false, ...motivoDaRecusa(e) };
+      resultados[v.nome] = { oQueTesta: v.oQueTesta, ok: false, ...motivoDaRecusa(e) };
     }
   }
 
@@ -132,7 +162,18 @@ export async function GET(req: Request) {
     formasDaConta = { erro: String(e) };
   }
 
+  /** A leitura pronta, pra não precisar interpretar JSON à mão. */
+  const passou = (n: string) => (resultados[n] as { ok?: boolean })?.ok === true;
+  const leitura = !passou("1-pix-como-esta-hoje")
+    ? passou("2-pix-sem-o-desconto")
+      ? "O CULPADO É O DESCONTO: o Mercado Pago não está aceitando o item de valor negativo. Some com o item negativo e distribua o desconto no preço dos doces."
+      : passou("3-pix-sem-travar-a-forma")
+        ? "O CULPADO É A TRAVA DE FORMA: alguma coisa em excluded_payment_types está sendo recusada quando sobra só o Pix."
+        : "Nem o Pix simples passou — olhe `pixNaConta`: pode ser que o Pix não esteja habilitado nessa conta do Mercado Pago."
+    : "O Pix passou aqui. Se falha na loja, o motivo está no pedido de verdade (valor, cupom ou frete), não na forma de pagamento.";
+
   return NextResponse.json({
+    leitura,
     config,
     preferencias: resultados,
     pixNaConta: formasDaConta,

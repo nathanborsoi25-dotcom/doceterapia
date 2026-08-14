@@ -10,6 +10,12 @@ import {
   limparFuncionamento,
   lojaAberta,
 } from "@/lib/funcionamento";
+import {
+  avisoDeEntregaHoje,
+  ENTREGA_PADRAO,
+  horaFalada,
+  limparHorarioDeEntrega,
+} from "@/lib/entrega-horario";
 import { pontosDaLoja, type PontoRetirada } from "@/lib/retirada";
 
 /**
@@ -32,16 +38,54 @@ export default function AdminRetiradaPage() {
   const [salvandoHorario, setSalvandoHorario] = useState(false);
   const [horarioSalvo, setHorarioSalvo] = useState(false);
 
+  /**
+   * Horário em que a ENTREGA sai — outra coisa. A loja aceita pedido até as
+   * 22h, mas a Camily só roda a cidade até as 16h30 nos dias de semana.
+   */
+  const [entrega, setEntrega] = useState(ENTREGA_PADRAO);
+  const [salvandoEntrega, setSalvandoEntrega] = useState(false);
+  const [entregaSalva, setEntregaSalva] = useState(false);
+
   useEffect(() => {
     fetch("/api/config-loja", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
         setPontos(pontosDaLoja(c?.pontosRetirada));
         setFuncionamento(limparFuncionamento(c?.funcionamento));
+        setEntrega(limparHorarioDeEntrega(c?.entrega));
       })
       .catch(() => setErro("Não consegui carregar os endereços. Tenta recarregar a página?"))
       .finally(() => setCarregando(false));
   }, []);
+
+  function mudarEntrega(
+    qual: "semana" | "fimDeSemana",
+    campo: "abre" | "fecha",
+    valor: string
+  ) {
+    setEntrega((e) => ({ ...e, [qual]: { ...e[qual], [campo]: valor } }));
+    setEntregaSalva(false);
+  }
+
+  async function salvarEntrega() {
+    setSalvandoEntrega(true);
+    setEntregaSalva(false);
+    try {
+      const r = await fetch("/api/config-loja", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entrega }),
+      });
+      if (!r.ok) throw new Error("recusado");
+      router.refresh();
+      setEntregaSalva(true);
+      setTimeout(() => setEntregaSalva(false), 3000);
+    } catch {
+      setErro("Não consegui salvar o horário de entrega. Tenta de novo?");
+    } finally {
+      setSalvandoEntrega(false);
+    }
+  }
 
   function mudarHorario(mudanca: Partial<typeof FUNCIONAMENTO_PADRAO>) {
     setFuncionamento((f) => ({ ...f, ...mudanca }));
@@ -239,6 +283,83 @@ export default function AdminRetiradaPage() {
           }`}
         >
           {salvandoHorario ? "Salvando..." : horarioSalvo ? "Salvo ✓" : "Salvar horário"}
+        </button>
+      </div>
+
+      {/* ---------- Horário da ENTREGA ---------- */}
+      <h2 className="font-display text-xl text-cherryDark mt-8">
+        Horário de entrega
+      </h2>
+      <p className="font-body text-sm text-ink/60 mt-1">
+        Até que horas você consegue entregar. É diferente do horário acima: a
+        loja pode continuar recebendo pedido depois que as entregas do dia
+        acabaram.
+      </p>
+
+      <div className="grid gap-4 mt-4 bg-white/70 border border-cherryLight/30 rounded-2xl p-4">
+        {(
+          [
+            { chave: "semana", titulo: "Segunda a sexta" },
+            { chave: "fimDeSemana", titulo: "Sábado e domingo" },
+          ] as const
+        ).map(({ chave, titulo }) => (
+          <div key={chave}>
+            <p className="font-body text-sm font-semibold text-ink/80">{titulo}</p>
+            <div className="flex flex-wrap items-end gap-3 mt-1.5">
+              <label className="grid gap-1 text-xs font-body text-ink/60">
+                Começa
+                <input
+                  type="time"
+                  value={entrega[chave].abre}
+                  onChange={(e) => mudarEntrega(chave, "abre", e.target.value)}
+                  className="border border-cherryLight/50 rounded-xl px-3 py-2 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-body text-ink/60">
+                Última entrega
+                <input
+                  type="time"
+                  value={entrega[chave].fecha}
+                  onChange={(e) => mudarEntrega(chave, "fecha", e.target.value)}
+                  className="border border-cherryLight/50 rounded-xl px-3 py-2 bg-white/70 focus:outline-none focus:ring-2 focus:ring-cherryDark"
+                />
+              </label>
+            </div>
+          </div>
+        ))}
+
+        {/* O que a cliente vai ler, com o valor de agora. */}
+        <p className="font-body text-xs text-ink/60 bg-blush/40 border border-cherryLight/30 rounded-xl px-3 py-2.5">
+          O cliente vê: entregas de{" "}
+          <strong>
+            {horaFalada(entrega.semana.abre)} às {horaFalada(entrega.semana.fecha)}
+          </strong>{" "}
+          de segunda a sexta, e de{" "}
+          <strong>
+            {horaFalada(entrega.fimDeSemana.abre)} às{" "}
+            {horaFalada(entrega.fimDeSemana.fecha)}
+          </strong>{" "}
+          no fim de semana.
+          <span className="block mt-1">
+            {avisoDeEntregaHoje(entrega)
+              ? "Agora as entregas de hoje já encerraram — quem comprar doce de pronta entrega vê o aviso de que recebe amanhã."
+              : "Agora ainda dá tempo de sair entrega hoje."}
+          </span>
+        </p>
+
+        <button
+          type="button"
+          onClick={salvarEntrega}
+          disabled={salvandoEntrega}
+          className={`rounded-full py-3 font-body font-semibold text-white disabled:opacity-50 ${
+            entregaSalva ? "bg-green-600" : "bg-cherryDark"
+          }`}
+        >
+          {salvandoEntrega
+            ? "Salvando..."
+            : entregaSalva
+              ? "Salvo ✓"
+              : "Salvar horário de entrega"}
         </button>
       </div>
 

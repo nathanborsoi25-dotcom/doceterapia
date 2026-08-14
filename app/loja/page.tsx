@@ -18,7 +18,17 @@ import {
   limparFuncionamento,
   lojaAberta,
 } from "@/lib/funcionamento";
+import {
+  avisoDeEntregaHoje,
+  ENTREGA_PADRAO,
+  horaFalada,
+  limparHorarioDeEntrega,
+} from "@/lib/entrega-horario";
+import { getConfiguracaoFrete } from "@/lib/api";
+import { reais } from "@/lib/formato";
+import { minimoFreteGratis } from "@/lib/shipping";
 import { pontosDaLoja, type PontoRetirada } from "@/lib/retirada";
+import type { ConfiguracaoFrete } from "@/lib/types";
 import { useSobre } from "@/lib/usar-sobre";
 
 /**
@@ -60,6 +70,10 @@ export default function LojaPage() {
   const [pontos, setPontos] = useState<PontoRetirada[]>([]);
   const [percentualPix, setPercentualPix] = useState(0);
   const [funcionamento, setFuncionamento] = useState(FUNCIONAMENTO_PADRAO);
+  /** O horário em que a ENTREGA sai — não é o mesmo em que a loja atende. */
+  const [entrega, setEntrega] = useState(ENTREGA_PADRAO);
+  /** De onde a entrega sai e a partir de quanto ela sai de graça. */
+  const [frete, setFrete] = useState<ConfiguracaoFrete | null>(null);
 
   useEffect(() => {
     fetch("/api/config-loja", { cache: "no-store" })
@@ -68,11 +82,20 @@ export default function LojaPage() {
         setPontos(pontosDaLoja(c?.pontosRetirada));
         setPercentualPix(percentualDoPix(c?.descontoPix));
         setFuncionamento(limparFuncionamento(c?.funcionamento));
+        setEntrega(limparHorarioDeEntrega(c?.entrega));
       })
       .catch(() => setPontos(pontosDaLoja(null)));
+
+    getConfiguracaoFrete()
+      .then(setFrete)
+      .catch(() => setFrete(null));
   }, []);
 
   const aberta = lojaAberta(funcionamento);
+  const avisoDeHoje = avisoDeEntregaHoje(entrega);
+  const minimoGratis = frete ? minimoFreteGratis(frete) : 0;
+  /** A Camily cadastrou um endereço próprio pro fim de semana? */
+  const origemFimDeSemana = frete?.origemFimDeSemana?.endereco?.trim() || "";
 
   return (
     <>
@@ -178,12 +201,54 @@ export default function LojaPage() {
             ))}
           </div>
 
-          {/* De onde sai a entrega: quem paga frete quer saber de onde vem. */}
-          <p className="font-body text-xs text-ink/55 bg-blush/40 border border-cherryLight/30 rounded-xl px-3 py-2.5 mt-3">
-            🛵 <strong>Entrega:</strong> os pedidos saem da{" "}
-            <strong>Rua Ajaja, 41</strong>, e o valor do frete é calculado pela
-            distância até o seu endereço. Entregamos só em Arapongas-PR.
-          </p>
+          {/*
+           * A entrega: quando sai, de onde sai e quanto custa.
+           *
+           * O horário fica AQUI, e não junto do "horário de funcionamento" lá
+           * em cima, porque são duas coisas diferentes que já confundiram: a
+           * loja aceita pedido até as 22h, mas a Camily só entrega até as
+           * 16h30 nos dias de semana.
+           */}
+          <div className="font-body text-xs text-ink/60 bg-blush/40 border border-cherryLight/30 rounded-xl px-3 py-3 mt-3 grid gap-2">
+            <p>
+              🛵 <strong className="text-ink/80">Horário de entrega:</strong>{" "}
+              segunda a sexta, das {horaFalada(entrega.semana.abre)} às{" "}
+              {horaFalada(entrega.semana.fecha)}. Sábado e domingo, das{" "}
+              {horaFalada(entrega.fimDeSemana.abre)} às{" "}
+              {horaFalada(entrega.fimDeSemana.fecha)}.
+            </p>
+
+            {avisoDeHoje && (
+              <p className="text-cherryDark font-semibold">{avisoDeHoje}</p>
+            )}
+
+            <p>
+              📍 <strong className="text-ink/80">De onde sai:</strong>{" "}
+              {origemFimDeSemana ? (
+                <>
+                  de segunda a sexta, da{" "}
+                  <strong>{frete?.origem.endereco}</strong>; no sábado e no
+                  domingo, da <strong>{origemFimDeSemana}</strong>. O frete é
+                  calculado pela distância até o seu endereço, então ele pode
+                  mudar conforme o dia.
+                </>
+              ) : (
+                <>
+                  da <strong>{frete?.origem.endereco ?? "Rua Ajaja, 41"}</strong>
+                  , e o valor do frete é calculado pela distância até o seu
+                  endereço.
+                </>
+              )}{" "}
+              Entregamos só em Arapongas-PR.
+            </p>
+
+            {minimoGratis > 0 && (
+              <p className="text-green-700 font-semibold">
+                🎉 Frete grátis nos pedidos a partir de {reais(minimoGratis)} em
+                doces.
+              </p>
+            )}
+          </div>
         </section>
 
         <CherryDivider />

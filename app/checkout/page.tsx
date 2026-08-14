@@ -8,6 +8,7 @@ import EnderecoVisitante from "@/components/EnderecoVisitante";
 import IconeWhatsApp from "@/components/IconeWhatsApp";
 import { descontoDoPix, percentualDoPix, percentualEscrito } from "@/lib/desconto-pix";
 import { avisoDeFechada, limparFuncionamento, lojaAberta } from "@/lib/funcionamento";
+import { avisoDeEntregaHoje, limparHorarioDeEntrega } from "@/lib/entrega-horario";
 import { reais } from "@/lib/formato";
 import { prazoDoSabor } from "@/lib/sabores";
 import {
@@ -62,6 +63,14 @@ export default function CheckoutPage() {
   const [percentualPix, setPercentualPix] = useState(0);
   /** Loja fechada: os botões de pagar saem do ar e um aviso toma o lugar. */
   const [fechada, setFechada] = useState<string | null>(null);
+  /**
+   * As entregas de hoje já encerraram?
+   *
+   * A loja aceita pedido até as 22h, mas quem entrega é a Camily, e nos dias
+   * de semana ela para às 16h30. Sem este aviso, quem compra um doce de
+   * pronta entrega às 20h de uma terça acha que recebe naquela noite.
+   */
+  const [entregaSoAmanha, setEntregaSoAmanha] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/config-loja", { cache: "no-store" })
@@ -70,6 +79,7 @@ export default function CheckoutPage() {
         setPercentualPix(percentualDoPix(c?.descontoPix));
         const f = limparFuncionamento(c?.funcionamento);
         setFechada(lojaAberta(f) ? null : avisoDeFechada(f));
+        setEntregaSoAmanha(avisoDeEntregaHoje(limparHorarioDeEntrega(c?.entrega)));
       })
       .catch(() => setPercentualPix(0));
   }, []);
@@ -697,11 +707,25 @@ export default function CheckoutPage() {
               </p>
             </div>
           ) : (
-            <p className="text-sm font-body text-ink/70 bg-white/60 border border-cherryLight/30 rounded-xl px-4 py-3 mt-2">
-              {prazoDias > 0
-                ? `Um dos doces do seu carrinho é feito sob encomenda e precisa de ${prazoDias} ${prazoDias === 1 ? "dia" : "dias"} de preparo. A Camily combina o dia e o horário da entrega com você pelo WhatsApp.`
-                : "A Camily combina o dia e o horário da entrega com você pelo WhatsApp, assim que o pagamento for confirmado."}
-            </p>
+            <>
+              {/*
+               * As entregas do dia já encerraram.
+               *
+               * Só aparece em doce de PRONTA ENTREGA: quando o carrinho tem
+               * encomenda, quem manda no prazo são os dias de preparo, e falar
+               * do horário de hoje ali só confundiria.
+               */}
+              {entregaSoAmanha && prazoDias === 0 && (
+                <p className="text-sm font-body text-cherryDark bg-blush/60 border border-cherryLight/50 rounded-xl px-4 py-3 mt-2">
+                  {entregaSoAmanha}
+                </p>
+              )}
+              <p className="text-sm font-body text-ink/70 bg-white/60 border border-cherryLight/30 rounded-xl px-4 py-3 mt-2">
+                {prazoDias > 0
+                  ? `Um dos doces do seu carrinho é feito sob encomenda e precisa de ${prazoDias} ${prazoDias === 1 ? "dia" : "dias"} de preparo. A Camily combina o dia e o horário da entrega com você pelo WhatsApp.`
+                  : "A Camily combina o dia e o horário da entrega com você pelo WhatsApp, assim que o pagamento for confirmado."}
+              </p>
+            </>
           )}
         </section>
 
