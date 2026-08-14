@@ -16,6 +16,24 @@ import { COOKIE_CLIENTE, lerSessaoCliente } from "./lib/sessao-cliente";
 /** Telas que exigem cliente logado. */
 const TELAS_DO_CLIENTE = ["/pedido", "/conta"];
 
+/**
+ * A volta do Mercado Pago NÃO pode exigir login.
+ *
+ * Quem paga sai do site e volta por um link que o Mercado Pago monta. Nessa
+ * volta o cookie de sessão muitas vezes não vem junto: o pagamento acontece
+ * dentro do aplicativo do Mercado Pago, e o "voltar para a loja" abre o site
+ * num contexto que não tem os cookies do navegador — sem contar que retorno
+ * por POST também não carrega cookie `sameSite: lax`.
+ *
+ * O resultado era o pior possível: a pessoa pagava (ou desistia) e caía numa
+ * tela de LOGIN, sem entender se o pedido tinha sido feito.
+ *
+ * Estas duas telas não mostram nada de ninguém — só dizem como foi o retorno —,
+ * então podem ser abertas. Quem cuida dos dados do pedido continua sendo a
+ * `/api`, que exige sessão.
+ */
+const VOLTA_DO_PAGAMENTO = ["/pedido/sucesso", "/pedido/erro"];
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const secret = process.env.ADMIN_SESSION_SECRET;
@@ -30,6 +48,8 @@ export async function middleware(req: NextRequest) {
     url.pathname = "/admin/login";
     return NextResponse.redirect(url);
   }
+
+  if (VOLTA_DO_PAGAMENTO.includes(pathname)) return NextResponse.next();
 
   if (TELAS_DO_CLIENTE.some((t) => pathname === t || pathname.startsWith(`${t}/`))) {
     const cookie = req.cookies.get(COOKIE_CLIENTE)?.value;

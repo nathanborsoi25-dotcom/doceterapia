@@ -1,10 +1,33 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
+import RodapeLinks from "@/components/RodapeLinks";
+import BotaoPagarPedido from "@/components/BotaoPagarPedido";
 
+/**
+ * O pagamento não foi adiante.
+ *
+ * ⚠️ O "tentar de novo" daqui NÃO volta pro checkout. Voltar pra lá criaria um
+ * SEGUNDO pedido, e o primeiro ficaria encalhado em "aguardando pagamento" no
+ * painel da Camily, parecendo uma venda que ninguém fez. O Mercado Pago devolve
+ * o id do pedido no endereço, então dá pra reabrir a mesma cobrança.
+ */
 export default function PedidoErroPage() {
+  return (
+    <Suspense fallback={null}>
+      <Conteudo />
+    </Suspense>
+  );
+}
+
+function Conteudo() {
+  const params = useSearchParams();
+  const pedidoId = params.get("external_reference") ?? "";
+
   return (
     <>
       <Header />
@@ -15,24 +38,38 @@ export default function PedidoErroPage() {
         </h1>
         <CherryDivider />
         <p className="font-body text-ink/80">
-          Não se preocupe — nada foi cobrado. Você pode tentar de novo, escolher
-          outra forma de pagamento, ou falar com a Camily pelo WhatsApp.
+          Não se preocupe — nada foi cobrado, e seu pedido continua guardado.
+          Você pode tentar de novo, escolher outra forma de pagamento, ou falar
+          com a Camily pelo WhatsApp.
         </p>
-        <div className="flex gap-3 justify-center mt-8">
-          <Link
-            href="/checkout"
-            className="bg-cherryDark text-white rounded-full px-6 py-3 font-body font-semibold hover:bg-cherryMid transition-colors"
-          >
-            Tentar de novo
-          </Link>
+
+        <div className="grid gap-2 mt-8">
+          {pedidoId ? (
+            <BotaoPagarPedido pedidoId={pedidoId} rotulo="Tentar pagar de novo" />
+          ) : (
+            // Sem o id (link antigo ou aberto direto), o caminho é o checkout.
+            <Link
+              href="/checkout"
+              className="w-full bg-cherryDark text-white rounded-full px-6 py-3.5 font-body font-semibold hover:bg-cherryMid transition-colors"
+            >
+              Tentar de novo
+            </Link>
+          )}
           <Link
             href="/carrinho"
-            className="border border-cherryLight/60 text-cherryDark rounded-full px-6 py-3 font-body font-semibold hover:bg-blush transition-colors"
+            className="w-full border border-cherryDark/30 text-ink rounded-full px-6 py-3.5 font-body hover:border-cherryDark transition-colors"
           >
-            Ver carrinho
+            Ver meu carrinho
+          </Link>
+          <Link
+            href="/conta"
+            className="font-body text-sm text-ink/60 underline inline-flex items-center justify-center min-h-[44px]"
+          >
+            Ver meus pedidos
           </Link>
         </div>
       </main>
+      <RodapeLinks />
     </>
   );
 }
