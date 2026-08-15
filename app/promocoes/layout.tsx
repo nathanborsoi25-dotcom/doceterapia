@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { IMAGEM_PREVIA } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Promoções, cupons e pontos — Doceterapia",
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
     title: "Promoções e cupons — Doceterapia",
     description:
       "Doces em oferta, cupons e pontos que viram prêmio. Com desconto no Pix.",
+    images: [IMAGEM_PREVIA],
   },
 };
 

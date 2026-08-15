@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { IMAGEM_PREVIA } from "@/lib/site";
 
 /**
  * Título e descrição próprios do cardápio.
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
     title: "Cardápio de doces artesanais em Arapongas — Doceterapia",
     description:
       "Tortas, bolos e brownies feitos à mão pela Camily Vilasboa, em Arapongas-PR.",
+    images: [IMAGEM_PREVIA],
   },
 };
 

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import BarraInferior from "@/components/BarraInferior";
-import { SITE } from "@/lib/site";
+import { IMAGEM_PREVIA, SITE } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
      * lado, e quem recebia o link não via doce nenhum. Desenhada por
      * `scripts/gerar-og.mjs` — rode-o de novo se trocar o doce da vitrine.
      */
-    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "Doceterapia — doces artesanais em Arapongas-PR" }],
+    images: [IMAGEM_PREVIA],
   },
   twitter: {
     card: "summary_large_image",

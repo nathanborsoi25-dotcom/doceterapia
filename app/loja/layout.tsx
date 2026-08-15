@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { IMAGEM_PREVIA } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Onde buscar, horários e formas de pagamento — Doceterapia",
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
     title: "Perfil da loja — Doceterapia",
     description:
       "Endereços de retirada, horário de entrega e formas de pagamento da Doceterapia, em Arapongas-PR.",
+    images: [IMAGEM_PREVIA],
   },
 };
 
