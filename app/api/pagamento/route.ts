@@ -10,8 +10,14 @@ import {
   recompensas,
   sabores,
 } from "@/lib/db/schema";
-import { saldoDePontos } from "@/lib/fidelidade";
-import { PREFIXO_RESGATE } from "@/lib/resgate";
+import {
+  creditarPontosDoPedido,
+  debitarResgatesDoPedido,
+  saldoDePontos,
+} from "@/lib/fidelidade";
+import { nadaACobrar, PREFIXO_RESGATE } from "@/lib/resgate";
+import { avisarMudancaDeStatus } from "@/lib/avisar-cliente";
+import { avisarLojaDeVendaPaga } from "@/lib/avisar-loja";
 import { getClienteLogado } from "@/lib/cliente-logado";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
@@ -23,7 +29,7 @@ import { getConfigLoja } from "@/lib/config-loja";
 import { avaliarCupom, normalizarCodigo } from "@/lib/cupom";
 import { descontoDoPix } from "@/lib/desconto-pix";
 import { avisoDeFechada, lojaAberta } from "@/lib/funcionamento";
-import { conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
+import { baixarEstoque, conferirEstoque, mensagemDeFalta } from "@/lib/estoque";
 import { criarPreferenciaDoPedido } from "@/lib/preferencia-mp";
 import { precoAPagar, precoCheio, subtotalQueAceitaCupom } from "@/lib/promocao";
 import { prazoDoSabor } from "@/lib/sabores";
@@ -273,17 +279,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Só de prêmio, sem nenhum doce, o pedido não fecha: não há o que cobrar,
-    // e o Mercado Pago recusa uma cobrança de R$ 0,00.
-    if (itens.every((i) => i.precoUnitario === 0) && tipoEntrega === "retirada") {
-      return NextResponse.json(
-        {
-          error:
-            "Um pedido só com prêmio não passa pelo pagamento. Junte pelo menos um doce, ou escolha Entrega e pague só o frete.",
-        },
-        { status: 400 }
-      );
-    }
   }
 
   /**
@@ -519,10 +514,26 @@ export async function POST(req: Request) {
     configLoja.descontoPix
   );
 
+  /*
+   * 5d) Tem o que cobrar?
+   *
+   * Um pedido só de prêmio, retirado na mão da Camily, soma **R$ 0,00** — e o
+   * Mercado Pago recusa cobrança de zero. A resposta antiga era recusar o
+   * pedido e mandar a cliente juntar um doce; ou seja, o prêmio que ela levou
+   * meses juntando só saía se ela comprasse outra coisa. Agora esse pedido
+   * pula o gateway inteiro e já nasce pago, porque não há nada a receber.
+   *
+   * Quem decide é `nadaACobrar`, a mesma função que a tela do checkout usa
+   * para trocar os botões de pagar por um de confirmar.
+   */
+  const totalACobrar = Math.max(0, subtotal - desconto + valorFrete - descontoPix);
+  const semCobranca = nadaACobrar(totalACobrar);
+
   // 6) Só agora precisamos do Mercado Pago — as validações acima já
-  // recusaram o que não dá pra vender, sem depender do gateway.
-  const client = getMpClient();
-  if (!client) {
+  // recusaram o que não dá pra vender, sem depender do gateway. Pedido sem
+  // cobrança nem chega aqui: ele não abre tela de pagamento nenhuma.
+  const client = semCobranca ? null : getMpClient();
+  if (!semCobranca && !client) {
     return NextResponse.json(
       { error: "Pagamento ainda não configurado." },
       { status: 503 }
@@ -553,7 +564,9 @@ export async function POST(req: Request) {
     // A cobrança sai travada nesta forma, então é ela que fica gravada — é o
     // que as métricas usam pra saber qual taxa o Mercado Pago cobrou.
     formaPagamento,
-    status: "aguardando_pagamento",
+    // Sem nada a cobrar, não existe "aguardando pagamento": o pedido já entra
+    // na fila da Camily como qualquer venda paga.
+    status: semCobranca ? "pago" : "aguardando_pagamento",
   });
 
   // Marca o uso do cupom, pra respeitar o limite que a Camily definiu.
@@ -567,9 +580,72 @@ export async function POST(req: Request) {
   // O carrinho virou pedido: sai da lista de "abandonados" da Camily.
   await db.delete(carrinhos).where(eq(carrinhos.clienteId, cliente.id));
 
+  /*
+   * 7b) Pedido sem cobrança: o que o webhook faria, feito aqui.
+   *
+   * Quem confirma uma venda normal é a notificação do Mercado Pago. Como esta
+   * não passa por lá, notificação nenhuma vai chegar — e sem isto o prêmio
+   * sairia sem descontar ponto, sem baixar estoque e sem a Camily saber que
+   * existe um pedido pra preparar.
+   *
+   * A ordem é a mesma do webhook. `creditarPontosDoPedido` entra por simetria:
+   * com valor pago zero ela não lança nada, e deixá-la aqui evita que um
+   * pedido de cupom de 100% (também sem cobrança) fique sem os pontos no dia
+   * em que a regra mudar.
+   */
+  if (semCobranca) {
+    /*
+     * O débito dos pontos vem primeiro — é o que a loja tem a perder. Se
+     * qualquer uma dessas escritas falhar, o pedido é desfeito inteiro, do
+     * mesmo jeito que quando o Mercado Pago recusa a preferência: melhor a
+     * cliente tentar de novo do que ficar com o prêmio sem gastar ponto, ou
+     * com o ponto gasto sem pedido.
+     */
+    try {
+      await debitarResgatesDoPedido(cliente.id, id, itens);
+      await baixarEstoque(itens);
+      await creditarPontosDoPedido(cliente.id, id, Math.max(0, subtotal - desconto));
+    } catch (e) {
+      console.error("Falha ao confirmar pedido sem cobrança:", e);
+
+      await db.delete(pedidos).where(eq(pedidos.id, id));
+      if (cupomCodigo) {
+        await db
+          .update(cupons)
+          .set({ usos: sql`greatest(${cupons.usos} - 1, 0)` })
+          .where(eq(cupons.codigo, cupomCodigo));
+      }
+
+      return NextResponse.json(
+        {
+          error:
+            "Não consegui confirmar seu resgate agora. Seus pontos continuam com você — tente de novo em instantes.",
+        },
+        { status: 500 }
+      );
+    }
+
+    // Os avisos ficam por último e não derrubam nada: eles já engolem os
+    // próprios erros, e um e-mail que não saiu não desfaz um prêmio válido.
+    await avisarMudancaDeStatus(id, "pago");
+    await avisarLojaDeVendaPaga(id);
+
+    return NextResponse.json({ pedidoId: id, url: null, semCobranca: true });
+  }
+
   // 8) Cria a preferência de pagamento no Mercado Pago. A montagem fica em
   // `lib/preferencia-mp.ts`, compartilhada com a retomada do pagamento.
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
+
+  // Não acontece: o pedido sem cobrança já respondeu lá em cima, e sem
+  // Mercado Pago configurado a rota parou antes de gravar. A guarda existe
+  // para quem mexer na ordem depois — e para o TypeScript.
+  if (!client) {
+    return NextResponse.json(
+      { error: "Pagamento ainda não configurado." },
+      { status: 503 }
+    );
+  }
 
   let url: string | null = null;
   try {

@@ -11,7 +11,7 @@ import { avisoDeFechada, limparFuncionamento, lojaAberta } from "@/lib/funcionam
 import { avisoDeEntregaHoje, limparHorarioDeEntrega } from "@/lib/entrega-horario";
 import { reais } from "@/lib/formato";
 import { prazoDoSabor } from "@/lib/sabores";
-import { ehResgate } from "@/lib/resgate";
+import { ehResgate, nadaACobrar } from "@/lib/resgate";
 import {
   conferirPrecos,
   contarMudanca,
@@ -300,6 +300,16 @@ export default function CheckoutPage() {
    */
   const descontoPix = descontoDoPix("pix", total, percentualPix);
 
+  /**
+   * Pedido sem nada a cobrar — na prática, o prêmio de pontos retirado na mão.
+   *
+   * Aqui ele troca os dois botões de pagar por um só de confirmar: "Pagar com
+   * Pix — R$ 0,00" faria a pessoa procurar o que ela deve, e o Mercado Pago
+   * nem chega a ser aberto nesse caso. A conta que vale continua sendo a do
+   * servidor; esta é só pra montar a tela.
+   */
+  const semCobranca = nadaACobrar(total - descontoPix);
+
   /** Nada de pagar enquanto falta endereço, ponto de retirada ou resposta. */
   const pagamentoBloqueado =
     (tipoEntrega === "retirada" && !pontoRetirada) ||
@@ -360,7 +370,7 @@ export default function CheckoutPage() {
     setFinalizando(forma);
     try {
       // Cria o pedido e inicia o pagamento no Mercado Pago.
-      const { url } = await iniciarPagamento({
+      const { url, pedidoId, semCobranca } = await iniciarPagamento({
         clienteId: cliente?.id ?? "",
         itens: carrinho,
         tipoEntrega,
@@ -381,7 +391,16 @@ export default function CheckoutPage() {
         bilhete: querBilhete ? bilhete : "",
         cupom: cupomAplicado?.codigo ?? "",
       });
-      if (url) {
+      if (semCobranca) {
+        /*
+         * Prêmio de pontos retirado na mão: não há o que pagar, e o pedido já
+         * saiu confirmado do servidor. Vai pra mesma tela de quem volta do
+         * Mercado Pago aprovado — é ela que mostra a confirmação e esvazia o
+         * carrinho, e ter duas telas de "deu certo" só criaria duas versões da
+         * mesma boa notícia.
+         */
+        window.location.href = `/pedido/sucesso?status=approved&external_reference=${pedidoId}`;
+      } else if (url) {
         // Redireciona para o checkout seguro do Mercado Pago (Pix/cartão).
         window.location.href = url;
       } else {
@@ -964,6 +983,21 @@ export default function CheckoutPage() {
             <p className="font-body text-xs text-ink/55 mt-2">
               Seu carrinho fica guardado do jeito que está.
             </p>
+          </div>
+        ) : semCobranca ? (
+          <div className="mt-6">
+            <button
+              onClick={() => handleFinalizar("pix")}
+              disabled={pagamentoBloqueado}
+              className="w-full bg-cherryDark text-white rounded-2xl px-5 py-4 font-body hover:bg-cherryMid transition-colors disabled:opacity-40"
+            >
+              <span className="font-semibold">
+                {finalizando ? "Confirmando..." : "Confirmar meu resgate"}
+              </span>
+              <span className="block text-xs text-white/80 mt-0.5">
+                Não tem nada a pagar — o prêmio é seu. 🍒
+              </span>
+            </button>
           </div>
         ) : (
         <div className="mt-6 grid gap-2">

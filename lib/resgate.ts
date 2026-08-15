@@ -18,6 +18,24 @@ import type { ItemPedido } from "./types";
 /** O `produtoId` de um prêmio, que nunca colide com o de um doce. */
 export const PREFIXO_RESGATE = "resgate:";
 
+/**
+ * O pedido tem alguma coisa a cobrar?
+ *
+ * Um prêmio sozinho, retirado na mão da Camily, soma **R$ 0,00** — e o
+ * Mercado Pago recusa cobrança de zero. Esse pedido pula o gateway e já nasce
+ * pago (`app/api/pagamento`), e a tela troca os botões de pagar por um de
+ * confirmar. **As duas decisões saem daqui de propósito:** se a tela e o
+ * servidor discordassem, a cliente veria "Confirmar meu resgate" e o servidor
+ * tentaria abrir uma cobrança de R$ 0,00 — ou o contrário, pior ainda.
+ *
+ * A comparação é por centavo, e não por igualdade com zero: a conta passa por
+ * desconto de cupom e percentual do Pix, e sobra de fração binária faria um
+ * pedido de R$ 0,000001 procurar o Mercado Pago.
+ */
+export function nadaACobrar(totalACobrar: number): boolean {
+  return totalACobrar < 0.01;
+}
+
 export type RecompensaResgatavel = {
   id: string;
   nome: string;

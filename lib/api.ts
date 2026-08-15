@@ -215,10 +215,14 @@ export async function validarCupom(
 /**
  * Cria o pedido e inicia o pagamento no Mercado Pago. Retorna a URL do
  * checkout do MP (`url`) para onde o cliente deve ser redirecionado.
+ *
+ * ⚠️ Nem todo pedido tem o que cobrar: um prêmio de pontos retirado na mão
+ * soma R$ 0,00. Nesse caso vem `semCobranca: true` e `url` nulo — o pedido já
+ * está confirmado, e mandar a cliente para o Mercado Pago não faria sentido.
  */
 export async function iniciarPagamento(
   pedido: NovoPedido
-): Promise<{ pedidoId: string; url: string | null }> {
+): Promise<{ pedidoId: string; url: string | null; semCobranca?: boolean }> {
   const res = await fetch("/api/pagamento", POST_JSON(pedido));
   if (!res.ok) {
     // O servidor manda uma mensagem amigável em `error` (ex: endereço fora
