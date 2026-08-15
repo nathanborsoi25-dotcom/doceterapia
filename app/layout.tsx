@@ -36,13 +36,19 @@ export const metadata: Metadata = {
     title: "Doceterapia | Doces artesanais em Arapongas",
     description:
       "Peça online os doces artesanais da Camily Vilasboa. Entrega e retirada em Arapongas, PR.",
-    images: [{ url: "/logo.png", width: 512, height: 512, alt: "Doceterapia" }],
+    /*
+     * 1200×630 é a medida que o WhatsApp e o Instagram usam pra mostrar o
+     * cartão GRANDE, com foto. A logo quadrada de 512 caía no cartãozinho de
+     * lado, e quem recebia o link não via doce nenhum. Desenhada por
+     * `scripts/gerar-og.mjs` — rode-o de novo se trocar o doce da vitrine.
+     */
+    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "Doceterapia — doces artesanais em Arapongas-PR" }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Doceterapia | Doces artesanais em Arapongas",
     description: "Os doces artesanais da Camily Vilasboa, em Arapongas-PR.",
-    images: ["/logo.png"],
+    images: ["/og.jpg"],
   },
 };
 
