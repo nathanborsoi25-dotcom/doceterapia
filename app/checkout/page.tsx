@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
@@ -11,7 +12,7 @@ import { avisoDeFechada, limparFuncionamento, lojaAberta } from "@/lib/funcionam
 import { avisoDeEntregaHoje, limparHorarioDeEntrega } from "@/lib/entrega-horario";
 import { reais } from "@/lib/formato";
 import { prazoDoSabor } from "@/lib/sabores";
-import { ehResgate, nadaACobrar } from "@/lib/resgate";
+import { ehResgate, faltaDocePago, nadaACobrar } from "@/lib/resgate";
 import {
   conferirPrecos,
   contarMudanca,
@@ -275,7 +276,15 @@ export default function CheckoutPage() {
   // Só a ENTREGA depende do endereço. Quem é de fora de Arapongas (ou tem
   // endereço que não localizamos) ainda pode comprar escolhendo Retirada,
   // porque nesse caso vem buscar pessoalmente.
-  const compraBloqueada = tipoEntrega === "entrega" && (!area.atendido || freteIndisponivel);
+  /**
+   * Prêmio sozinho não fecha pedido: precisa de pelo menos um doce pago junto,
+   * na entrega e na retirada. Quem barra de verdade é o servidor; aqui o aviso
+   * aparece cedo, pra ela não descobrir só no clique de pagar.
+   */
+  const soTemPremio = faltaDocePago(carrinho);
+
+  const compraBloqueada =
+    soTemPremio || (tipoEntrega === "entrega" && (!area.atendido || freteIndisponivel));
 
   const valorFrete = tipoEntrega === "retirada" ? 0 : frete?.valor ?? 0;
   const total = subtotal - desconto + valorFrete;
@@ -984,6 +993,24 @@ export default function CheckoutPage() {
               Seu carrinho fica guardado do jeito que está.
             </p>
           </div>
+        ) : soTemPremio ? (
+          /* Prêmio sozinho não fecha pedido — o aviso toma o lugar dos botões,
+             com a saída à mão em vez de só a má notícia. */
+          <div className="mt-6 bg-blush/70 border border-cherryLight/60 rounded-2xl p-5 text-center">
+            <p className="font-display text-lg text-cherryDark">
+              Falta um doce para levar o prêmio 🍒
+            </p>
+            <p className="font-body text-sm text-ink/75 mt-2">
+              O prêmio vai junto com um pedido. Escolha pelo menos um doce e ele sai na
+              mesma entrega.
+            </p>
+            <Link
+              href="/catalogo"
+              className="inline-flex items-center justify-center mt-4 bg-cherryDark text-white rounded-full px-6 py-3 font-body font-semibold text-sm hover:bg-cherryMid transition-colors"
+            >
+              Ver o cardápio
+            </Link>
+          </div>
         ) : semCobranca ? (
           <div className="mt-6">
             <button
@@ -992,10 +1019,10 @@ export default function CheckoutPage() {
               className="w-full bg-cherryDark text-white rounded-2xl px-5 py-4 font-body hover:bg-cherryMid transition-colors disabled:opacity-40"
             >
               <span className="font-semibold">
-                {finalizando ? "Confirmando..." : "Confirmar meu resgate"}
+                {finalizando ? "Confirmando..." : "Confirmar pedido"}
               </span>
               <span className="block text-xs text-white/80 mt-0.5">
-                Não tem nada a pagar — o prêmio é seu. 🍒
+                Seu desconto cobriu tudo — não tem nada a pagar. 🍒
               </span>
             </button>
           </div>

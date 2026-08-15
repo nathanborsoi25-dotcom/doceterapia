@@ -15,7 +15,7 @@ import {
   debitarResgatesDoPedido,
   saldoDePontos,
 } from "@/lib/fidelidade";
-import { nadaACobrar, PREFIXO_RESGATE } from "@/lib/resgate";
+import { faltaDocePago, nadaACobrar, PREFIXO_RESGATE } from "@/lib/resgate";
 import { avisarMudancaDeStatus } from "@/lib/avisar-cliente";
 import { avisarLojaDeVendaPaga } from "@/lib/avisar-loja";
 import { getClienteLogado } from "@/lib/cliente-logado";
@@ -279,6 +279,20 @@ export async function POST(req: Request) {
       );
     }
 
+    /*
+     * O prêmio vai junto com uma compra, nunca sozinho — vale para entrega e
+     * para retirada. A tela já avisa antes de chegar aqui; esta é a trava que
+     * vale, porque o carrinho vem do navegador.
+     */
+    if (faltaDocePago(itens)) {
+      return NextResponse.json(
+        {
+          error:
+            "O prêmio vai junto com um pedido. Escolha pelo menos um doce para levar com ele. 🍒",
+        },
+        { status: 400 }
+      );
+    }
   }
 
   /**

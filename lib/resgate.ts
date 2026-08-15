@@ -19,14 +19,35 @@ import type { ItemPedido } from "./types";
 export const PREFIXO_RESGATE = "resgate:";
 
 /**
+ * O prêmio vai junto com uma compra, nunca sozinho.
+ *
+ * Decisão da loja (15/08/2026): resgatar exige **pelo menos um doce pago** no
+ * mesmo pedido — vale para entrega e para retirada. Sem isso o prêmio viraria
+ * uma entrega avulsa de graça, com o trabalho de preparo e a viagem inteiros
+ * por conta da Camily.
+ *
+ * A mesma função vale na tela e no servidor: se só o servidor soubesse da
+ * regra, a cliente montaria o pedido, escolheria o endereço e só descobriria
+ * o problema no clique de pagar.
+ */
+export function faltaDocePago(itens: ItemPedido[]): boolean {
+  const temPremio = itens.some(ehResgate);
+  if (!temPremio) return false;
+  return !itens.some((i) => !ehResgate(i) && i.precoUnitario > 0);
+}
+
+/**
  * O pedido tem alguma coisa a cobrar?
  *
- * Um prêmio sozinho, retirado na mão da Camily, soma **R$ 0,00** — e o
- * Mercado Pago recusa cobrança de zero. Esse pedido pula o gateway e já nasce
- * pago (`app/api/pagamento`), e a tela troca os botões de pagar por um de
- * confirmar. **As duas decisões saem daqui de propósito:** se a tela e o
- * servidor discordassem, a cliente veria "Confirmar meu resgate" e o servidor
- * tentaria abrir uma cobrança de R$ 0,00 — ou o contrário, pior ainda.
+ * O Mercado Pago recusa cobrança de zero, e um pedido pode chegar a R$ 0,00
+ * mesmo com doce dentro — um cupom de 100% em retirada zera a conta. Nesse
+ * caso o pedido pula o gateway e já nasce pago (`app/api/pagamento`), e a
+ * tela troca os botões de pagar por um de confirmar. **As duas decisões saem
+ * daqui de propósito:** se a tela e o servidor discordassem, a cliente veria
+ * o botão de confirmar e o servidor tentaria abrir uma cobrança de R$ 0,00 —
+ * ou o contrário, pior ainda.
+ *
+ * (Prêmio sozinho não chega até aqui: `faltaDocePago` barra antes.)
  *
  * A comparação é por centavo, e não por igualdade com zero: a conta passa por
  * desconto de cupom e percentual do Pix, e sobra de fração binária faria um
