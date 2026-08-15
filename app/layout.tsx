@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import BarraInferior from "@/components/BarraInferior";
+import { SITE } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,7 +25,10 @@ export const metadata: Metadata = {
    * a miniatura no Google. Sem isto o compartilhamento sai com um retângulo
    * vazio — e o link da bio é justamente por onde quase todo mundo chega.
    */
-  metadataBase: new URL("https://doceterapia.net.br"),
+  metadataBase: new URL(SITE),
+  // O endereço oficial de cada tela, pra o Google não tratar o mesmo conteúdo
+  // aberto com `?v=`, `?utm_source=` etc. como páginas diferentes.
+  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "pt_BR",

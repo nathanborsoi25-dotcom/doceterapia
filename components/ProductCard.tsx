@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Estrelas from "./Estrelas";
+import { fotoOtimizada, TAMANHO } from "@/lib/foto-otimizada";
 import {
   definirQuantidadeNoCarrinho,
   EVENTO_CARRINHO,
@@ -194,7 +195,9 @@ export default function ProductCard({ produto }: { produto: Produto }) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={url}
+                  src={fotoOtimizada(url, TAMANHO.card)}
+                  loading={i === 0 ? "eager" : "lazy"}
+                  decoding="async"
                   alt={
                     sabor
                       ? `${produto.nome} — ${sabor.nome}`
@@ -336,7 +339,9 @@ export default function ProductCard({ produto }: { produto: Produto }) {
                     {s.fotoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={s.fotoUrl}
+                        src={fotoOtimizada(s.fotoUrl, TAMANHO.miniatura)}
+                        loading="lazy"
+                        decoding="async"
                         alt=""
                         className={`w-full h-full object-cover ${acabou ? "grayscale" : ""}`}
                       />

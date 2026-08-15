@@ -65,7 +65,13 @@ export async function POST(req: Request) {
   const p = (await req.json()) as Produto;
   const values = {
     id: p.id,
-    nome: p.nome,
+    /*
+     * `trim()` porque espaço sobrando entra sem avisar e não sai mais: a
+     * auditoria achou "    Brownie Celebration" (quatro espaços à esquerda,
+     * que jogavam o doce pro topo de qualquer ordenação alfabética) e "Torta
+     * de Manteiga Escocesa " com espaço no fim.
+     */
+    nome: (p.nome ?? "").trim(),
     descricao: p.descricao ?? "",
     sabor: p.sabor ?? "",
     categoria: (p.categoria ?? "").trim().slice(0, 40),

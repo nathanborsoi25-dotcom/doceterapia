@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { logoutAdmin } from "@/lib/api";
@@ -22,8 +23,28 @@ const atalhos = [
   { href: "/admin/retirada", label: "Onde o cliente busca", desc: "Endereços e horários de retirada" },
 ];
 
+/** O que o painel precisa contar assim que ela abre. */
+type Resumo = {
+  pagos: number;
+  emPreparo: number;
+  aCaminho: number;
+  canceladosRecentes: number;
+  reembolsoFalhou: number;
+  aguardandoPagamento: number;
+  storiesPendentes: number;
+  precisamDeAcao: number;
+};
+
 export default function AdminHome() {
   const router = useRouter();
+  const [resumo, setResumo] = useState<Resumo | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/resumo", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setResumo)
+      .catch(() => setResumo(null));
+  }, []);
 
   async function sair() {
     await logoutAdmin();
@@ -45,6 +66,71 @@ export default function AdminHome() {
           Sair
         </button>
       </div>
+
+      {/*
+        O que aconteceu desde a última vez que ela abriu.
+        Vem ANTES dos atalhos porque é o motivo de ela ter aberto o painel —
+        os atalhos ficam para quando ela quer mexer em alguma coisa.
+      */}
+      {resumo && (
+        <div className="mt-6 grid gap-2">
+          {resumo.reembolsoFalhou > 0 && (
+            <Link
+              href="/admin/pedidos?situacao=cancelado"
+              className="flex items-center gap-3 rounded-2xl px-4 py-3.5 border-2 border-cherryDark bg-blush/60 hover:bg-blush transition-colors"
+            >
+              <span className="text-xl" aria-hidden>⚠️</span>
+              <span className="font-body text-sm text-ink/85">
+                <strong className="block text-cherryDark">
+                  {resumo.reembolsoFalhou}{" "}
+                  {resumo.reembolsoFalhou === 1 ? "devolução não saiu" : "devoluções não saíram"}
+                </strong>
+                A cliente está esperando o dinheiro de volta. Toque para resolver.
+              </span>
+            </Link>
+          )}
+
+          {resumo.pagos > 0 && (
+            <Link
+              href="/admin/pedidos?situacao=pago"
+              className="flex items-center gap-3 rounded-2xl px-4 py-3.5 bg-green-50 border border-green-300 hover:border-green-500 transition-colors"
+            >
+              <span className="text-xl" aria-hidden>🍒</span>
+              <span className="font-body text-sm text-ink/85">
+                <strong className="block text-green-800">
+                  {resumo.pagos} {resumo.pagos === 1 ? "pedido pago" : "pedidos pagos"} esperando você começar
+                </strong>
+                Pagamento confirmado — é só preparar.
+              </span>
+            </Link>
+          )}
+
+          {/* Estas duas são informação, não tarefa: linha discreta. */}
+          {(resumo.canceladosRecentes > 0 || resumo.storiesPendentes > 0) && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 px-1 font-body text-xs text-ink/55">
+              {resumo.canceladosRecentes > 0 && (
+                <Link href="/admin/pedidos?situacao=cancelado" className="underline">
+                  {resumo.canceladosRecentes}{" "}
+                  {resumo.canceladosRecentes === 1 ? "cancelamento" : "cancelamentos"} nas últimas 24h
+                </Link>
+              )}
+              {resumo.storiesPendentes > 0 && (
+                <Link href="/admin/stories" className="underline">
+                  {resumo.storiesPendentes} story esperando aprovação
+                </Link>
+              )}
+              {resumo.emPreparo > 0 && <span>{resumo.emPreparo} em preparo</span>}
+              {resumo.aCaminho > 0 && <span>{resumo.aCaminho} a caminho</span>}
+            </div>
+          )}
+
+          {resumo.precisamDeAcao === 0 && (
+            <p className="font-body text-sm text-ink/55 px-1">
+              Nada esperando por você agora. 🍒
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-2 gap-4 mt-8">
         {atalhos.map((a) => (

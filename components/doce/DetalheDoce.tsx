@@ -14,6 +14,7 @@ import {
   saboresVisiveis,
 } from "@/lib/sabores";
 import { emPromocao, precoAPagar, precoCheio } from "@/lib/promocao";
+import { fotoOtimizada, TAMANHO } from "@/lib/foto-otimizada";
 import type { Avaliacao, Produto } from "@/lib/types";
 
 /**
@@ -83,7 +84,8 @@ export default function DetalheDoce({
           {fotoAtual ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={fotoAtual}
+              src={fotoOtimizada(fotoAtual, TAMANHO.detalhe)}
+              decoding="async"
               alt={
                 sabor
                   ? `${produto.nome} com recheio de ${sabor.nome}`
@@ -136,7 +138,13 @@ export default function DetalheDoce({
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" className="w-full h-full object-cover" />
+                <img
+                  src={fotoOtimizada(url, TAMANHO.miniatura)}
+                  loading="lazy"
+                  decoding="async"
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
               </button>
             ))}
           </div>
@@ -206,7 +214,9 @@ export default function DetalheDoce({
                       {s.fotoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={s.fotoUrl}
+                          src={fotoOtimizada(s.fotoUrl, TAMANHO.miniatura)}
+                          loading="lazy"
+                          decoding="async"
                           alt=""
                           className={`w-full h-full object-cover ${acabou ? "grayscale" : ""}`}
                         />

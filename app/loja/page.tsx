@@ -26,6 +26,7 @@ import {
 } from "@/lib/entrega-horario";
 import { getConfiguracaoFrete } from "@/lib/api";
 import { reais } from "@/lib/formato";
+import { fotoOtimizada, TAMANHO } from "@/lib/foto-otimizada";
 import { minimoFreteGratis } from "@/lib/shipping";
 import { pontosDaLoja, type PontoRetirada } from "@/lib/retirada";
 import type { ConfiguracaoFrete } from "@/lib/types";
@@ -106,7 +107,13 @@ export default function LojaPage() {
           <div className="w-28 h-28 rounded-full mx-auto bg-cherryLight/40 overflow-hidden flex items-center justify-center text-4xl">
             {foto ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={foto} alt="Camily Vilasboa" className="w-full h-full object-cover" />
+              <img
+              src={fotoOtimizada(foto, TAMANHO.rodape)}
+              alt="Camily Vilasboa"
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
             ) : (
               "🍒"
             )}

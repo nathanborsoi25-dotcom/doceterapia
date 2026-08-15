@@ -4,6 +4,19 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "**" },
     ],
+    /*
+     * As larguras que o otimizador aceita (ver `lib/foto-otimizada.ts`).
+     * Enxutas de propósito: cada tamanho gera uma versão em cache, e a loja
+     * usa a foto em cinco lugares só. Pedir largura fora desta lista faz o
+     * otimizador responder 400 e a foto sumir da tela.
+     */
+    deviceSizes: [640, 828, 1080],
+    imageSizes: [64, 128, 256, 384],
+    // WebP corta boa parte do peso e é aceito por todo navegador atual.
+    formats: ["image/webp"],
+    // As fotos ficam no Vercel Blob e não mudam de endereço; um mês de cache
+    // evita reprocessar a mesma imagem a cada visita.
+    minimumCacheTTL: 60 * 60 * 24 * 30,
   },
 
   /*
@@ -21,6 +34,80 @@ const nextConfig = {
    */
   experimental: {
     staleTimes: { dynamic: 0 },
+  },
+
+  /**
+   * Cabeçalhos de segurança.
+   *
+   * A auditoria de 15/08/2026 achou o site sem nenhum deles: dava pra embutir
+   * a loja inteira num `<iframe>` de outro site e desenhar botões falsos por
+   * cima (clickjacking) — num site que pede endereço e leva ao pagamento,
+   * isso é o que mais preocupa.
+   */
+  async headers() {
+    return [
+      {
+        source: "/:caminho*",
+        headers: [
+          // Ninguém embute a loja em iframe. `frame-ancestors` é a forma
+          // moderna; `X-FRAME-OPTIONS` cobre navegador antigo.
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Content-Security-Policy",
+            /*
+             * Proposital e conservador. `unsafe-inline`/`unsafe-eval` em
+             * script-src ainda são necessários: o Next injeta o payload de
+             * hidratação como script inline. O que já fecha aqui é o essencial
+             * — de onde podem vir scripts, a quem o site pode se conectar, e
+             * quem pode embutir a página.
+             */
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com data:",
+              // As fotos vêm do Vercel Blob; `https:` cobre o domínio dele.
+              "img-src 'self' data: blob: https:",
+              // O site conversa com as próprias rotas, com o Nominatim (mapa),
+              // o ViaCEP e o Mercado Pago.
+              "connect-src 'self' https://nominatim.openstreetmap.org https://viacep.com.br https://api.mercadopago.com",
+              "form-action 'self' https://www.mercadopago.com.br",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "object-src 'none'",
+              "upgrade-insecure-requests",
+            ].join("; "),
+          },
+          // Impede o navegador de "adivinhar" o tipo de um arquivo.
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Ao sair para o Mercado Pago, manda só o domínio — não o caminho,
+          // que poderia carregar o id do pedido.
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // A loja não usa câmera, microfone nem localização.
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=()",
+          },
+          // HSTS com subdomínios (a Vercel já mandava a versão curta).
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains",
+          },
+        ],
+      },
+      {
+        /*
+         * O painel nunca pode ser guardado por cache nenhum. Ele vinha com
+         * `public`, que é o padrão de página pública — e ali dentro há pedido,
+         * telefone e endereço de cliente.
+         */
+        source: "/admin/:caminho*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+    ];
   },
 };
 

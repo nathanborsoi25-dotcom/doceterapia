@@ -4,6 +4,7 @@ import { getDb } from "./db";
 import { cupons, pedidos, pontos } from "./db/schema";
 import { getMpClient } from "./mercadopago";
 import { avisarMudancaDeStatus } from "./avisar-cliente";
+import { avisarLojaDeCancelamento } from "./avisar-loja";
 import { devolverAoEstoque } from "./estoque";
 import type { StatusPedido } from "./types";
 
@@ -274,8 +275,20 @@ export async function cancelarPedido(
   // acontece na confirmação do pagamento.
   if (jaFoiPago(status)) await devolverAoEstoque(pedido.itens);
 
-  // 4) Avisa o cliente. Nunca lança erro — o cancelamento já está feito.
+  // 4) Avisa os dois lados. Nenhum dos dois lança erro — o cancelamento já
+  // está feito, e e-mail que falha não pode desfazer decisão tomada.
   await avisarMudancaDeStatus(pedidoId, "cancelado");
+  /*
+   * A Camily precisa saber, principalmente quando o pedido já estava PAGO:
+   * ali é produção que para e dinheiro que volta. Antes só a cliente era
+   * avisada, e a loja descobria abrindo o painel — às vezes depois de já ter
+   * começado a fazer o doce.
+   */
+  await avisarLojaDeCancelamento(pedidoId, {
+    eraPago: jaFoiPago(status),
+    canceladoPor: opcoes.por,
+    motivo: opcoes.motivo,
+  });
 
   return { ok: true, reembolso, valorReembolsado };
 }
@@ -324,6 +337,13 @@ export async function registrarCancelamentoDoMercadoPago(
     await devolverAoEstoque(pedido.itens);
   }
   await avisarMudancaDeStatus(pedidoId, "cancelado");
+  // Vale aqui também: este caminho é o do estorno feito por FORA do site, no
+  // painel do Mercado Pago — e é o mais fácil de esquecer que aconteceu.
+  await avisarLojaDeCancelamento(pedidoId, {
+    eraPago: jaFoiPago(pedido.status as StatusPedido),
+    canceladoPor: "loja",
+    motivo: "Cancelado pelo Mercado Pago",
+  });
 }
 
 /**

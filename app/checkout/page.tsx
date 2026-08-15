@@ -124,11 +124,14 @@ export default function CheckoutPage() {
   // até zerá-los. Quem confere isso de verdade é o servidor.
   const desconto = Math.min(cupomAplicado?.desconto ?? 0, subtotal);
   /**
-   * O que a cliente paga em doces, já sem o cupom. É este valor que decide o
-   * frete grátis — usar o subtotal cheio daria entrega de graça por um
-   * carrinho que o cupom derrubou pela metade.
+   * Quanto ela levou em doces — ANTES do cupom. É este valor que decide o
+   * frete grátis.
+   *
+   * Descontar o cupom aqui fazia o frete voltar a ser cobrado quando ela
+   * usava um desconto: juntava R$ 65, ganhava a entrega, aplicava o cupom e
+   * perdia de novo. Quem bateu a meta em doces bateu a meta.
    */
-  const valorEmDoces = Math.max(0, subtotal - desconto);
+  const valorEmDoces = subtotal;
 
   // Dias de encomenda do carrinho: o prazo vem do produto no banco, não do
   // carrinho salvo no navegador (que pode estar desatualizado).

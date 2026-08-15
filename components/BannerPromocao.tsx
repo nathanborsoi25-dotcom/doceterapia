@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { bannersVisiveis, type BannerDaLoja } from "@/lib/banners";
+import { fotoOtimizada, TAMANHO } from "@/lib/foto-otimizada";
 
 /**
  * Os destaques do topo do cardápio, em carrossel.
@@ -73,7 +74,7 @@ export default function BannerPromocao() {
           varios ? "" : "justify-center"
         }`}
       >
-        {banners.map((b) => (
+        {banners.map((b, i) => (
           /*
            * Só a imagem. A arte já vem com o texto escrito dentro dela, e
            * repetir título e descrição embaixo dava duas mensagens dizendo a
@@ -95,9 +96,14 @@ export default function BannerPromocao() {
             {b.imagem ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={b.imagem}
+                src={fotoOtimizada(b.imagem, TAMANHO.banner)}
                 alt={b.titulo || "Promoção"}
                 draggable={false}
+                // O primeiro banner é a primeira coisa que aparece no topo do
+                // cardápio: deixar em `lazy` atrasaria justamente a imagem
+                // que sustenta a primeira impressão.
+                loading={i === 0 ? "eager" : "lazy"}
+                decoding="async"
                 className="w-full aspect-[2/1] object-cover"
               />
             ) : (

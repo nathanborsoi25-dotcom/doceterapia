@@ -4,6 +4,7 @@ import Link from "next/link";
 import CherryDivider from "./CherryDivider";
 import IconeWhatsApp from "./IconeWhatsApp";
 import { useSobre } from "@/lib/usar-sobre";
+import { fotoOtimizada, TAMANHO } from "@/lib/foto-otimizada";
 
 /**
  * O "quem faz" do site: a foto da Camily, o recado dela e o telefone.
@@ -24,8 +25,10 @@ export default function Footer() {
           {foto ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={foto}
+              src={fotoOtimizada(foto, TAMANHO.rodape)}
               alt="Camily Vilasboa"
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (

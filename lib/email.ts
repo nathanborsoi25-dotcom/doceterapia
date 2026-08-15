@@ -262,6 +262,83 @@ Abra o painel para ver tudo: https://doceterapia.net.br/admin/pedidos`;
   };
 }
 
+/**
+ * Aviso de cancelamento, pra Camily.
+ *
+ * O e-mail de venda avisa quando entra dinheiro; este avisa quando SAI. Um
+ * pedido pago que é cancelado significa produção que para e valor que volta —
+ * e ela não pode descobrir isso só quando abrir o painel, ainda mais se já
+ * tiver começado a fazer o doce.
+ */
+export function emailPedidoCancelado(dados: {
+  clienteNome: string;
+  itens: Array<{ nome: string; quantidade: number; saborNome?: string | null }>;
+  total: number;
+  eraPago: boolean;
+  canceladoPor: "cliente" | "loja" | string;
+  reembolso?: "nao_precisa" | "concluido" | "falhou" | null;
+  motivo?: string | null;
+}) {
+  const valor = `R$ ${dados.total.toFixed(2).replace(".", ",")}`;
+  const quem = dados.canceladoPor === "cliente" ? "a própria cliente" : "você, pelo painel";
+
+  const sobreODinheiro =
+    dados.reembolso === "concluido"
+      ? "A devolução do valor já foi pedida ao Mercado Pago."
+      : dados.reembolso === "falhou"
+        ? "⚠️ A DEVOLUÇÃO FALHOU — é preciso resolver isso no painel ou no site do Mercado Pago."
+        : dados.reembolso === "nao_precisa"
+          ? "Não havia pagamento concluído, então não há nada a devolver."
+          : "";
+
+  const linhas = dados.itens.map(
+    (i) => `${i.quantidade}× ${i.nome}${i.saborNome ? ` (${i.saborNome})` : ""}`
+  );
+
+  const texto = `Um pedido foi cancelado.
+
+Cliente: ${dados.clienteNome}
+Valor: ${valor}${dados.eraPago ? " (estava PAGO)" : " (ainda não tinha sido pago)"}
+Cancelado por: ${quem}
+${dados.motivo ? `Motivo: ${dados.motivo}\n` : ""}${sobreODinheiro ? `${sobreODinheiro}\n` : ""}
+Itens:
+${linhas.map((l) => `- ${l}`).join("\n")}
+
+Painel: https://doceterapia.net.br/admin/pedidos`;
+
+  const html = moldura(
+    `
+    <p style="color:#3b1a1f;font-size:19px;margin:20px 0 6px;font-weight:700">
+      ${dados.eraPago ? "Um pedido PAGO foi cancelado" : "Um pedido foi cancelado"}
+    </p>
+    <p style="color:#3b1a1f;opacity:.75;font-size:14px;margin:8px 0 20px">
+      <strong>${dados.clienteNome}</strong> · ${valor} · cancelado por ${quem}.
+    </p>
+
+    <div style="background:#fdf0ea;border-radius:14px;padding:16px;text-align:left">
+      <p style="margin:0 0 8px;font-size:13px;color:#a3243c;font-weight:700">O que estava no pedido</p>
+      <ul style="margin:0;padding-left:18px;color:#3b1a1f;font-size:14px">
+        ${linhas.map((l) => `<li style="margin:2px 0">${l}</li>`).join("")}
+      </ul>
+      ${dados.motivo ? `<p style="margin:10px 0 0;font-size:13px;color:#3b1a1f;opacity:.8">Motivo: ${dados.motivo}</p>` : ""}
+      ${
+        sobreODinheiro
+          ? `<p style="margin:10px 0 0;font-size:14px;color:${dados.reembolso === "falhou" ? "#a3243c;font-weight:700" : "#3b1a1f"}">${sobreODinheiro}</p>`
+          : ""
+      }
+    </div>
+
+    <a href="https://doceterapia.net.br/admin/pedidos" style="display:inline-block;background:#a3243c;color:#fff;text-decoration:none;font-weight:700;font-size:15px;border-radius:999px;padding:14px 28px;margin:20px 0 0">Abrir o painel</a>`,
+    "Aviso automático do site da Doceterapia, só para a Camily."
+  );
+
+  return {
+    assunto: `${dados.eraPago ? "Pedido PAGO cancelado" : "Pedido cancelado"}: ${valor} — ${dados.clienteNome.split(" ")[0]}`,
+    html,
+    texto,
+  };
+}
+
 /** Modelo do e-mail com o código de redefinição, na identidade da loja. */
 export function emailCodigoSenha(nome: string, codigo: string) {
   const texto = `Oi, ${nome}!

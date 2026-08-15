@@ -15,6 +15,7 @@ import {
   type MudancaNoCarrinho,
 } from "@/lib/precos-carrinho";
 import { ehResgate, pontosDoCarrinho } from "@/lib/resgate";
+import { fotoOtimizada, TAMANHO } from "@/lib/foto-otimizada";
 import { getCarrinho, salvarCarrinho } from "@/lib/store";
 import type { ItemPedido } from "@/lib/types";
 
@@ -209,7 +210,9 @@ export default function CarrinhoPage() {
                       ) : foto ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={foto}
+                          src={fotoOtimizada(foto, TAMANHO.miniatura)}
+                          loading="lazy"
+                          decoding="async"
                           alt=""
                           className={`w-full h-full object-cover ${acabou ? "opacity-40 grayscale" : ""}`}
                         />

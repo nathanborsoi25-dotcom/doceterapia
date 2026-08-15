@@ -20,7 +20,21 @@ export default function AdminFretePage() {
       .catch(() => setConfig(null));
   }, []);
 
-  if (!config) return null;
+  /*
+   * Enquanto a configuração não chega, a tela dizia `null` — e a Camily
+   * ficava uns segundos olhando uma página COMPLETAMENTE em branco, sem saber
+   * se tinha quebrado. As outras telas do painel já mostravam "Carregando…".
+   */
+  if (!config) {
+    return (
+      <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-2xl mx-auto">
+        <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">
+          Configurar frete
+        </h1>
+        <p className="font-body text-ink/60 py-10">Carregando as faixas de frete...</p>
+      </main>
+    );
+  }
 
   function atualizarFaixa(id: string, campo: keyof FaixaFrete, valor: number) {
     setConfig((c) =>

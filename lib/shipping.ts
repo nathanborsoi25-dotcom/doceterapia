@@ -162,7 +162,10 @@ export function minimoFreteGratis(
  */
 export function faltaParaFreteGratis(valorEmDoces: number, minimo: number): number {
   if (minimo <= 0) return 0;
-  return Math.max(0, minimo - valorEmDoces);
+  // Arredondado em centavos: a subtração de decimais devolvia 0.00999999…
+  // para "falta 1 centavo". A tela disfarçava, mas o valor cru vazaria em
+  // qualquer lugar que não formatasse com `reais()`.
+  return Math.max(0, Math.round((minimo - valorEmDoces) * 100) / 100);
 }
 
 export type CalculoFrete = {
@@ -178,9 +181,14 @@ export type CalculoFrete = {
 /**
  * O frete deste endereço, hoje.
  *
- * `valorEmDoces` é o que a cliente paga em doces (já sem o cupom): é ele que
- * decide o frete grátis. Usar o subtotal cheio daria entrega de graça por um
- * carrinho que o cupom derrubou pela metade.
+ * `valorEmDoces` é quanto a cliente levou em doces, **antes do cupom** — é ele
+ * que decide o frete grátis.
+ *
+ * ⚠️ A primeira versão descontava o cupom desta base, e o efeito na tela era
+ * ruim de um jeito difícil de defender: a pessoa juntava R$ 65, via "você
+ * ganhou frete grátis", aplicava um cupom de 10% e o frete VOLTAVA — ela
+ * terminava pagando entrega por ter usado um desconto que a loja mesma deu.
+ * Quem bateu a meta em doces bateu a meta; o cupom é outra conversa.
  */
 export function calcularFretePorEndereco(
   clienteLat: number,

@@ -480,10 +480,10 @@ export async function POST(req: Request) {
   /*
    * 5b) Agora sim, o valor do frete.
    *
-   * Vem depois do cupom porque o frete grátis olha o que a cliente paga em
-   * DOCES, já sem o desconto — senão um cupom de metade do carrinho ganharia
-   * entrega de graça de brinde, e a Camily pagaria as duas coisas. O valor
-   * que o navegador mandou continua sendo ignorado por completo.
+   * O frete grátis olha o subtotal em DOCES, **antes do cupom** — quem juntou
+   * os R$ 60 não perde a entrega por usar um desconto que a loja mesma deu.
+   * O valor que o navegador mandou continua sendo ignorado por completo: esta
+   * conta é refeita aqui, a partir do banco.
    *
    * De onde a entrega sai depende do dia da semana (fim de semana tem
    * endereço próprio), e quem decide isso é `origemDoDia`, no fuso de
@@ -493,7 +493,7 @@ export async function POST(req: Request) {
   if (tipoEntrega === "entrega") {
     const { lat, lng } = enderecoDestino;
     const calculo = calcularFretePorEndereco(lat!, lng!, configDoFrete, {
-      valorEmDoces: Math.max(0, subtotal - desconto),
+      valorEmDoces: subtotal,
     });
     // Não deveria acontecer (a área já foi conferida), mas deixar passar
     // gravaria um pedido de entrega com frete R$ 0,00 — e o prejuízo seria da
