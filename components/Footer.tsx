@@ -3,6 +3,8 @@
 import Link from "next/link";
 import CherryDivider from "./CherryDivider";
 import IconeWhatsApp from "./IconeWhatsApp";
+import IconeInstagram from "./IconeInstagram";
+import { INSTAGRAM_DA_LOJA, linkInstagram } from "@/lib/contato";
 import { useSobre } from "@/lib/usar-sobre";
 import { fotoOtimizada, TAMANHO } from "@/lib/foto-otimizada";
 
@@ -40,17 +42,31 @@ export default function Footer() {
           {texto}
         </p>
 
-        <a
-          href={linkWhatsApp("Oi, Camily! Vi o site da Doceterapia e queria falar com você.")}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 mt-4 font-body text-sm text-cherryDark bg-white/70 border border-cherryLight/50 rounded-full px-5 py-3 hover:bg-white transition-colors"
-        >
-          {/* O símbolo do WhatsApp no verde da marca: é ele que faz a cliente
-              reconhecer, de relance, que tocar ali abre a conversa. */}
-          <IconeWhatsApp className="w-5 h-5 text-[#25D366]" />
-          {telefone}
-        </a>
+        {/* Os dois caminhos de falar com a loja, lado a lado. Quebram linha no
+            celular estreito em vez de espremer o telefone. */}
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+          <a
+            href={linkWhatsApp("Oi, Camily! Vi o site da Doceterapia e queria falar com você.")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 font-body text-sm text-cherryDark bg-white/70 border border-cherryLight/50 rounded-full px-5 py-3 hover:bg-white transition-colors"
+          >
+            {/* O símbolo do WhatsApp no verde da marca: é ele que faz a cliente
+                reconhecer, de relance, que tocar ali abre a conversa. */}
+            <IconeWhatsApp className="w-5 h-5 text-[#25D366]" />
+            {telefone}
+          </a>
+
+          <a
+            href={linkInstagram()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 font-body text-sm text-cherryDark bg-white/70 border border-cherryLight/50 rounded-full px-5 py-3 hover:bg-white transition-colors"
+          >
+            {/* Rosa da marca, pelo mesmo motivo do verde ao lado. */}
+            <IconeInstagram className="w-5 h-5 text-[#DD2A7B]" />@{INSTAGRAM_DA_LOJA}
+          </a>
+        </div>
 
         {/* As regras da loja ficam a um toque de qualquer tela do cliente —
             é onde ele procura quando bate a dúvida de "e se eu desistir?". */}

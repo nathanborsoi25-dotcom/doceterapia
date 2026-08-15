@@ -6,6 +6,8 @@ import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import IconeWhatsApp from "@/components/IconeWhatsApp";
+import IconeInstagram from "@/components/IconeInstagram";
+import { INSTAGRAM_DA_LOJA, linkInstagram } from "@/lib/contato";
 import {
   IconeApplePay,
   IconeCartao,
@@ -124,15 +126,31 @@ export default function LojaPage() {
           <p className="font-body text-sm text-ink/70 mt-2 whitespace-pre-line">
             {texto}
           </p>
-          <a
-            href={linkWhatsApp("Oi, Camily! Vi o site da Doceterapia e queria tirar uma dúvida.")}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-4 inline-flex items-center gap-2 bg-[#25D366] text-white rounded-full px-5 py-3 font-body font-semibold text-sm hover:brightness-95 transition"
-          >
-            <IconeWhatsApp className="w-4 h-4" />
-            {telefone}
-          </a>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <a
+              href={linkWhatsApp("Oi, Camily! Vi o site da Doceterapia e queria tirar uma dúvida.")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-[#25D366] text-white rounded-full px-5 py-3 font-body font-semibold text-sm hover:brightness-95 transition"
+            >
+              <IconeWhatsApp className="w-4 h-4" />
+              {telefone}
+            </a>
+
+            {/*
+              O gradiente do Instagram vem do CSS do botão, não de um `defs`
+              dentro do SVG: dois ícones iguais na mesma tela colidiriam pelo
+              id do gradiente, e o segundo sairia sem cor.
+            */}
+            <a
+              href={linkInstagram()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full px-5 py-3 font-body font-semibold text-sm text-white bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] hover:brightness-95 transition"
+            >
+              <IconeInstagram className="w-4 h-4" />@{INSTAGRAM_DA_LOJA}
+            </a>
+          </div>
         </section>
 
         <CherryDivider />

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import IconeInstagram from "./IconeInstagram";
+import { linkInstagram } from "@/lib/contato";
 import { useSobre } from "@/lib/usar-sobre";
 
 /**
@@ -28,6 +30,17 @@ export default function RodapeLinks() {
           className="underline inline-flex items-center min-h-[44px] px-1 hover:text-cherryDark"
         >
           Falar com a Camily
+        </a>
+        {/* Aqui o ícone vem junto do texto: nesta fileira tudo é link escrito,
+            e um símbolo sozinho no meio deles não se lê como "Instagram". */}
+        <a
+          href={linkInstagram()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline inline-flex items-center gap-1.5 min-h-[44px] px-1 hover:text-cherryDark"
+        >
+          <IconeInstagram className="w-4 h-4 text-[#DD2A7B]" />
+          Instagram
         </a>
       </nav>
       <p className="mt-2">Doceterapia — Arapongas-PR</p>
