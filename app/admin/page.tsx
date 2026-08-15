@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { logoutAdmin } from "@/lib/api";
+import ConviteInstalar from "@/components/ConviteInstalar";
 
 const atalhos = [
   { href: "/admin/pedidos", label: "Meus pedidos", desc: "Ver e acompanhar os pedidos recebidos" },
@@ -132,7 +133,27 @@ export default function AdminHome() {
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 gap-4 mt-8">
+      {/*
+        Depois do resumo, nunca antes: o que ela abriu o painel para ver vem
+        primeiro. O convite é oferta, não recado urgente.
+      */}
+      <div className="empty:hidden mt-8">
+        <ConviteInstalar
+          chave="dt_convite_painel"
+          titulo="Deixe o painel na sua tela de início"
+          descricao="Fica com ícone só seu, separado do site da loja — e você abre os pedidos direto, sem passar pelo navegador."
+          rotuloDoBotao="Adicionar o painel"
+          instrucaoIPhone={
+            <>
+              Toque em <strong>Compartilhar</strong> aqui embaixo no navegador e depois em{" "}
+              <strong>Adicionar à Tela de Início</strong>. O ícone vinho é o seu painel; o claro
+              é o site da loja. Na primeira vez ele pede sua senha de novo. 🍒
+            </>
+          }
+        />
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4 mt-6">
         {atalhos.map((a) => (
           <Link
             key={a.href}

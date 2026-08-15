@@ -1,6 +1,11 @@
 /**
- * Desenha a imagem de prévia do link (`public/og.jpg`, 1200×630) — a figura
- * que aparece quando alguém manda doceterapia.net.br no WhatsApp.
+ * Desenha as figuras do site que não são foto de doce:
+ *
+ * - `public/og.jpg` (1200×630) — a prévia que aparece quando alguém manda
+ *   doceterapia.net.br no WhatsApp;
+ * - `public/icone-painel.png` (512×512) — o ícone do atalho do PAINEL na tela
+ *   de início da Camily, propositalmente diferente do da loja: com os dois
+ *   iguais, ela não saberia qual dos ícones abre o quê.
  *
  * Por que um servidor local em vez de gerar direto pelo Node: o desenho usa a
  * Fraunces e a Nunito, as fontes do site, e quem sabe desenhar texto com fonte
@@ -12,9 +17,9 @@
  * "suja" o canvas e o navegador passa a recusar `toDataURL`. Servindo tudo na
  * mesma origem, o desenho volta inteiro.
  *
- * Como rodar:  node scripts/gerar-og.mjs
- * Depois abra http://localhost:4599 no navegador — ele desenha, envia e o
- * script grava o arquivo e se encerra sozinho.
+ * Como rodar:  node scripts/gerar-imagens.mjs
+ * Depois abra http://localhost:4599 no navegador — ele desenha, envia, e o
+ * script grava os arquivos e se encerra sozinho.
  */
 import { createServer } from "node:http";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -23,7 +28,8 @@ import { dirname, join } from "node:path";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PORTA = 4599;
-const SAIDA = join(RAIZ, "public", "og.jpg");
+/** Quantas figuras esperar antes de encerrar. */
+const PECAS = ["og.jpg", "icone-painel.png"];
 
 /** Doce em destaque na prévia. Troque a URL aqui quando mudar a vitrine. */
 const FOTO_DO_DOCE =
@@ -33,7 +39,7 @@ const PAGINA = `<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>Gerando a imagem de prévia…</title>
+<title>Gerando as imagens…</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
@@ -41,35 +47,25 @@ const PAGINA = `<!doctype html>
   body { background:#FDF0EA; font-family:Nunito, sans-serif; color:#3B1A1F; display:flex;
          flex-direction:column; align-items:center; gap:16px; padding:24px; }
   canvas { max-width:100%; border:1px solid rgba(240,166,184,.5); border-radius:12px; }
+  #icone { width:180px; height:180px; }
 </style>
 </head>
 <body>
 <p id="aviso">Desenhando…</p>
 <canvas id="tela" width="1200" height="630"></canvas>
+<canvas id="icone" width="512" height="512"></canvas>
 <script>
 const CREAM='#FDF0EA', CHERRY_DARK='#8C1D2B', CHERRY_LIGHT='#F0A6B8';
 const carrega = src => new Promise((ok, err) => {
   const i = new Image(); i.onload = () => ok(i); i.onerror = err; i.src = src;
 });
+const envia = (nome, dados) => fetch('/salvar?nome=' + nome, { method: 'POST', body: dados });
 
-(async () => {
-  const c = document.getElementById('tela'), x = c.getContext('2d');
-  const W = c.width, H = c.height;
-  const [foto, logo] = await Promise.all([carrega('/foto'), carrega('/logo')]);
-  // Cada corpo e peso precisa ser pedido explicitamente: sem isso o canvas
-  // desenha com a fonte de sistema e ninguém avisa. Já saiu Arial no lugar da
-  // Nunito uma vez — e só apareceu quando a imagem foi aberta e olhada.
-  await Promise.all([
-    document.fonts.load('700 84px Fraunces'),
-    document.fonts.load('600 34px Nunito'),
-    document.fonts.load('400 29px Nunito'),
-    document.fonts.load('700 30px Nunito'),
-  ]);
-  await document.fonts.ready;
-
+/** A prévia do link: foto no arco do cardápio, nome e endereço do site. */
+function desenharPrevia(c, foto, logo) {
+  const x = c.getContext('2d'), W = c.width, H = c.height;
   x.fillStyle = CREAM; x.fillRect(0, 0, W, H);
 
-  // Cartão da foto: arco alto no topo, a assinatura visual do cardápio.
   const cx = 650, cy = 52, cw = 490, ch = 526, r = cw / 2;
   const arco = () => {
     x.beginPath();
@@ -117,40 +113,92 @@ const carrega = src => new Promise((ok, err) => {
   linha('Doces artesanais em Arapongas-PR', 34, 600, 'rgba(59,26,31,0.78)', 416);
   linha('Peça pelo site — entrega ou retirada', 29, 400, 'rgba(59,26,31,0.55)', 464);
   linha('doceterapia.net.br', 30, 700, CHERRY_DARK, 534);
+}
 
-  const dados = c.toDataURL('image/jpeg', 0.86);
-  await fetch('/salvar', { method: 'POST', body: dados });
-  document.getElementById('aviso').textContent = 'Prontinho, imagem gravada em public/og.jpg 🍒';
+/**
+ * O ícone do painel: fundo vinho e o monograma no meio.
+ *
+ * A inversão de cor é o que separa os dois atalhos na tela dela num relance —
+ * a loja é clara, o painel é escuro. O disco fica pequeno de propósito: o
+ * Android recorta o ícone no formato do sistema e come as bordas.
+ */
+function desenharIcone(c, logo) {
+  const x = c.getContext('2d'), T = c.width, m = T / 2;
+  x.fillStyle = CHERRY_DARK; x.fillRect(0, 0, T, T);
+
+  const r = 160;
+  x.save();
+  x.beginPath(); x.arc(m, m, r, 0, Math.PI * 2); x.clip();
+  // A logo entra ampliada: em tamanho natural o DT sairia miúdo dentro do
+  // disco, e o que precisa ser reconhecido de longe é justamente ele.
+  const L = 440;
+  x.drawImage(logo, m - L / 2, m - L / 2, L, L);
+  x.restore();
+
+  x.beginPath(); x.arc(m, m, r, 0, Math.PI * 2);
+  x.strokeStyle = 'rgba(240,166,184,0.65)'; x.lineWidth = 6; x.stroke();
+}
+
+(async () => {
+  const [foto, logo] = await Promise.all([carrega('/foto'), carrega('/logo')]);
+  // Cada corpo e peso precisa ser pedido explicitamente: sem isso o canvas
+  // desenha com a fonte de sistema e ninguém avisa. Já saiu Arial no lugar da
+  // Nunito uma vez — e só apareceu quando a imagem foi aberta e olhada.
+  await Promise.all([
+    document.fonts.load('700 84px Fraunces'),
+    document.fonts.load('600 34px Nunito'),
+    document.fonts.load('400 29px Nunito'),
+    document.fonts.load('700 30px Nunito'),
+  ]);
+  await document.fonts.ready;
+
+  const previa = document.getElementById('tela');
+  const icone = document.getElementById('icone');
+  desenharPrevia(previa, foto, logo);
+  desenharIcone(icone, logo);
+
+  await envia('og.jpg', previa.toDataURL('image/jpeg', 0.86));
+  await envia('icone-painel.png', icone.toDataURL('image/png'));
+  document.getElementById('aviso').textContent = 'Prontinho, imagens gravadas em public/ 🍒';
 })().catch(err => { document.getElementById('aviso').textContent = 'Falhou: ' + err; });
 </script>
 </body>
 </html>`;
 
+let gravadas = 0;
+
 const servidor = createServer(async (req, res) => {
-  if (req.url === "/") {
+  const url = new URL(req.url, `http://localhost:${PORTA}`);
+
+  if (url.pathname === "/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     return res.end(PAGINA);
   }
-  if (req.url === "/foto") {
+  if (url.pathname === "/foto") {
     const r = await fetch(FOTO_DO_DOCE);
     const buf = Buffer.from(await r.arrayBuffer());
     res.writeHead(200, { "content-type": r.headers.get("content-type") ?? "image/png" });
     return res.end(buf);
   }
-  if (req.url === "/logo") {
+  if (url.pathname === "/logo") {
     res.writeHead(200, { "content-type": "image/png" });
     return res.end(readFileSync(join(RAIZ, "public", "logo.png")));
   }
-  if (req.url === "/salvar" && req.method === "POST") {
+  if (url.pathname === "/salvar" && req.method === "POST") {
+    const nome = url.searchParams.get("nome");
+    if (!PECAS.includes(nome)) {
+      res.writeHead(400); return res.end("nome desconhecido");
+    }
     let corpo = "";
     req.on("data", (p) => (corpo += p));
     req.on("end", () => {
-      const base64 = corpo.replace(/^data:image\/jpeg;base64,/, "");
-      writeFileSync(SAIDA, Buffer.from(base64, "base64"));
-      const kb = Math.round(Buffer.from(base64, "base64").length / 1024);
-      console.log(`✅ public/og.jpg gravado (${kb} KB, 1200×630)`);
+      const bytes = Buffer.from(corpo.replace(/^data:image\/\w+;base64,/, ""), "base64");
+      writeFileSync(join(RAIZ, "public", nome), bytes);
+      console.log(`✅ public/${nome} gravado (${Math.round(bytes.length / 1024)} KB)`);
       res.writeHead(200); res.end("ok");
-      setTimeout(() => servidor.close(() => process.exit(0)), 300);
+      if (++gravadas === PECAS.length) {
+        setTimeout(() => servidor.close(() => process.exit(0)), 300);
+      }
     });
     return;
   }
@@ -158,5 +206,5 @@ const servidor = createServer(async (req, res) => {
 });
 
 servidor.listen(PORTA, () => {
-  console.log(`Abra http://localhost:${PORTA} no navegador para desenhar a imagem.`);
+  console.log(`Abra http://localhost:${PORTA} no navegador para desenhar as imagens.`);
 });

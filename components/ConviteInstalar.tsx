@@ -21,8 +21,26 @@ import { useEffect, useState } from "react";
  * o jeito mais rápido de virar propaganda chata.
  */
 
-const CHAVE = "dt_convite_instalar";
 const DIAS_DE_SOSSEGO = 30;
+
+/**
+ * Os textos mudam conforme quem está lendo: a cliente no cardápio e a Camily
+ * no painel querem coisas diferentes na tela de início. A lógica de quando
+ * convidar — e de quando calar a boca — é a mesma para as duas, e por isso
+ * mora num componente só.
+ *
+ * `chave` precisa ser diferente em cada lugar: dispensar o convite da loja
+ * não pode esconder o do painel.
+ */
+type Props = {
+  titulo?: string;
+  /** Aparece no Android, junto do botão que instala de verdade. */
+  descricao?: string;
+  /** Aparece no iPhone, onde só a pessoa consegue adicionar. */
+  instrucaoIPhone?: React.ReactNode;
+  rotuloDoBotao?: string;
+  chave?: string;
+};
 
 /** O evento do Chrome, que o TypeScript ainda não conhece. */
 type EventoDeInstalar = Event & {
@@ -30,9 +48,9 @@ type EventoDeInstalar = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-function foiDispensadoHaPouco(): boolean {
+function foiDispensadoHaPouco(chave: string): boolean {
   try {
-    const quando = Number(localStorage.getItem(CHAVE));
+    const quando = Number(localStorage.getItem(chave));
     if (!quando) return false;
     return Date.now() - quando < DIAS_DE_SOSSEGO * 24 * 60 * 60 * 1000;
   } catch {
@@ -58,13 +76,24 @@ function ehIPhoneOuIPad(): boolean {
   );
 }
 
-export default function ConviteInstalar() {
+export default function ConviteInstalar({
+  titulo = "Deixe a Doceterapia na sua tela de início",
+  descricao = "Fica com ícone igual ao de um aplicativo — e a próxima encomenda começa a um toque.",
+  instrucaoIPhone = (
+    <>
+      Toque em <strong>Compartilhar</strong> aqui embaixo no navegador e depois em{" "}
+      <strong>Adicionar à Tela de Início</strong>. Aí a gente fica pertinho. 🍒
+    </>
+  ),
+  rotuloDoBotao = "Adicionar à tela de início",
+  chave = "dt_convite_instalar",
+}: Props) {
   const [evento, setEvento] = useState<EventoDeInstalar | null>(null);
   const [mostrarNoIPhone, setMostrarNoIPhone] = useState(false);
   const [fechado, setFechado] = useState(false);
 
   useEffect(() => {
-    if (jaEstaInstalado() || foiDispensadoHaPouco()) return;
+    if (jaEstaInstalado() || foiDispensadoHaPouco(chave)) return;
 
     function aoPoderInstalar(e: Event) {
       // Sem isto o Chrome mostra a barra dele, no rodapé, bem em cima da
@@ -81,12 +110,12 @@ export default function ConviteInstalar() {
     }
 
     return () => window.removeEventListener("beforeinstallprompt", aoPoderInstalar);
-  }, []);
+  }, [chave]);
 
   function fechar() {
     setFechado(true);
     try {
-      localStorage.setItem(CHAVE, String(Date.now()));
+      localStorage.setItem(chave, String(Date.now()));
     } catch {
       // Navegador com armazenamento bloqueado: o convite some só nesta visita.
     }
@@ -110,29 +139,20 @@ export default function ConviteInstalar() {
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="font-display text-base text-cherryDark leading-tight">
-          Deixe a Doceterapia na sua tela de início
-        </p>
+        <p className="font-display text-base text-cherryDark leading-tight">{titulo}</p>
 
         {evento ? (
           <>
-            <p className="font-body text-sm text-ink/65 mt-1">
-              Fica com ícone igual ao de um aplicativo — e a próxima encomenda
-              começa a um toque.
-            </p>
+            <p className="font-body text-sm text-ink/65 mt-1">{descricao}</p>
             <button
               onClick={instalar}
               className="mt-2.5 bg-cherryDark text-white rounded-full px-5 py-2.5 font-body font-semibold text-sm hover:bg-cherryMid transition-colors"
             >
-              Adicionar à tela de início
+              {rotuloDoBotao}
             </button>
           </>
         ) : (
-          <p className="font-body text-sm text-ink/65 mt-1">
-            Toque em <strong>Compartilhar</strong> aqui embaixo no navegador e
-            depois em <strong>Adicionar à Tela de Início</strong>. Aí a gente
-            fica pertinho. 🍒
-          </p>
+          <p className="font-body text-sm text-ink/65 mt-1">{instrucaoIPhone}</p>
         )}
       </div>
 
