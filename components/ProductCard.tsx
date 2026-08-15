@@ -322,6 +322,42 @@ export default function ProductCard({ produto }: { produto: Produto }) {
               {sabores.map((s) => {
                 const acabou = saborEsgotado(s);
                 const escolhido = s.id === saborId;
+
+                /*
+                 * Sem foto, o nome inteiro precisa aparecer.
+                 *
+                 * Aqui a bolinha de 44px mostrava `nome.slice(0, 6)` — o
+                 * recheio "Ganache de chocolate meio amargo" virava "Ganach"
+                 * dentro de um círculo, e a cliente tinha que adivinhar. Quem
+                 * tem foto continua redondo, que é compacto e se reconhece de
+                 * relance; quem não tem vira etiqueta, que cabe a palavra toda.
+                 */
+                if (!s.fotoUrl) {
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setSaborId(s.id)}
+                      disabled={acabou}
+                      title={acabou ? `${s.nome} — esgotado` : s.nome}
+                      aria-label={`Recheio ${s.nome}${acabou ? " (esgotado)" : ""}`}
+                      aria-pressed={escolhido}
+                      className={`inline-flex items-center max-w-full min-h-[44px] rounded-full border-2 px-3 py-1.5 transition-all ${
+                        escolhido
+                          ? "border-cherryDark bg-blush/60"
+                          : "border-cherryLight/40 hover:border-cherryMid"
+                      } ${acabou ? "opacity-40 cursor-not-allowed" : ""}`}
+                    >
+                      <span
+                        className={`font-body text-xs leading-tight text-left text-ink/80 ${
+                          acabou ? "line-through" : ""
+                        }`}
+                      >
+                        {s.nome}
+                      </span>
+                    </button>
+                  );
+                }
+
                 return (
                   <button
                     key={s.id}
@@ -336,20 +372,14 @@ export default function ProductCard({ produto }: { produto: Produto }) {
                         : "border-cherryLight/40 hover:border-cherryMid"
                     } ${acabou ? "opacity-40 cursor-not-allowed" : ""}`}
                   >
-                    {s.fotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={fotoOtimizada(s.fotoUrl, TAMANHO.miniatura)}
-                        loading="lazy"
-                        decoding="async"
-                        alt=""
-                        className={`w-full h-full object-cover ${acabou ? "grayscale" : ""}`}
-                      />
-                    ) : (
-                      <span className="flex items-center justify-center w-full h-full bg-blush text-[10px] font-body text-cherryDark px-0.5 leading-tight">
-                        {s.nome.slice(0, 6)}
-                      </span>
-                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={fotoOtimizada(s.fotoUrl, TAMANHO.miniatura)}
+                      loading="lazy"
+                      decoding="async"
+                      alt=""
+                      className={`w-full h-full object-cover ${acabou ? "grayscale" : ""}`}
+                    />
                     {acabou && (
                       <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 bg-cherryDark/80 rotate-[-20deg]" />
                     )}

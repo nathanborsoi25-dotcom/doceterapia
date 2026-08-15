@@ -1,3 +1,4 @@
+import { unstable_noStore as naoGuardar } from "next/cache";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "./db";
 import { avaliacoes, clientes, produtos, sabores } from "./db/schema";
@@ -16,6 +17,21 @@ export type DoceCompleto = {
 };
 
 export async function buscarDocePorSlug(slug: string): Promise<DoceCompleto | null> {
+  /*
+   * ⚠️ Sem isto a página serve dados velhos PARA SEMPRE.
+   *
+   * O driver do Neon conversa com o banco por `fetch`, e o Next embrulha o
+   * `fetch` global com cache próprio: a leitura do banco vira resposta
+   * guardada. `export const dynamic = "force-dynamic"` na página **não**
+   * resolve — ele age sobre a renderização, não sobre esta leitura.
+   *
+   * Foi o que aconteceu com o Box mini cookies: a Camily cadastrou o recheio
+   * de ganache, o banco recebeu, a API devolvia os dois, e a página do doce
+   * continuou mostrando só a Nutella. Mesmo remédio já aplicado na rota do
+   * frete em 13/08.
+   */
+  naoGuardar();
+
   const id = idDoSlug(slug);
   if (!id) return null;
 

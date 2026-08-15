@@ -37,6 +37,8 @@ export default function DetalheDoce({
   avaliacoes: Avaliacao[];
 }) {
   const sabores = saboresVisiveis(produto);
+  /** Decide o formato da lista de recheios — ver o comentário lá embaixo. */
+  const temFotoDeRecheio = sabores.some((s) => s.fotoUrl);
   const galeria = fotosDoProduto(produto);
   const [foto, setFoto] = useState(0);
   const [quantidade, setQuantidade] = useState(1);
@@ -191,13 +193,51 @@ export default function DetalheDoce({
               Escolha o recheio
               {sabor && <span className="text-cherryMid"> · {sabor.nome}</span>}
             </span>
-            <div className="flex flex-wrap gap-2">
+            {/*
+              Dois formatos, e quem escolhe é a existência de FOTO.
+
+              Com foto, os quadradinhos lado a lado deixam a pessoa comparar os
+              recheios com o olho. Sem foto, eles viravam um emoji de bolo
+              grande com o nome espremido embaixo em quatro linhas — e "Ganache
+              de chocolate meio amargo" ficava ilegível num quadrado de 96px.
+              A decisão é do doce inteiro, não de cada recheio: misturar
+              quadrado e etiqueta na mesma fileira pareceria defeito.
+            */}
+            <div className={temFotoDeRecheio ? "flex flex-wrap gap-2" : "grid gap-2"}>
               {sabores.map((s) => {
                 const acabou = saborEsgotado(s);
                 const escolhido = s.id === saborId;
                 // O botão do recheio mostra o preço que vale — se aquele
                 // recheio está em oferta, é o da oferta.
                 const precoDele = precoAPagar(produto, s);
+
+                if (!temFotoDeRecheio) {
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => escolherSabor(s.id)}
+                      disabled={acabou}
+                      aria-pressed={escolhido}
+                      className={`flex items-center justify-between gap-3 w-full min-h-[44px] rounded-2xl border-2 px-4 py-2.5 text-left transition-all ${
+                        escolhido
+                          ? "border-cherryDark bg-blush/50"
+                          : "border-cherryLight/40 hover:border-cherryMid"
+                      } ${acabou ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <span
+                        className={`font-body text-sm text-ink/85 leading-tight ${
+                          acabou ? "line-through" : ""
+                        }`}
+                      >
+                        {s.nome}
+                      </span>
+                      <span className="font-display text-sm text-cherryMid shrink-0 tabular-nums">
+                        {acabou ? "esgotado" : reais(precoDele)}
+                      </span>
+                    </button>
+                  );
+                }
+
                 return (
                   <button
                     key={s.id}
