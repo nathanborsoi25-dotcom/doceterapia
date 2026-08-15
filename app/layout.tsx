@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import BarraInferior from "@/components/BarraInferior";
+import RegistrarServiceWorker from "@/components/RegistrarServiceWorker";
 import { IMAGEM_PREVIA, SITE } from "@/lib/site";
 import "./globals.css";
 
@@ -95,6 +96,9 @@ export default function RootLayout({
         {children}
         {gaveta}
         <BarraInferior />
+        {/* Não desenha nada: liga o service worker que o Android exige para
+            deixar instalar o site na tela de início. */}
+        <RegistrarServiceWorker />
       </body>
     </html>
   );
