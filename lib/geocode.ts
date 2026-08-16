@@ -319,6 +319,50 @@ async function tomtom(e: EnderecoInput): Promise<Coords | null> {
   return null;
 }
 
+/**
+ * O centro de Arapongas e o raio que ainda é "a cidade".
+ *
+ * O município chega a pouco mais de 22 km da loja; 40 km deixa folga para
+ * bairro rural e para o ponto do mapa não bater exatamente no centro.
+ */
+const CENTRO_DA_CIDADE = { lat: -23.4152862, lng: -51.4293961 };
+const RAIO_ACEITAVEL_KM = 40;
+
+/** Distância em linha reta, a mesma conta que o frete usa. */
+function distanciaKm(a: Coords, b: Coords): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/**
+ * ⚠️ A coordenada caiu longe demais para ser Arapongas?
+ *
+ * Serviço de mapa às vezes acha uma rua de mesmo nome em outro estado e
+ * responde com toda a confiança do mundo. Aconteceu de verdade: a "Rua Mucho"
+ * (Jardim Morumbi, Arapongas) voltou do TomTom com a coordenada de uma rua em
+ * **Saquarema, no Rio de Janeiro** — 921 km daqui. O frete saía como "fora da
+ * área", então a cliente não era cobrada errado, mas ficava sem conseguir
+ * comprar sem entender por quê.
+ *
+ * Endereço de fora da cidade nem chega aqui: quem pede geocodificação de
+ * outra cidade é barrado antes, na conferência de área.
+ */
+function longeDemais(coords: Coords, e: EnderecoInput): boolean {
+  // Só vale a régua quando o endereço DIZ ser de Arapongas — o painel também
+  // usa esta função pra procurar o endereço da própria loja.
+  const daCidade = checarAreaEntrega({ cep: e.cep, cidade: e.cidade }).atendido;
+  if (!daCidade) return false;
+
+  return distanciaKm(coords, CENTRO_DA_CIDADE) > RAIO_ACEITAVEL_KM;
+}
+
 /** Só o OpenStreetMap, com as tentativas que ele aceita. */
 async function peloOsm(e: EnderecoInput): Promise<Coords | null> {
   const cep = (e.cep ?? "").replace(/\D/g, "");
@@ -372,7 +416,7 @@ export async function geocodificar(e: EnderecoInput): Promise<Coords | null> {
   if (doCache.conhecido) return null;
 
   const doOsm = await peloOsm(e);
-  if (doOsm) {
+  if (doOsm && !longeDemais(doOsm, e)) {
     await guardarNoCache(chave, doOsm, "osm");
     return doOsm;
   }
@@ -383,14 +427,16 @@ export async function geocodificar(e: EnderecoInput): Promise<Coords | null> {
    * comportamento é o de sempre, só com o OpenStreetMap.
    */
   const doGoogle = await google(e);
-  if (doGoogle) {
+  if (doGoogle && !longeDemais(doGoogle, e)) {
     await guardarNoCache(chave, doGoogle, "google");
     return doGoogle;
   }
 
   const doTomTom = await tomtom(e);
-  await guardarNoCache(chave, doTomTom, doTomTom ? "tomtom" : "nenhum");
-  return doTomTom;
+  const tomtomVale = doTomTom !== null && !longeDemais(doTomTom, e);
+
+  await guardarNoCache(chave, tomtomVale ? doTomTom : null, tomtomVale ? "tomtom" : "nenhum");
+  return tomtomVale ? doTomTom : null;
 }
 
 /**

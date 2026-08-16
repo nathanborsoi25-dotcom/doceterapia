@@ -5,9 +5,21 @@
  * Camily pelo WhatsApp pra combinar caso a caso.
  */
 
-/** Faixa de CEP de Arapongas-PR: 86700-000 a 86709-999. */
+/**
+ * Faixa de CEP de Arapongas-PR: 86700-000 a 86719-999.
+ *
+ * ⚠️ Já esteve errada, terminando em 86709-999, e isso **recusava clientes de
+ * Arapongas**: o Jardim Vale do Coqueiral tem CEP 86715-602, e quem mora lá
+ * ouvia do site que a loja não atende a região dele. Achado em 16/08/2026,
+ * conferindo rua por rua com o ViaCEP — 86710-000, 86712-000 e 86715-602 são
+ * todos Arapongas (IBGE 4101507); 86720-000 já é Sabáudia, e é isso que
+ * fecha a faixa em cima.
+ *
+ * A cidade também precisa bater (ver abaixo), então esta faixa é a segunda
+ * barreira, não a única.
+ */
 const CEP_MIN = 86_700_000;
-const CEP_MAX = 86_709_999;
+const CEP_MAX = 86_719_999;
 
 function normalizar(texto: string): string {
   return texto
