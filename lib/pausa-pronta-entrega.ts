@@ -11,6 +11,7 @@
  * Por isso a pausa guarda a LISTA do que ela mesma alterou, e a volta mexe só
  * nesses. Quem entrou como encomenda continua encomenda.
  */
+import { unstable_noStore as naoGuardar } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "./db";
 import { configLoja, produtos, sabores } from "./db/schema";
@@ -53,6 +54,17 @@ export const PRAZO_DA_PAUSA = 1;
  * `scripts/_teste-pausa-pronta-entrega.ts` liga, confere e desliga.
  */
 export async function pausarProntaEntrega(): Promise<PausaProntaEntrega | null> {
+  /*
+   * ⚠️ Sem isto a lista pode vir VELHA.
+   *
+   * O driver do Neon fala com o banco por `fetch`, e o Next embrulha o `fetch`
+   * global com cache próprio — a mesma armadilha que congelou a rota do frete
+   * e a página do doce. Aqui o estrago é traiçoeiro: a consulta "quem está em
+   * pronta entrega" voltaria com a resposta de uma pausa anterior, e o botão
+   * mexeria na lista errada (ou em lista nenhuma) sem dar erro.
+   */
+  naoGuardar();
+
   const db = getDb();
 
   // Só o que está em pronta entrega AGORA entra na lista. Doce que já era
@@ -114,6 +126,7 @@ export async function pausarProntaEntrega(): Promise<PausaProntaEntrega | null> 
 export async function voltarProntaEntrega(
   pausa: PausaProntaEntrega
 ): Promise<number> {
+  naoGuardar();
   const db = getDb();
 
   /*
@@ -145,6 +158,38 @@ export async function voltarProntaEntrega(
           eq(sabores.prazoDias, PRAZO_DA_PAUSA)
         )
       );
+  }
+
+  /*
+   * Rede de segurança: recheio que ficou para trás.
+   *
+   * Se um recheio foi pausado mas não entrou na lista — foi o que aconteceu no
+   * primeiro uso real, com a lista chegando incompleta —, ele ficaria preso em
+   * "encomenda de 1 dia" para sempre, e nem o botão nem a tela dariam sinal.
+   *
+   * Só entra aqui quem tem o prazo EXATO da pausa e pertence a um doce que
+   * ela pausou: uma encomenda de 7 dias, ou um recheio de outro doce, nunca
+   * casa com as duas condições.
+   */
+  const idsDosDoces = pausa.produtos.map((p) => p.id);
+  if (idsDosDoces.length) {
+    const presos = await db
+      .select({ id: sabores.id })
+      .from(sabores)
+      .where(
+        and(
+          inArray(sabores.produtoId, idsDosDoces),
+          eq(sabores.disponibilidade, "sob_encomenda"),
+          eq(sabores.prazoDias, PRAZO_DA_PAUSA)
+        )
+      );
+
+    if (presos.length) {
+      await db
+        .update(sabores)
+        .set({ disponibilidade: "pronta_entrega", prazoDias: null })
+        .where(inArray(sabores.id, presos.map((s) => s.id)));
+    }
   }
 
   await db
