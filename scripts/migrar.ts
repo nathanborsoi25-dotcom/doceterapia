@@ -84,6 +84,18 @@ async function main() {
     ON CONFLICT (nome) DO NOTHING
   `;
 
+  console.log("3b-2) Endereços já convertidos em coordenadas...");
+  await sql`
+    CREATE TABLE IF NOT EXISTS geocache (
+      chave text PRIMARY KEY,
+      lat double precision,
+      lng double precision,
+      achou boolean NOT NULL DEFAULT true,
+      fonte text NOT NULL DEFAULT 'osm',
+      criado_em timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+
   console.log("3c) Sabores (recheios) do mesmo doce...");
   await sql`
     CREATE TABLE IF NOT EXISTS sabores (

@@ -473,6 +473,31 @@ export const configLoja = pgTable("config_loja", {
 });
 
 /**
+ * Endereços já convertidos em coordenadas.
+ *
+ * Existe por dinheiro e por velocidade: a busca no mapa é a parte lenta do
+ * checkout, e o serviço pago (Google) cobra por consulta. Endereço não muda
+ * de lugar, então a resposta vale para sempre — a mesma cliente comprando de
+ * novo, ou a vizinha da mesma rua, não geram consulta nenhuma.
+ *
+ * ⚠️ A falha TAMBÉM é guardada, com `achou = false`: sem isso, um endereço que
+ * não existe no mapa mandaria o site perguntar aos dois serviços a cada
+ * tentativa. Mas ela vence (ver `lib/geocode.ts`), porque mapa é coisa viva —
+ * a rua que falta hoje pode ser cadastrada amanhã.
+ */
+export const geocache = pgTable("geocache", {
+  /** O endereço normalizado — minúsculas, sem acento. Ver `chaveDoEndereco`. */
+  chave: text("chave").primaryKey(),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  /** `false` quando nenhum serviço soube responder. */
+  achou: boolean("achou").notNull().default(true),
+  /** "osm" ou "google" — para saber quem respondeu o quê. */
+  fonte: text("fonte").notNull().default("osm"),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * Configuração de frete — sempre uma única linha (id fixo "default").
  *
  * ⚠️ Coluna nova aqui exige BUILD LIMPO pra valer. Em 13/08/2026 as duas de
