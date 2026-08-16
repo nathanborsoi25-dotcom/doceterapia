@@ -84,6 +84,9 @@ async function main() {
     ON CONFLICT (nome) DO NOTHING
   `;
 
+  console.log("3b-3) Pausa de pronta entrega (o botão \"vou sair\")...");
+  await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS pausa_pronta_entrega jsonb`;
+
   console.log("3b-2) Endereços já convertidos em coordenadas...");
   await sql`
     CREATE TABLE IF NOT EXISTS geocache (

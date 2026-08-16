@@ -22,6 +22,12 @@ import {
   resumoDePreco,
   situacaoDoEstoque,
 } from "@/lib/catalogo";
+import {
+  desdeQuando,
+  estaPausado,
+  quantosNaPausa,
+  type PausaProntaEntrega,
+} from "@/lib/pausa-pronta-entrega";
 import CampoPromocao from "@/components/CampoPromocao";
 import SobraPorUnidade from "@/components/SobraPorUnidade";
 import { fotosDoProduto } from "@/lib/fotos";
@@ -58,6 +64,10 @@ export default function AdminProdutosPage() {
   /** As categorias criadas em /admin/categorias, pra escolher em cada doce. */
   const [categorias, setCategorias] = useState<CategoriaDoPainel[]>([]);
 
+  /** A pausa de "vou sair": nula quando o cardápio está normal. */
+  const [pausa, setPausa] = useState<PausaProntaEntrega | null>(null);
+  const [mudandoPausa, setMudandoPausa] = useState(false);
+
   useEffect(() => {
     getProdutos()
       .then(setProdutos)
@@ -66,7 +76,48 @@ export default function AdminProdutosPage() {
     getCategorias()
       .then(setCategorias)
       .catch(() => setCategorias([]));
+    fetch("/api/config-loja", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => setPausa(c?.pausaProntaEntrega ?? null))
+      .catch(() => setPausa(null));
   }, []);
+
+  /**
+   * O botão de quando ela precisa sair: todo doce de pronta entrega vira
+   * encomenda de 1 dia, e volta ao normal com outro toque.
+   *
+   * Recarrega a lista depois porque os doces na tela acabaram de mudar de
+   * disponibilidade no banco — sem isso ela veria "pronta entrega" num
+   * cardápio que já está pausado.
+   */
+  async function alternarPausa(pausar: boolean) {
+    setMudandoPausa(true);
+    try {
+      const r = await fetch("/api/admin/pronta-entrega", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pausar }),
+      });
+      const corpo = (await r.json()) as { pausa?: PausaProntaEntrega; quantos?: number; error?: string };
+
+      if (!r.ok) {
+        avisarErro(corpo.error ?? "Não consegui mudar isso agora. Tente de novo.");
+        return;
+      }
+
+      setPausa(pausar ? corpo.pausa ?? null : null);
+      setProdutos(await getProdutos());
+      avisarSalvo(
+        pausar
+          ? `Prontinho: ${corpo.quantos} ${corpo.quantos === 1 ? "doce está" : "doces estão"} como encomenda de 1 dia. 🍒`
+          : "Tudo de volta à pronta entrega. Bom trabalho! 🍒"
+      );
+    } catch {
+      avisarErro("Não consegui mudar isso agora. Confira sua internet e tente de novo.");
+    } finally {
+      setMudandoPausa(false);
+    }
+  }
 
   function handleCampo(
     id: string,
@@ -176,6 +227,48 @@ export default function AdminProdutosPage() {
           </span>
         )}
       </p>
+
+      {/*
+        "Vou sair": o cardápio inteiro passa a prometer 1 dia de preparo.
+
+        Fica aqui em cima, antes da busca, porque é decisão do dia — não algo
+        que se procura no meio da lista. Quando está ligado, o aviso ocupa o
+        lugar do botão: ela precisa VER que o cardápio está pausado assim que
+        abre a tela, senão esquece ligado e some com a pronta entrega.
+      */}
+      {estaPausado(pausa) ? (
+        <div className="mt-4 bg-blush/70 border border-cherryDark/40 rounded-2xl p-4 grid gap-2">
+          <p className="font-display text-base text-cherryDark">
+            🚪 Cardápio em encomenda de 1 dia
+          </p>
+          <p className="font-body text-sm text-ink/75">
+            {quantosNaPausa(pausa)}{" "}
+            {quantosNaPausa(pausa) === 1 ? "item saiu" : "itens saíram"} da pronta entrega
+            {desdeQuando(pausa) ? ` desde ${desdeQuando(pausa)}` : ""}. Quem já era encomenda
+            continua com o prazo de sempre.
+          </p>
+          <button
+            onClick={() => alternarPausa(false)}
+            disabled={mudandoPausa}
+            className="justify-self-start bg-cherryDark text-white rounded-full px-5 min-h-[44px] font-body font-semibold text-sm hover:bg-cherryMid transition-colors disabled:opacity-40"
+          >
+            {mudandoPausa ? "Voltando..." : "Voltei: devolver para pronta entrega"}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => {
+            const certeza = window.confirm(
+              "Todo doce que está em pronta entrega vai passar a pedir 1 dia de preparo.\n\nQuem já é encomenda não muda. Depois é só apertar “Voltei” para desfazer."
+            );
+            if (certeza) alternarPausa(true);
+          }}
+          disabled={mudandoPausa || carregando}
+          className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/70 border border-cherryLight/60 text-cherryDark rounded-full px-5 min-h-[44px] font-body text-sm hover:border-cherryDark transition-colors disabled:opacity-40"
+        >
+          🚪 {mudandoPausa ? "Mudando..." : "Vou sair: tudo vira encomenda de 1 dia"}
+        </button>
+      )}
 
       {/* Busca e filtros: ficam grudados no topo pra continuarem à mão
           enquanto ela rola a lista. */}

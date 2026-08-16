@@ -13,6 +13,7 @@ import type { PontoRetirada } from "../retirada";
 import type { BannerDaLoja } from "../banners";
 import { FUNCIONAMENTO_PADRAO, type Funcionamento } from "../funcionamento";
 import type { HorarioDeEntrega } from "../entrega-horario";
+import type { PausaProntaEntrega } from "../pausa-pronta-entrega";
 
 // Catálogo de doces (gerenciado pelo admin, exibido no cardápio).
 export const produtos = pgTable("produtos", {
@@ -454,6 +455,17 @@ export const configLoja = pgTable("config_loja", {
    * novidade lá", não qual das três mudou.
    */
   promocoesEm: timestamp("promocoes_em", { withTimezone: true }),
+  /**
+   * "Saí, então hoje é tudo encomenda."
+   *
+   * Guarda QUEM foi alterado pelo botão de um clique da tela de produtos, pra
+   * o desfazer devolver exatamente esses e mais ninguém. Sem esta lista,
+   * voltar tudo para pronta entrega transformaria o brownie de 7 dias em doce
+   * pronto na hora — e a Camily descobriria com o pedido na mão.
+   *
+   * Nulo = nada pausado, o cardápio é o normal.
+   */
+  pausaProntaEntrega: jsonb("pausa_pronta_entrega").$type<PausaProntaEntrega | null>(),
   /**
    * Os destaques do topo do cardápio, em carrossel (ver `lib/banners.ts`).
    * Lista vazia cai no banner único das colunas antigas, logo abaixo.

@@ -36,6 +36,8 @@ export const CONFIG_PADRAO: ConfigLoja = {
   entrega: ENTREGA_PADRAO,
   /** Loja sem linha salva não tem promoção nova pra anunciar. */
   promocoesEm: null,
+  /** Nada pausado: o cardápio mostra a pronta entrega de sempre. */
+  pausaProntaEntrega: null,
   banners: [],
   bannerAtivo: false,
   bannerTitulo: "",
