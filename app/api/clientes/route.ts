@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { clientes } from "@/lib/db/schema";
+import { clientes, pontos } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
-import type { Cliente } from "@/lib/types";
+import type { Cliente, ClienteDoPainel } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -41,5 +41,31 @@ export async function GET() {
 
   const db = getDb();
   const rows = await db.select().from(clientes).orderBy(desc(clientes.criadoEm));
-  return NextResponse.json(rows.map(toCliente));
+
+  /*
+   * O saldo de pontos de TODO mundo numa consulta só.
+   *
+   * Perguntar cliente por cliente (`saldoDePontos`) seria uma ida ao banco por
+   * pessoa — a lista inteira viraria dezenas de consultas para desenhar uma
+   * tela. Aqui o banco soma o extrato agrupado por cliente e devolve tudo de
+   * uma vez. O saldo continua sendo a SOMA do extrato, nunca um número
+   * guardado à parte.
+   */
+  const somas = await db
+    .select({
+      clienteId: pontos.clienteId,
+      saldo: sql<number>`coalesce(sum(${pontos.quantidade}), 0)::int`,
+    })
+    .from(pontos)
+    .groupBy(pontos.clienteId);
+
+  const pontosPorCliente = new Map(somas.map((s) => [s.clienteId, s.saldo]));
+
+  const lista: ClienteDoPainel[] = rows.map((row) => ({
+    ...toCliente(row),
+    // Quem nunca pontuou não aparece na soma: sem extrato, saldo zero.
+    pontos: pontosPorCliente.get(row.id) ?? 0,
+  }));
+
+  return NextResponse.json(lista);
 }

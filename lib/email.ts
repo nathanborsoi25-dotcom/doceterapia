@@ -416,6 +416,19 @@ export function emailStatusPedido(dados: {
       titulo: "Estamos preparando seus doces",
       corpo: "A Camily começou a preparar seu pedido agorinha. Em breve avisamos quando estiver pronto.",
     },
+    pronto: {
+      assunto: ehEntrega
+        ? "Seus doces ficaram prontos! 🍰"
+        : "Seu pedido está pronto para retirada! 🍒",
+      titulo: ehEntrega ? "Seus doces estão prontos!" : "Pronto para retirada!",
+      corpo: ehEntrega
+        ? "Terminei seus doces agorinha. Assim que a entrega sair, aviso você de novo."
+        : // Na retirada é ESTE o e-mail que manda a pessoa sair de casa, então
+          // o endereço vai junto — procurar no site nessa hora é atrito à toa.
+          `Seus doces estão prontinhos esperando por você.${
+            dados.pontoRetirada ? ` Você busca em <strong>${dados.pontoRetirada}</strong>.` : ""
+          } É só combinar o horário com a Camily pelo WhatsApp.`,
+    },
     a_caminho: {
       assunto: ehEntrega ? "Seu pedido saiu para entrega! 🛵" : "Seu pedido está pronto para retirada! 🍒",
       titulo: ehEntrega ? "Saiu para entrega!" : "Pronto para retirada!",

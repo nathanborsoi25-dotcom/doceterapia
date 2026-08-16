@@ -25,6 +25,7 @@ const STATUS: { valor: StatusPedido; label: string }[] = [
   { valor: "aguardando_pagamento", label: "Aguardando pagamento" },
   { valor: "pago", label: "Pago" },
   { valor: "em_preparo", label: "Em preparo" },
+  { valor: "pronto", label: "Pronto" },
   { valor: "a_caminho", label: "A caminho" },
   { valor: "concluido", label: "Entregue" },
   { valor: "cancelado", label: "Cancelado" },
@@ -39,12 +40,35 @@ const PAGAMENTO: Record<PedidoDoPainel["formaPagamento"], string> = {
 /** Pedido nestes estados não corre mais contra o prazo. */
 const ENCERRADOS: StatusPedido[] = ["concluido", "cancelado"];
 
-/** O que a próxima etapa do pedido significa, pro botão de um clique só. */
-const PROXIMA_ETAPA: Partial<Record<StatusPedido, { proximo: StatusPedido; rotulo: string }>> = {
-  pago: { proximo: "em_preparo", rotulo: "Avisar que comecei a preparar" },
-  em_preparo: { proximo: "a_caminho", rotulo: "Avisar que saiu para entrega" },
-  a_caminho: { proximo: "concluido", rotulo: "Avisar que foi entregue" },
-};
+/**
+ * O que a próxima etapa do pedido significa, pro botão de um clique só.
+ *
+ * A partir de "pronto" o caminho se divide, e por isso isto é função e não
+ * tabela: quem vem buscar nunca passa por "a caminho" — oferecer esse botão
+ * numa retirada faria a Camily avisar que saiu para entrega um pedido que
+ * está esperando na bancada dela.
+ */
+function proximaEtapa(
+  status: StatusPedido,
+  tipoEntrega: PedidoDoPainel["tipoEntrega"]
+): { proximo: StatusPedido; rotulo: string } | null {
+  const ehEntrega = tipoEntrega === "entrega";
+
+  switch (status) {
+    case "pago":
+      return { proximo: "em_preparo", rotulo: "Avisar que comecei a preparar" };
+    case "em_preparo":
+      return { proximo: "pronto", rotulo: "Avisar que ficou pronto" };
+    case "pronto":
+      return ehEntrega
+        ? { proximo: "a_caminho", rotulo: "Avisar que saiu para entrega" }
+        : { proximo: "concluido", rotulo: "Avisar que foi retirado" };
+    case "a_caminho":
+      return { proximo: "concluido", rotulo: "Avisar que foi entregue" };
+    default:
+      return null;
+  }
+}
 
 type Filtro = StatusPedido | "todos" | "abandonados";
 
@@ -66,6 +90,23 @@ export default function AdminPedidosPage() {
   const [cancelando, setCancelando] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
+
+  /*
+   * A home do painel manda links como `/admin/pedidos?situacao=pago` — e até
+   * agora essa parte do endereço era ignorada: ela tocava em "2 pedidos pagos
+   * esperando você começar" e caía na lista inteira, tendo que achar de novo
+   * o que o aviso já sabia.
+   *
+   * Lido do `window` num efeito, e não por `useSearchParams`, que exigiria
+   * embrulhar a tela num `Suspense` só por causa disto.
+   */
+  useEffect(() => {
+    const pedido = new URLSearchParams(window.location.search).get("situacao");
+    if (!pedido) return;
+    const conhecido =
+      pedido === "abandonados" || STATUS.some((s) => s.valor === pedido);
+    if (conhecido) setFiltro(pedido as Filtro);
+  }, []);
 
   /** Recorte de tempo. Começa aberto: ela quer ver tudo ao entrar. */
   const [periodo, setPeriodo] = useState<FiltroPeriodo>("sempre");
@@ -431,7 +472,7 @@ export default function AdminPedidosPage() {
             const encerrado = ENCERRADOS.includes(p.status);
             const prazo = situacaoPrazo(p.prazoEm, { encerrado });
             const telefone = p.clienteTelefone ?? "";
-            const etapa = PROXIMA_ETAPA[p.status];
+            const etapa = proximaEtapa(p.status, p.tipoEntrega);
             const mensagem = etapa
               ? mensagemDeStatus(etapa.proximo, {
                   nome: p.clienteNome,

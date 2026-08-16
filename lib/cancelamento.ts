@@ -36,6 +36,7 @@ function jaFoiPago(status: StatusPedido): boolean {
   return (
     status === "pago" ||
     status === "em_preparo" ||
+    status === "pronto" ||
     status === "a_caminho" ||
     status === "concluido"
   );

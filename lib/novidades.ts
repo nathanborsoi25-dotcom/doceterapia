@@ -63,6 +63,7 @@ export const SEM_NOVIDADES: Novidades = {
 export function mudancaMereceAviso(status: StatusPedido): boolean {
   return (
     status === "em_preparo" ||
+    status === "pronto" ||
     status === "a_caminho" ||
     status === "concluido" ||
     status === "cancelado"

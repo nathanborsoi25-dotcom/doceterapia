@@ -120,10 +120,18 @@ export interface ItemPedido {
   pontosGastos?: number;
 }
 
+/**
+ * A ordem aqui é a ordem da vida real do pedido, e é ela que as telas seguem.
+ *
+ * `pronto` fica entre o preparo e a saída: os doces já estão feitos, esperando
+ * a entrega sair ou a cliente vir buscar. Na retirada é o aviso mais
+ * importante do pedido inteiro — é ele que manda a pessoa sair de casa.
+ */
 export type StatusPedido =
   | "aguardando_pagamento"
   | "pago"
   | "em_preparo"
+  | "pronto"
   | "a_caminho"
   | "concluido"
   | "cancelado";
@@ -147,6 +155,17 @@ export interface Pedido {
   ehPresente?: boolean;
   nomeQuemRecebe?: string | null;
   bilhete?: string | null;
+}
+
+/**
+ * O cliente como o painel da Camily vê: o cadastro mais o saldo de pontos.
+ *
+ * O saldo não mora no cadastro — ele é a soma do extrato, calculada pela
+ * `/api/clientes` numa consulta agrupada. Fica num tipo separado porque as
+ * telas do cliente não têm (nem devem ter) esse número junto.
+ */
+export interface ClienteDoPainel extends Cliente {
+  pontos: number;
 }
 
 /**

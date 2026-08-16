@@ -33,6 +33,7 @@ export async function GET() {
   const [
     pagos,
     emPreparo,
+    prontos,
     aCaminho,
     canceladosRecentes,
     reembolsoFalhou,
@@ -42,6 +43,9 @@ export async function GET() {
     // Pago e ainda não preparado: é o que ela precisa COMEÇAR.
     conta(eq(pedidos.status, "pago")),
     conta(eq(pedidos.status, "em_preparo")),
+    // Pronto é o que está esperando ALGUÉM: a entrega sair ou a cliente vir
+    // buscar. Some da vista fácil se não for contado aqui.
+    conta(eq(pedidos.status, "pronto")),
     conta(eq(pedidos.status, "a_caminho")),
     // Cancelamento das últimas 24h — o que ela talvez ainda não tenha visto.
     conta(and(eq(pedidos.status, "cancelado"), gte(pedidos.canceladoEm, ontem))),
@@ -65,6 +69,7 @@ export async function GET() {
   return NextResponse.json({
     pagos,
     emPreparo,
+    prontos,
     aCaminho,
     canceladosRecentes,
     reembolsoFalhou,

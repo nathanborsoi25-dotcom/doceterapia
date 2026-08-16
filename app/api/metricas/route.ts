@@ -10,7 +10,7 @@ import type { FormaPagamento, ItemPedido, StatusPedido } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 /** Só pedido pago em diante conta como venda. */
-const VENDIDOS: StatusPedido[] = ["pago", "em_preparo", "a_caminho", "concluido"];
+const VENDIDOS: StatusPedido[] = ["pago", "em_preparo", "pronto", "a_caminho", "concluido"];
 
 type Resumo = {
   pedidos: number;

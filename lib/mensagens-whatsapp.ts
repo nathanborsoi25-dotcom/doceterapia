@@ -32,6 +32,11 @@ export function mensagemDeStatus(
     case "em_preparo":
       return `Oi, ${nome}! Aqui é a Camily, da Doceterapia 🍒 Já comecei a preparar seus doces. Aviso assim que ficarem prontos!`;
 
+    case "pronto":
+      return ehEntrega
+        ? `Oi, ${nome}! Terminei seus doces agorinha 🍰 Assim que a entrega sair, te aviso!`
+        : `Oi, ${nome}! Seus doces estão prontinhos esperando por você 🍒 Me chama pra combinarmos o horário da retirada!`;
+
     case "a_caminho":
       return ehEntrega
         ? `Oi, ${nome}! Seus doces já saíram para entrega 🛵${ctx.linkRastreio ? ` Você pode acompanhar por aqui: ${ctx.linkRastreio}` : ""} Qualquer coisa é só me chamar!`

@@ -1,6 +1,7 @@
 import type {
   Avaliacao,
   Cliente,
+  ClienteDoPainel,
   ConfiguracaoFrete,
   ItemPedido,
   Pedido,
@@ -144,8 +145,9 @@ export async function buscarEnderecoPorCep(
 }
 
 // ---- Clientes ----
-export async function getListaClientes(): Promise<Cliente[]> {
-  return json<Cliente[]>(await fetch("/api/clientes", { cache: "no-store" }));
+/** Lista do painel: cadastro + saldo de pontos de cada cliente. */
+export async function getListaClientes(): Promise<ClienteDoPainel[]> {
+  return json<ClienteDoPainel[]>(await fetch("/api/clientes", { cache: "no-store" }));
 }
 
 // ---- Frete ----

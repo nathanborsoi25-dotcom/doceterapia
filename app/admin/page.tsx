@@ -28,6 +28,7 @@ const atalhos = [
 type Resumo = {
   pagos: number;
   emPreparo: number;
+  prontos: number;
   aCaminho: number;
   canceladosRecentes: number;
   reembolsoFalhou: number;
@@ -121,6 +122,11 @@ export default function AdminHome() {
                 </Link>
               )}
               {resumo.emPreparo > 0 && <span>{resumo.emPreparo} em preparo</span>}
+              {resumo.prontos > 0 && (
+                <Link href="/admin/pedidos?situacao=pronto" className="underline">
+                  {resumo.prontos} {resumo.prontos === 1 ? "pronto" : "prontos"} esperando
+                </Link>
+              )}
               {resumo.aCaminho > 0 && <span>{resumo.aCaminho} a caminho</span>}
             </div>
           )}

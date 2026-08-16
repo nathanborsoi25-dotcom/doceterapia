@@ -24,9 +24,14 @@ export const SITUACAO_PARA_CLIENTE: Record<
     explicacao: "Seus doces estão sendo feitos agorinha.",
     cor: "bg-blush text-cherryDark",
   },
+  pronto: {
+    rotulo: "Pronto",
+    explicacao: "Seus doces ficaram prontos e já estão esperando por você.",
+    cor: "bg-green-100 text-green-800",
+  },
   a_caminho: {
     rotulo: "A caminho",
-    explicacao: "Seu pedido saiu para entrega (ou já está pronto para retirada).",
+    explicacao: "Seu pedido saiu para entrega.",
     cor: "bg-blush text-cherryDark",
   },
   concluido: {
