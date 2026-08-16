@@ -8,13 +8,20 @@
  *    comprando de novo, ou a vizinha da mesma rua, não gera consulta nenhuma.
  * 2. **Nominatim (OpenStreetMap)** — gratuito e sem chave. Resolve boa parte,
  *    e é a única camada que existia até 16/08/2026.
- * 3. **Google** — só quando o OSM falha, e só se houver chave configurada.
+ * 3. **Google, depois TomTom** — só quando o OSM falha, e só se houver chave
+ *    configurada. Os dois têm base de mapas própria, que é o que resolve o
+ *    problema; o TomTom está aqui porque a cota gratuita dele não exige
+ *    cartão cadastrado, e a conta do Google trava em `OR_BACR2_44` para muita
+ *    gente no Brasil.
  *
- * ⚠️ **Por que o Google entrou:** metade das ruas de Arapongas não está no
- * OpenStreetMap. A "Rua Juriti Piranga" (CEP 86703-480) é uma delas: os
- * Correios conhecem, o mapa não — e a cliente não conseguia calcular a
- * entrega. Trocar por Mapbox não resolveria, porque ele também é construído
- * sobre o OSM.
+ * ⚠️ **Por que um serviço pago entrou:** algumas ruas de Arapongas não estão
+ * no OpenStreetMap. Medido em 16/08/2026 com `scripts/_medir-cobertura-mapa`:
+ * **7 de 8 endereços reais localizados**. A "Rua Juriti Piranga" (CEP
+ * 86703-480) é a que faltou — os Correios conhecem, o mapa não, e a cliente
+ * não conseguia calcular a entrega.
+ *
+ * Trocar por Mapbox ou LocationIQ não resolveria: os dois são construídos
+ * sobre o OSM e teriam o mesmo buraco. Google e TomTom têm base própria.
  *
  * ⚠️ **Sem `GOOGLE_MAPS_API_KEY` tudo funciona como antes**, só com o OSM.
  * A chave é opcional de propósito: nada aqui pode quebrar por falta dela.
@@ -56,7 +63,7 @@ export type EnderecoInput = {
  * O mesmo endereço escrito de jeitos diferentes tem que cair na mesma linha do
  * cache: "Rua Ajaja" e "rua ajaja " são o mesmo lugar.
  */
-function chaveDoEndereco(e: EnderecoInput): string {
+export function chaveDoEndereco(e: EnderecoInput): string {
   const limpo = (t?: string) =>
     (t ?? "")
       .normalize("NFD")
@@ -244,6 +251,74 @@ async function google(e: EnderecoInput): Promise<Coords | null> {
   return null;
 }
 
+/**
+ * TomTom — a alternativa ao Google, com base de mapas própria (não é
+ * OpenStreetMap, então não tem o mesmo buraco nas ruas de Arapongas).
+ *
+ * Existe porque a conta do Google trava em `OR_BACR2_44` para muita gente no
+ * Brasil, e porque a cota gratuita do TomTom não exige cartão cadastrado.
+ * Vale a mesma regra do Google: só entra quando o OSM falhou, só para
+ * endereço de Arapongas, e resultado impreciso é recusado.
+ */
+async function tomtom(e: EnderecoInput): Promise<Coords | null> {
+  const chave = process.env.TOMTOM_API_KEY;
+  if (!chave) return null;
+  if (!checarAreaEntrega({ cep: e.cep, cidade: e.cidade }).atendido) return null;
+
+  const endereco = [
+    e.rua && e.numero ? `${e.rua}, ${e.numero}` : e.rua,
+    e.bairro,
+    e.cidade || "Arapongas",
+    e.uf || "PR",
+    "Brasil",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  if (!endereco.trim()) return null;
+
+  const qs = new URLSearchParams({
+    key: chave,
+    countrySet: "BR",
+    limit: "1",
+    language: "pt-BR",
+  });
+
+  try {
+    const res = await fetch(
+      `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(endereco)}.json?${qs}`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as {
+      results?: Array<{
+        type?: string;
+        position?: { lat: number; lon: number };
+      }>;
+    };
+
+    const primeiro = data.results?.[0];
+    if (!primeiro?.position) return null;
+
+    /*
+     * ⚠️ Mesma recusa do Google, com o nome que o TomTom usa: `type` diz o que
+     * ele achou de verdade. "Geography" é município ou bairro inteiro — a
+     * coordenada do meio de uma região, que mediria o frete do lugar errado.
+     * Serve só quando ele acertou o ponto ou pelo menos a rua.
+     */
+    const tipo = primeiro.type;
+    if (tipo !== "Point Address" && tipo !== "Address Range" && tipo !== "Street") {
+      return null;
+    }
+
+    const { lat, lon } = primeiro.position;
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lng: lon };
+  } catch {
+    // Fora do ar ou cota estourada: segue sem coordenada, como antes dele existir.
+  }
+  return null;
+}
+
 /** Só o OpenStreetMap, com as tentativas que ele aceita. */
 async function peloOsm(e: EnderecoInput): Promise<Coords | null> {
   const cep = (e.cep ?? "").replace(/\D/g, "");
@@ -302,9 +377,20 @@ export async function geocodificar(e: EnderecoInput): Promise<Coords | null> {
     return doOsm;
   }
 
+  /*
+   * Os serviços pagos, em ordem de cobertura. Cada um só roda se tiver chave,
+   * então a loja pode ter os dois, um só, ou nenhum — neste último caso o
+   * comportamento é o de sempre, só com o OpenStreetMap.
+   */
   const doGoogle = await google(e);
-  await guardarNoCache(chave, doGoogle, doGoogle ? "google" : "nenhum");
-  return doGoogle;
+  if (doGoogle) {
+    await guardarNoCache(chave, doGoogle, "google");
+    return doGoogle;
+  }
+
+  const doTomTom = await tomtom(e);
+  await guardarNoCache(chave, doTomTom, doTomTom ? "tomtom" : "nenhum");
+  return doTomTom;
 }
 
 /**
