@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   atualizarPedido,
   getCarrinhosAbandonados,
@@ -35,6 +36,8 @@ const PAGAMENTO: Record<PedidoDoPainel["formaPagamento"], string> = {
   pix: "Pix",
   credito: "Crédito",
   debito: "Débito",
+  /** Só nos pedidos que ela lança à mão: venda de balcão, sem gateway. */
+  dinheiro: "Dinheiro",
 };
 
 /** Pedido nestes estados não corre mais contra o prazo. */
@@ -286,7 +289,16 @@ export default function AdminPedidosPage() {
     <main className="min-h-screen px-4 sm:px-6 md:px-12 py-8 md:py-10 max-w-3xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-2xl sm:text-3xl text-cherryDark">Meus pedidos</h1>
-        <VoltarAoPainel />
+        <div className="flex items-center gap-3">
+          {/* Venda que não nasceu no site: balcão, WhatsApp, encontro na rua. */}
+          <Link
+            href="/admin/pedidos/novo"
+            className="text-sm text-cherryDark underline font-body py-3"
+          >
+            + Novo pedido
+          </Link>
+          <VoltarAoPainel />
+        </div>
       </div>
       <p className="text-sm font-body text-ink/60 mt-1">
         Em ordem de prazo — o mais urgente primeiro.

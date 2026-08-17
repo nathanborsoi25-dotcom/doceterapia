@@ -85,7 +85,13 @@ export type TipoEntrega = "entrega" | "retirada";
  * Checkout Pro. O `"debito"` continua aqui porque pedidos antigos foram
  * gravados com ele e o painel precisa saber ler.
  */
-export type FormaPagamento = "pix" | "credito" | "debito";
+/**
+ * `dinheiro` só existe nos pedidos que a Camily lança à mão no painel — venda
+ * de balcão ou combinada pelo WhatsApp. **Ele não passa pelo Mercado Pago, e
+ * por isso não tem taxa nenhuma** (ver `lib/taxas-mp.ts`): tratá-lo como Pix
+ * faria as métricas descontarem do lucro dela uma taxa que ninguém cobrou.
+ */
+export type FormaPagamento = "pix" | "credito" | "debito" | "dinheiro";
 
 export interface ItemPedido {
   produtoId: string;
@@ -184,6 +190,12 @@ export interface PedidoDoPainel extends Pedido {
   descontoPix: number;
   clienteNome: string | null;
   clienteTelefone: string | null;
+  /**
+   * De onde a venda veio: `"site"` (a cliente comprou sozinha) ou `"painel"`
+   * (a Camily lançou à mão — balcão, WhatsApp). Serve pra ela reconhecer na
+   * lista o pedido que ela mesma digitou.
+   */
+  origem?: string;
   /** Devolução do dinheiro: "nao_precisa" | "concluido" | "falhou" | null. */
   statusReembolso: string | null;
   valorReembolsado: number | null;

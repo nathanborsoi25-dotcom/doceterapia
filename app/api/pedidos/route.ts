@@ -39,8 +39,15 @@ export async function GET() {
     cupomCodigo: p.cupomCodigo,
     desconto: p.desconto,
     descontoPix: p.descontoPix,
-    clienteNome: c?.nome ?? null,
-    clienteTelefone: c?.telefone ?? null,
+    /*
+     * Venda de balcão não tem cadastro: o nome e o telefone que ela anotou
+     * ficam no próprio pedido. Sem isto, o pedido apareceria sem dono no
+     * painel e ela não teria como chamar a pessoa no WhatsApp.
+     */
+    clienteNome: c?.nome ?? p.nomeContato ?? null,
+    clienteTelefone: c?.telefone ?? p.telefoneContato ?? null,
+    /** "site" ou "painel" — de onde a venda veio. */
+    origem: p.origem,
     statusReembolso: p.statusReembolso,
     valorReembolsado: p.valorReembolsado,
     canceladoPor: p.canceladoPor,

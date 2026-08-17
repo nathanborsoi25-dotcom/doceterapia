@@ -18,6 +18,11 @@ export const TAXAS_MP: Record<FormaPagamento, number> = {
    * o desconto — errar para menos no lucro é pior do que errar para mais.
    */
   debito: 0.0498,
+  /*
+   * Venda de balcão, lançada à mão no painel: o dinheiro vai direto para a
+   * mão dela. Zero de propósito — é o número certo, não um valor provisório.
+   */
+  dinheiro: 0,
 };
 
 /** Quanto o Mercado Pago cobra por uma venda desse valor nessa forma. */

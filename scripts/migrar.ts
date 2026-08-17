@@ -84,6 +84,11 @@ async function main() {
     ON CONFLICT (nome) DO NOTHING
   `;
 
+  console.log("1c) Pedido lançado à mão no painel (balcão/WhatsApp)...");
+  await sql`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS origem text NOT NULL DEFAULT 'site'`;
+  await sql`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS nome_contato text`;
+  await sql`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS telefone_contato text`;
+
   console.log("3b-3) Pausa de pronta entrega (o botão \"vou sair\")...");
   await sql`ALTER TABLE config_loja ADD COLUMN IF NOT EXISTS pausa_pronta_entrega jsonb`;
 

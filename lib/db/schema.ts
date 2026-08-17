@@ -166,6 +166,23 @@ export const pedidos = pgTable("pedidos", {
    */
   pontoRetirada: text("ponto_retirada"),
   enderecoEntrega: jsonb("endereco_entrega").$type<Cliente["endereco"] | null>(),
+  /**
+   * Pedido lançado à mão pela Camily (balcão, WhatsApp) — `"painel"` — ou
+   * feito pela própria cliente no site, que é o padrão.
+   *
+   * Serve para o painel marcar a origem e para ela conferir as métricas com
+   * olho de dono: venda de balcão não teve taxa de gateway nenhuma.
+   */
+  origem: text("origem").notNull().default("site"),
+  /**
+   * Nome e telefone de quem pediu, quando NÃO há cadastro.
+   *
+   * A venda de balcão não pode exigir cadastro: a pessoa está na frente dela
+   * com o dinheiro na mão. Quando o pedido tem `clienteId`, estes ficam vazios
+   * e quem vale é o cadastro.
+   */
+  nomeContato: text("nome_contato"),
+  telefoneContato: text("telefone_contato"),
   valorFrete: doublePrecision("valor_frete").notNull().default(0),
   /**
    * Presente: a compra vai para outra pessoa. O nome de quem recebe importa
