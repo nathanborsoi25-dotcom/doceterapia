@@ -7,7 +7,12 @@ import { emailJaExiste } from "@/lib/db/erros";
 import { gerarHashSenha, validarSenha } from "@/lib/senha";
 import { criarSessaoCliente, COOKIE_CLIENTE } from "@/lib/sessao-cliente";
 import { OPCOES_COOKIE } from "@/lib/cliente-logado";
-import { emailValido, normalizarEmail, telefoneValido } from "@/lib/validacoes";
+import {
+  emailValido,
+  normalizarEmail,
+  normalizarTelefone,
+  telefoneValido,
+} from "@/lib/validacoes";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +33,9 @@ export async function POST(req: Request) {
 
   const nome = texto(body.nome);
   const email = normalizarEmail(texto(body.email));
-  const telefone = texto(body.telefone, 30);
+  // Guardado só com os dígitos do número brasileiro: o navegador manda o
+  // "+55" no preenchimento automático, e ele não pode virar DDD.
+  const telefone = normalizarTelefone(texto(body.telefone, 30));
   const endereco = body.endereco ?? {};
 
   if (!nome) {

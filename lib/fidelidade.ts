@@ -1,6 +1,6 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "./db";
-import { pontos } from "./db/schema";
+import { pedidos, pontos } from "./db/schema";
 import { getConfigLoja } from "./config-loja";
 import type { ItemPedido } from "./types";
 
@@ -66,6 +66,48 @@ export async function creditarPontosDoPedido(
     pedidoId,
   });
   return ganhos;
+}
+
+/**
+ * Garante que a compra pontuou — sem correr o risco de pontuar duas vezes.
+ *
+ * ⚠️ **Existe por causa de um caso real (16/08/2026).** A Mariana fez dois
+ * pedidos iguais e pagou um; como não dava pra saber qual, a loja cancelou um
+ * e marcou o outro como entregue — só que o cancelado era o que tinha o
+ * pagamento registrado. O cancelamento estornou os pontos, e o pedido que
+ * ficou de pé nunca passou pelo webhook (foi concluído à mão), então nunca
+ * creditou nada. Ela pagou, recebeu o doce e ficou com saldo zero.
+ *
+ * Agora, quando a Camily marca um pedido como pago (ou qualquer etapa
+ * seguinte) direto no painel, os pontos daquela compra entram se ainda não
+ * tiverem entrado. A guarda é o próprio extrato: se já existe lançamento de
+ * "pedido" para este pedido, não faz nada.
+ *
+ * Não mexe em estoque de propósito: não há como saber se ele já baixou, e
+ * descontar duas vezes esgotaria um doce que existe.
+ */
+export async function garantirPontosDaCompra(pedidoId: string): Promise<number> {
+  const db = getDb();
+
+  const [pedido] = await db.select().from(pedidos).where(eq(pedidos.id, pedidoId));
+  if (!pedido?.clienteId) return 0;
+
+  const jaLancado = await db
+    .select({ id: pontos.id })
+    .from(pontos)
+    .where(and(eq(pontos.pedidoId, pedidoId), eq(pontos.motivo, "pedido")));
+  if (jaLancado.length > 0) return 0;
+
+  const subtotal = (pedido.itens ?? []).reduce(
+    (soma, i) => soma + i.precoUnitario * i.quantidade,
+    0
+  );
+
+  return creditarPontosDoPedido(
+    pedido.clienteId,
+    pedidoId,
+    Math.max(0, subtotal - pedido.desconto)
+  );
 }
 
 /**

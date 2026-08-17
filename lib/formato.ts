@@ -1,8 +1,27 @@
 /** Máscaras de digitação, para os campos ficarem legíveis enquanto o cliente escreve. */
 
+/**
+ * Os dígitos de um telefone brasileiro, sem o código do país.
+ *
+ * ⚠️ **O preenchimento automático do navegador manda o número com o +55**, e
+ * era aí que o cadastro estragava: "+55 43 99634-7895" tem 13 dígitos, o corte
+ * em 11 jogava fora os DOIS ÚLTIMOS e ainda promovia o 55 a DDD — a cliente
+ * ficava salva como "(55) 43996-3478", um número que não existe. Aconteceu de
+ * verdade com uma cliente nova.
+ *
+ * O 55 só é tirado quando sobra telefone demais (12 ou 13 dígitos), nunca com
+ * 10 ou 11: **DDD 55 existe** (Santa Maria-RS), e "(55) 99999-9999" é um
+ * celular legítimo que não pode virar "(99) 9999-9999".
+ */
+export function digitosDeTelefone(valor: string): string {
+  const d = (valor ?? "").replace(/\D/g, "");
+  const semPais = (d.length === 12 || d.length === 13) && d.startsWith("55") ? d.slice(2) : d;
+  return semPais.slice(0, 11);
+}
+
 /** (43) 99999-9999 */
 export function formatarTelefone(valor: string): string {
-  const d = (valor ?? "").replace(/\D/g, "").slice(0, 11);
+  const d = digitosDeTelefone(valor);
   if (d.length <= 2) return d;
   if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
   if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;

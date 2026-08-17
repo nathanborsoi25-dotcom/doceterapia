@@ -5,9 +5,16 @@ import { pedidos } from "@/lib/db/schema";
 import { requireAdmin } from "@/lib/require-admin";
 import { avisarMudancaDeStatus } from "@/lib/avisar-cliente";
 import { cancelarPedido } from "@/lib/cancelamento";
+import { garantirPontosDaCompra } from "@/lib/fidelidade";
 import type { StatusPedido } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Situações em que a venda aconteceu de fato — é a partir de qualquer uma
+ * delas que a compra precisa ter pontuado.
+ */
+const VENDA: StatusPedido[] = ["pago", "em_preparo", "pronto", "a_caminho", "concluido"];
 
 /** Aceita só http/https, pra não virar porta de entrada de link estranho. */
 function linkValido(valor: unknown): string | null {
@@ -71,6 +78,22 @@ export async function PATCH(
   }
 
   await db.update(pedidos).set(mudancas).where(eq(pedidos.id, params.id));
+
+  /*
+   * Pedido que a Camily marca como vendido à mão também pontua.
+   *
+   * ⚠️ Isto existe por um caso real: uma cliente pagou, a loja concluiu o
+   * pedido pelo painel — sem passar pelo webhook do Mercado Pago, que é quem
+   * credita — e ela ficou com saldo zero depois de comprar. Agora qualquer
+   * etapa de venda garante os pontos daquela compra.
+   *
+   * `garantirPontosDaCompra` é idempotente: se o extrato já tem o lançamento
+   * deste pedido, ela não faz nada. Assim o caminho normal (webhook credita,
+   * Camily depois muda para "em preparo") não pontua duas vezes.
+   */
+  if (body.status && VENDA.includes(body.status)) {
+    await garantirPontosDaCompra(params.id);
+  }
 
   // Avisa o cliente da mudança. Não trava a resposta: se o e-mail falhar, a
   // situação do pedido já foi salva de qualquer jeito.
