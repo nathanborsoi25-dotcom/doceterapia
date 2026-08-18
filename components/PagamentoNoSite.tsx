@@ -108,6 +108,18 @@ export default function PagamentoNoSite({
             },
           },
           customization: {
+            visual: {
+              texts: {
+                /*
+                 * O Brick escreve "Parcelamento disponível" embaixo do cartão,
+                 * e a loja nunca parcelou — prometer isso na tela seria
+                 * combinar uma coisa e cobrar outra.
+                 */
+                paymentMethods: {
+                  creditCardValueProp: "Pagamento à vista",
+                },
+              },
+            },
             paymentMethods: {
               /*
                * Só a forma que ela escolheu no botão — o valor que o Brick
