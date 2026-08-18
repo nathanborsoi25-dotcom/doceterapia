@@ -77,7 +77,11 @@ export default function CheckoutPage() {
    * Pedido já gravado, esperando o pagamento acontecer AQUI (Payment Brick).
    * Enquanto for nulo, a tela mostra os botões de sempre.
    */
-  const [pagarAqui, setPagarAqui] = useState<{ pedidoId: string; total: number } | null>(null);
+  const [pagarAqui, setPagarAqui] = useState<{
+    pedidoId: string;
+    total: number;
+    forma: "pix" | "credito";
+  } | null>(null);
   /** O Pix gerado sem sair do site: QR e copia-e-cola. */
   const [pix, setPix] = useState<{ copiaECola: string | null; qrCodeBase64: string | null } | null>(null);
   const [copiado, setCopiado] = useState(false);
@@ -354,13 +358,13 @@ export default function CheckoutPage() {
    * Pago. O pedido é gravado do mesmo jeito de sempre; o que muda é só quem
    * cobra depois.
    */
-  async function pagarSemSair() {
+  async function pagarSemSair(forma: "pix" | "credito") {
     if (!cliente) {
       window.location.assign("/entrar?voltar=/checkout");
       return;
     }
 
-    setFinalizando("pix");
+    setFinalizando(forma);
     try {
       const r = await iniciarPagamento({
         clienteId: cliente.id,
@@ -375,7 +379,7 @@ export default function CheckoutPage() {
               : cliente?.endereco
             : undefined,
         valorFrete,
-        formaPagamento: "pix",
+        formaPagamento: forma,
         ehPresente,
         nomeQuemRecebe: ehPresente ? nomeQuemRecebe : "",
         bilhete: querBilhete ? bilhete : "",
@@ -384,7 +388,16 @@ export default function CheckoutPage() {
       });
 
       if (r.pedidoId) {
-        setPagarAqui({ pedidoId: r.pedidoId, total: r.total ?? total - descontoPix });
+        /*
+         * O total vem do SERVIDOR, já com o desconto do Pix aplicado (ou não,
+         * no cartão). Era daqui que vinha a divergência que ele viu: a tela
+         * mostrava R$ 12,00 e o Pix cobrava R$ 11,52.
+         */
+        setPagarAqui({
+          pedidoId: r.pedidoId,
+          total: r.total ?? total - (forma === "pix" ? descontoPix : 0),
+          forma,
+        });
       } else {
         alert("Não foi possível abrir o pagamento. Tente pelo botão do Mercado Pago.");
       }
@@ -1036,9 +1049,27 @@ export default function CheckoutPage() {
                 : reais(valorFrete)}
             </span>
           </div>
+          {/*
+            Enquanto ela está pagando aqui dentro, o resumo mostra o valor DAQUELA
+            forma — com o desconto do Pix quando é Pix.
+
+            ⚠️ Sem isto o resumo dizia "Total R$ 12,00" e o Pix gerado cobrava
+            R$ 11,52: os 4% apareciam só no texto do botão, e sumiam assim que o
+            botão saía da tela. Dois números diferentes para a mesma compra é o
+            tipo de coisa que faz a cliente desconfiar do site inteiro.
+          */}
+          {pagarAqui?.forma === "pix" && descontoPix > 0 && (
+            <div className="flex justify-between gap-3 font-body text-sm text-green-700 mt-1">
+              <span>Desconto do Pix</span>
+              <span className="tabular-nums">− {reais(descontoPix)}</span>
+            </div>
+          )}
+
           <div className="flex justify-between gap-3 font-display text-lg mt-2">
             <span>Total</span>
-            <span className="tabular-nums">{reais(total)}</span>
+            <span className="tabular-nums">
+              {reais(pagarAqui ? pagarAqui.total : total)}
+            </span>
           </div>
         </div>
 
@@ -1057,6 +1088,11 @@ export default function CheckoutPage() {
           /* Pix gerado sem sair do site: QR na tela e o copia-e-cola à mão. */
           <div className="mt-6 bg-white/70 border border-cherryLight/50 rounded-2xl p-5 text-center">
             <p className="font-display text-lg text-cherryDark">Pix gerado! 🍒</p>
+            {pagarAqui && (
+              <p className="font-display text-2xl text-cherryDark mt-1 tabular-nums">
+                {reais(pagarAqui.total)}
+              </p>
+            )}
             <p className="font-body text-sm text-ink/70 mt-1">
               Escaneie o código ou copie o texto. Assim que o pagamento cair, seu
               pedido entra na fila da Camily.
@@ -1096,6 +1132,8 @@ export default function CheckoutPage() {
           <PagamentoNoSite
             pedidoId={pagarAqui.pedidoId}
             total={pagarAqui.total}
+            forma={pagarAqui.forma}
+            pagador={{ email: cliente?.email ?? "", nome: cliente?.nome }}
             chavePublica={CHAVE_MP}
             aoConfirmar={(r) => {
               if (r.pix?.copiaECola || r.pix?.qrCodeBase64) {
@@ -1140,7 +1178,7 @@ export default function CheckoutPage() {
         ) : semCobranca ? (
           <div className="mt-6">
             <button
-              onClick={() => handleFinalizar("pix")}
+              onClick={() => (CHAVE_MP ? pagarSemSair("pix") : handleFinalizar("pix"))}
               disabled={pagamentoBloqueado}
               className="w-full bg-cherryDark text-white rounded-2xl px-5 py-4 font-body hover:bg-cherryMid transition-colors disabled:opacity-40"
             >
@@ -1154,36 +1192,10 @@ export default function CheckoutPage() {
           </div>
         ) : (
         <div className="mt-6 grid gap-2">
-          {/*
-            Pagar aqui dentro (Payment Brick).
-            Só aparece quando a chave pública do Mercado Pago está configurada,
-            então o site funciona igual sem ela — e o caminho de sempre, que é
-            o que está vendendo, continua logo abaixo.
-          */}
-          {CHAVE_MP && (
-            <button
-              onClick={pagarSemSair}
-              disabled={pagamentoBloqueado}
-              className="w-full bg-cherryDark text-white rounded-2xl px-5 py-4 font-body hover:bg-cherryMid transition-colors disabled:opacity-40 text-left"
-            >
-              <span className="flex items-center justify-between gap-3">
-                <span className="font-semibold">
-                  {finalizando ? "Abrindo..." : "Pagar aqui mesmo"}
-                </span>
-                <span className="font-display text-lg tabular-nums">
-                  {reais(total - descontoPix)}
-                </span>
-              </span>
-              <span className="block text-xs text-white/80 mt-0.5">
-                Pix ou cartão sem sair da Doceterapia.
-              </span>
-            </button>
-          )}
-
           {/* O Pix está sempre aqui: é forma de pagamento, não promoção. O
               desconto só muda o valor e a linha de baixo. */}
           <button
-            onClick={() => handleFinalizar("pix")}
+            onClick={() => (CHAVE_MP ? pagarSemSair("pix") : handleFinalizar("pix"))}
             disabled={pagamentoBloqueado}
             className="w-full bg-cherryDark text-white rounded-2xl px-5 py-4 font-body hover:bg-cherryMid transition-colors disabled:opacity-40 text-left"
           >
@@ -1209,7 +1221,7 @@ export default function CheckoutPage() {
           </button>
 
           <button
-            onClick={() => handleFinalizar("credito")}
+            onClick={() => (CHAVE_MP ? pagarSemSair("credito") : handleFinalizar("credito"))}
             disabled={pagamentoBloqueado}
             className="w-full rounded-2xl px-5 py-4 font-body transition-colors disabled:opacity-40 text-left bg-white/70 border border-cherryDark/30 text-ink hover:border-cherryDark"
           >

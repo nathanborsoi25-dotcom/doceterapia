@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import PagamentoNoSite from "@/components/PagamentoNoSite";
 import { reais } from "@/lib/formato";
 import { descontoDoPix, percentualEscrito } from "@/lib/desconto-pix";
+import { getClienteLogado } from "@/lib/api";
 import type { FormaPagamento } from "@/lib/types";
+
+/** A chave pública do Mercado Pago; vazia = paga pelo Checkout Pro, como antes. */
+const CHAVE_MP = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? "";
 
 /**
  * Retoma o pagamento de um pedido que ficou parado — e deixa TROCAR a forma.
@@ -39,6 +44,20 @@ export default function BotaoPagarPedido({
 }) {
   const [pagando, setPagando] = useState<FormaPagamento | null>(null);
   const [erro, setErro] = useState("");
+  /** Pagando aqui dentro: a forma escolhida e o valor que o servidor calculou. */
+  const [aqui, setAqui] = useState<{ forma: "pix" | "credito"; total: number } | null>(null);
+  const [pix, setPix] = useState<{ copiaECola: string | null; qrCodeBase64: string | null } | null>(null);
+  const [copiado, setCopiado] = useState(false);
+  const [quem, setQuem] = useState<{ email: string; nome?: string } | null>(null);
+
+  useEffect(() => {
+    // O e-mail vem do cadastro: no cartão, o preenchimento automático do
+    // celular escreve no campo e o formulário do Mercado Pago não registra.
+    if (!CHAVE_MP) return;
+    getClienteLogado()
+      .then((c) => setQuem(c ? { email: c.email, nome: c.nome } : null))
+      .catch(() => setQuem(null));
+  }, []);
 
   const abatimento = total != null ? descontoDoPix("pix", total, percentualPix) : 0;
   const temDesconto = abatimento > 0;
@@ -47,6 +66,36 @@ export default function BotaoPagarPedido({
     setErro("");
     setPagando(forma);
     try {
+      /*
+       * Com a chave configurada, a troca de forma acontece SEM sair do site: a
+       * rota grava a forma nova no pedido (e refaz o desconto do Pix) e a
+       * cobrança abre aqui mesmo.
+       */
+      if (CHAVE_MP) {
+        const r = await fetch(`/api/cliente/pedidos/${pedidoId}/pagar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ formaPagamento: forma, pagarNoSite: true }),
+        });
+
+        if (r.status === 401) {
+          window.location.assign("/entrar?voltar=%2Fconta");
+          return;
+        }
+
+        const corpo = await r.json();
+        if (!r.ok) {
+          setErro(corpo.error ?? "Não consegui abrir o pagamento agora. Tenta de novo?");
+          return;
+        }
+
+        setAqui({
+          forma: forma === "pix" ? "pix" : "credito",
+          total: corpo.total ?? total ?? 0,
+        });
+        return;
+      }
+
       const r = await fetch(`/api/cliente/pedidos/${pedidoId}/pagar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,6 +121,68 @@ export default function BotaoPagarPedido({
     } finally {
       setPagando(null);
     }
+  }
+
+  if (pix) {
+    return (
+      <div className="bg-white/70 border border-cherryLight/50 rounded-2xl p-5 text-center">
+        <p className="font-display text-lg text-cherryDark">Pix gerado! 🍒</p>
+        {aqui && (
+          <p className="font-display text-2xl text-cherryDark mt-1 tabular-nums">
+            {reais(aqui.total)}
+          </p>
+        )}
+        {pix.qrCodeBase64 && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={`data:image/png;base64,${pix.qrCodeBase64}`}
+            alt="QR code do Pix"
+            className="w-52 h-52 mx-auto mt-3 rounded-xl border border-cherryLight/40 bg-white"
+          />
+        )}
+        {pix.copiaECola && (
+          <button
+            onClick={async () => {
+              await navigator.clipboard.writeText(pix.copiaECola ?? "");
+              setCopiado(true);
+              setTimeout(() => setCopiado(false), 2500);
+            }}
+            className="mt-3 w-full bg-cherryDark text-white rounded-full px-5 min-h-[44px] font-body font-semibold text-sm hover:bg-cherryMid transition-colors"
+          >
+            {copiado ? "Copiado! 🍒" : "Copiar código do Pix"}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (aqui && CHAVE_MP && quem) {
+    return (
+      <div>
+        <PagamentoNoSite
+          pedidoId={pedidoId}
+          total={aqui.total}
+          forma={aqui.forma}
+          pagador={quem}
+          chavePublica={CHAVE_MP}
+          aoConfirmar={(r) => {
+            if (r.pix?.copiaECola || r.pix?.qrCodeBase64) {
+              setPix(r.pix);
+              return;
+            }
+            window.location.href = `/pedido/sucesso?status=${encodeURIComponent(
+              r.situacao
+            )}&external_reference=${pedidoId}`;
+          }}
+        />
+        <button
+          onClick={() => setAqui(null)}
+          className="w-full mt-2 min-h-[44px] font-body text-sm text-cherryDark underline"
+        >
+          Escolher outra forma de pagamento
+        </button>
+      </div>
+    );
   }
 
   return (

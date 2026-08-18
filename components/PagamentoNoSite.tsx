@@ -38,11 +38,32 @@ declare global {
 export default function PagamentoNoSite({
   pedidoId,
   total,
+  forma,
+  pagador,
   chavePublica,
   aoConfirmar,
 }: {
   pedidoId: string;
   total: number;
+  /**
+   * A forma JÁ escolhida lá fora, no botão que a cliente apertou.
+   *
+   * ⚠️ Não é enfeite: o Brick recebe UM valor só, e Pix e cartão custam
+   * diferente por causa do desconto de 4%. Deixar os dois na mesma tela fazia
+   * o formulário prometer o preço do Pix para quem escolhesse cartão — e o
+   * servidor, que recalcula certo, cobraria outro valor.
+   */
+  forma: "pix" | "credito";
+  /**
+   * Quem está pagando, já preenchido do cadastro.
+   *
+   * ⚠️ Não é só conveniência: no cartão, o preenchimento automático do
+   * celular escreve o e-mail no campo e o Brick **não registra a digitação** —
+   * a tela mostra o endereço certo e reclama "Dado obrigatório" do mesmo
+   * jeito, e o botão de pagar não passa. Mandando o e-mail pronto, o campo
+   * nem aparece.
+   */
+  pagador: { email: string; nome?: string };
   chavePublica: string;
   aoConfirmar: (r: Resultado) => void;
 }) {
@@ -75,9 +96,27 @@ export default function PagamentoNoSite({
         await mp.bricks().create("payment", "brick-pagamento", {
           initialization: {
             amount: total,
+            // O cadastro já tem esses dados: a cliente não digita de novo.
+            payer: {
+              email: pagador.email,
+              ...(pagador.nome
+                ? {
+                    firstName: pagador.nome.split(" ")[0],
+                    lastName: pagador.nome.split(" ").slice(1).join(" ") || undefined,
+                  }
+                : {}),
+            },
           },
           customization: {
             paymentMethods: {
+              /*
+               * Só a forma que ela escolheu no botão — o valor que o Brick
+               * mostra é o daquela forma, e ter as duas aqui faria a tela
+               * prometer o preço do Pix para quem fosse pagar no cartão.
+               */
+              ...(forma === "pix"
+                ? { bankTransfer: "all" as const }
+                : { creditCard: "all" as const }),
               /*
                * À vista, e só. A loja nunca parcelou — nem aqui nem no
                * Checkout Pro — e os dois limites vão juntos de propósito: o
@@ -87,8 +126,6 @@ export default function PagamentoNoSite({
                * `installments: 1` na cobrança. Esta aqui existe pra tela não
                * PROMETER um parcelamento que a cobrança não vai cumprir.
                */
-              creditCard: "all",
-              bankTransfer: "all",
               minInstallments: 1,
               maxInstallments: 1,
             },
@@ -143,7 +180,7 @@ export default function PagamentoNoSite({
     }
 
     montar();
-  }, [chavePublica, pedidoId, total, aoConfirmar]);
+  }, [chavePublica, pedidoId, total, forma, pagador, aoConfirmar]);
 
   return (
     <div className="mt-4">
@@ -161,8 +198,9 @@ export default function PagamentoNoSite({
       <div id="brick-pagamento" />
 
       <p className="font-body text-xs text-ink/50 mt-3 text-center">
-        🔒 Pagamento processado pelo Mercado Pago. O número do cartão não passa
-        pela Doceterapia. Total: <strong>{reais(total)}</strong>
+        🔒 {forma === "pix" ? "Pix" : "Cartão"} de <strong>{reais(total)}</strong>,
+        processado pelo Mercado Pago. O número do cartão não passa pela
+        Doceterapia.
       </p>
     </div>
   );

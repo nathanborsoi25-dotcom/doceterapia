@@ -106,7 +106,11 @@ export async function POST(
    * E a taxa cheia do cartão — que é exatamente o buraco que a trava de forma
    * existe pra fechar.
    */
-  const corpo = (await req.json().catch(() => ({}))) as { formaPagamento?: string };
+  const corpo = (await req.json().catch(() => ({}))) as {
+    formaPagamento?: string;
+    /** Cobrar dentro do site (Payment Brick), sem abrir o Checkout Pro. */
+    pagarNoSite?: boolean;
+  };
   const formaPagamento = corpo.formaPagamento === "credito" ? "credito" : "pix";
 
   const configLoja = await getConfigLoja();
@@ -124,6 +128,28 @@ export async function POST(
       .update(pedidos)
       .set({ formaPagamento, descontoPix })
       .where(eq(pedidos.id, pedido.id));
+  }
+
+  /*
+   * Pagando aqui dentro: a forma nova já foi gravada acima (com o desconto do
+   * Pix refeito), e é só isso que esta rota precisa fazer. Quem cobra é
+   * `/api/pagamento/processar`, que recalcula o valor do zero — o número
+   * devolvido aqui serve para a tela mostrar antes de a cliente confirmar.
+   */
+  if (corpo.pagarNoSite) {
+    const subtotalDoPedido = itens.reduce(
+      (a, i) => a + i.precoUnitario * i.quantidade,
+      0
+    );
+    const aCobrar = Math.max(
+      0,
+      subtotalDoPedido - pedido.desconto + pedido.valorFrete - descontoPix
+    );
+    return NextResponse.json({
+      pagarNoSite: true,
+      formaPagamento,
+      total: Number(aCobrar.toFixed(2)),
+    });
   }
 
   const url = await criarPreferenciaDoPedido(client, {
