@@ -70,13 +70,20 @@ const nextConfig = {
                * SDK puxa os próprios pedaços.
                */
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com https://http2.mlstatic.com",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://http2.mlstatic.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               // As fotos vêm do Vercel Blob; `https:` cobre o domínio dele.
               "img-src 'self' data: blob: https:",
               // O site conversa com as próprias rotas, com o Nominatim (mapa),
               // o ViaCEP e o Mercado Pago.
-              "connect-src 'self' https://nominatim.openstreetmap.org https://viacep.com.br https://api.mercadopago.com https://api.mercadolibre.com https://events.mercadopago.com",
+              /*
+               * ⚠️ O Brick não busca só o script: ele baixa as TRADUÇÕES dele
+               * (`i18n/pt/payment/index.json`, em http2.mlstatic.com) e manda
+               * telemetria pro mercadolibre.com. Faltando qualquer um destes,
+               * ele morre com "Bricks component initialization failed" e o
+               * formulário fica preso em "abrindo..." — sem erro na nossa tela.
+               */
+              "connect-src 'self' https://nominatim.openstreetmap.org https://viacep.com.br https://api.mercadopago.com https://api.mercadolibre.com https://events.mercadopago.com https://http2.mlstatic.com https://*.mercadopago.com https://*.mercadolibre.com",
               /*
                * Os campos do cartão são iframes do Mercado Pago: é assim que o
                * número da cliente nunca encosta no nosso código. Sem esta
