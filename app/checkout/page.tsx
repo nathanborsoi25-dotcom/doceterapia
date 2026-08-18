@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
 import EnderecoVisitante from "@/components/EnderecoVisitante";
+import PagamentoNoSite from "@/components/PagamentoNoSite";
 import IconeWhatsApp from "@/components/IconeWhatsApp";
 import { descontoDoPix, percentualDoPix, percentualEscrito } from "@/lib/desconto-pix";
 import { avisoDeFechada, limparFuncionamento, lojaAberta } from "@/lib/funcionamento";
@@ -43,6 +44,13 @@ import { checarAreaEntrega } from "@/lib/area-entrega";
 import { useSobre } from "@/lib/usar-sobre";
 import type { ConfiguracaoFrete, FormaPagamento, TipoEntrega } from "@/lib/types";
 
+/**
+ * A chave PÚBLICA do Mercado Pago. Ela é pública mesmo — vai no navegador e
+ * serve só para tokenizar o cartão. Sem ela configurada, o botão de pagar
+ * aqui dentro nem aparece, e o site segue com o Checkout Pro de sempre.
+ */
+const CHAVE_MP = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? "";
+
 export default function CheckoutPage() {
   const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega>("entrega");
   /** Qual dos pontos a cliente escolheu pra buscar (só na retirada). */
@@ -65,6 +73,14 @@ export default function CheckoutPage() {
   const [percentualPix, setPercentualPix] = useState(0);
   /** Loja fechada: os botões de pagar saem do ar e um aviso toma o lugar. */
   const [fechada, setFechada] = useState<string | null>(null);
+  /**
+   * Pedido já gravado, esperando o pagamento acontecer AQUI (Payment Brick).
+   * Enquanto for nulo, a tela mostra os botões de sempre.
+   */
+  const [pagarAqui, setPagarAqui] = useState<{ pedidoId: string; total: number } | null>(null);
+  /** O Pix gerado sem sair do site: QR e copia-e-cola. */
+  const [pix, setPix] = useState<{ copiaECola: string | null; qrCodeBase64: string | null } | null>(null);
+  const [copiado, setCopiado] = useState(false);
   /**
    * As entregas de hoje já encerraram?
    *
@@ -320,10 +336,64 @@ export default function CheckoutPage() {
   const semCobranca = nadaACobrar(total - descontoPix);
 
   /** Nada de pagar enquanto falta endereço, ponto de retirada ou resposta. */
+  /*
+   * Conta de teste compra com a loja fechada — é o único jeito de provar o
+   * pagamento de madrugada, que é quando ele costuma ser mexido. Quem decide
+   * é o SERVIDOR (`lib/testadores.ts`); aqui só se obedece ao sinal que veio
+   * junto com o cadastro, senão a tela esconderia os botões dele.
+   */
+  const lojaFechadaPraMim = fechada && !cliente?.podeTestarFechado ? fechada : null;
+
   const pagamentoBloqueado =
     (tipoEntrega === "retirada" && !pontoRetirada) ||
     finalizando !== null ||
     compraBloqueada;
+
+  /**
+   * Cria o pedido e abre o pagamento AQUI, sem mandar ninguém para o Mercado
+   * Pago. O pedido é gravado do mesmo jeito de sempre; o que muda é só quem
+   * cobra depois.
+   */
+  async function pagarSemSair() {
+    if (!cliente) {
+      window.location.assign("/entrar?voltar=/checkout");
+      return;
+    }
+
+    setFinalizando("pix");
+    try {
+      const r = await iniciarPagamento({
+        clienteId: cliente.id,
+        itens: carrinho,
+        tipoEntrega,
+        pontoRetirada: tipoEntrega === "retirada" ? pontoRetirada : "",
+        entregarEmOutroEndereco: outroEndereco,
+        enderecoEntrega:
+          tipoEntrega === "entrega"
+            ? outroEndereco
+              ? enderecoAtual ?? undefined
+              : cliente?.endereco
+            : undefined,
+        valorFrete,
+        formaPagamento: "pix",
+        ehPresente,
+        nomeQuemRecebe: ehPresente ? nomeQuemRecebe : "",
+        bilhete: querBilhete ? bilhete : "",
+        cupom: cupomAplicado?.codigo ?? "",
+        pagarNoSite: true,
+      });
+
+      if (r.pedidoId) {
+        setPagarAqui({ pedidoId: r.pedidoId, total: r.total ?? total - descontoPix });
+      } else {
+        alert("Não foi possível abrir o pagamento. Tente pelo botão do Mercado Pago.");
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Não foi possível abrir o pagamento.");
+    } finally {
+      setFinalizando(null);
+    }
+  }
 
   async function aplicarCupom() {
     setErroCupom("");
@@ -983,12 +1053,68 @@ export default function CheckoutPage() {
          */}
         {/* Loja fechada: o aviso toma o lugar dos botões de pagar. Deixá-los
             ali só pra dar erro no toque seria pior do que explicar antes. */}
-        {fechada ? (
+        {pix ? (
+          /* Pix gerado sem sair do site: QR na tela e o copia-e-cola à mão. */
+          <div className="mt-6 bg-white/70 border border-cherryLight/50 rounded-2xl p-5 text-center">
+            <p className="font-display text-lg text-cherryDark">Pix gerado! 🍒</p>
+            <p className="font-body text-sm text-ink/70 mt-1">
+              Escaneie o código ou copie o texto. Assim que o pagamento cair, seu
+              pedido entra na fila da Camily.
+            </p>
+
+            {pix.qrCodeBase64 && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={`data:image/png;base64,${pix.qrCodeBase64}`}
+                alt="QR code do Pix"
+                className="w-56 h-56 mx-auto mt-4 rounded-xl border border-cherryLight/40 bg-white"
+              />
+            )}
+
+            {pix.copiaECola && (
+              <button
+                onClick={async () => {
+                  await navigator.clipboard.writeText(pix.copiaECola ?? "");
+                  setCopiado(true);
+                  setTimeout(() => setCopiado(false), 2500);
+                }}
+                className="mt-4 w-full bg-cherryDark text-white rounded-full px-5 min-h-[44px] font-body font-semibold text-sm hover:bg-cherryMid transition-colors"
+              >
+                {copiado ? "Copiado! 🍒" : "Copiar código do Pix"}
+              </button>
+            )}
+
+            <Link
+              href="/conta"
+              className="block mt-3 font-body text-sm text-cherryDark underline min-h-[44px] leading-[44px]"
+            >
+              Ver meus pedidos
+            </Link>
+          </div>
+        ) : pagarAqui ? (
+          /* O formulário do Mercado Pago, dentro da nossa página. */
+          <PagamentoNoSite
+            pedidoId={pagarAqui.pedidoId}
+            total={pagarAqui.total}
+            chavePublica={CHAVE_MP}
+            aoConfirmar={(r) => {
+              if (r.pix?.copiaECola || r.pix?.qrCodeBase64) {
+                setPix(r.pix);
+                salvarCarrinho([]);
+                return;
+              }
+              // Cartão aprovado (ou em análise): a tela de sempre cuida do resto.
+              window.location.href = `/pedido/sucesso?status=${encodeURIComponent(
+                r.situacao
+              )}&external_reference=${pagarAqui.pedidoId}`;
+            }}
+          />
+        ) : lojaFechadaPraMim ? (
           <div className="mt-6 bg-blush/70 border border-cherryLight/60 rounded-2xl p-5 text-center">
             <p className="font-display text-lg text-cherryDark">
               A loja está fechada agora 🌙
             </p>
-            <p className="font-body text-sm text-ink/75 mt-2">{fechada}</p>
+            <p className="font-body text-sm text-ink/75 mt-2">{lojaFechadaPraMim}</p>
             <p className="font-body text-xs text-ink/55 mt-2">
               Seu carrinho fica guardado do jeito que está.
             </p>
@@ -1028,6 +1154,32 @@ export default function CheckoutPage() {
           </div>
         ) : (
         <div className="mt-6 grid gap-2">
+          {/*
+            Pagar aqui dentro (Payment Brick).
+            Só aparece quando a chave pública do Mercado Pago está configurada,
+            então o site funciona igual sem ela — e o caminho de sempre, que é
+            o que está vendendo, continua logo abaixo.
+          */}
+          {CHAVE_MP && (
+            <button
+              onClick={pagarSemSair}
+              disabled={pagamentoBloqueado}
+              className="w-full bg-cherryDark text-white rounded-2xl px-5 py-4 font-body hover:bg-cherryMid transition-colors disabled:opacity-40 text-left"
+            >
+              <span className="flex items-center justify-between gap-3">
+                <span className="font-semibold">
+                  {finalizando ? "Abrindo..." : "Pagar aqui mesmo"}
+                </span>
+                <span className="font-display text-lg tabular-nums">
+                  {reais(total - descontoPix)}
+                </span>
+              </span>
+              <span className="block text-xs text-white/80 mt-0.5">
+                Pix ou cartão sem sair da Doceterapia.
+              </span>
+            </button>
+          )}
+
           {/* O Pix está sempre aqui: é forma de pagamento, não promoção. O
               desconto só muda o valor e a linha de baixo. */}
           <button

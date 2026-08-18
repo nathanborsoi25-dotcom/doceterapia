@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { clientes } from "@/lib/db/schema";
 import { getClienteLogado } from "@/lib/cliente-logado";
+import { podeComprarComLojaFechada } from "@/lib/testadores";
 import { emailJaExiste } from "@/lib/db/erros";
 import {
   emailValido,
@@ -37,6 +38,8 @@ export async function GET() {
       lng: c.lng ?? undefined,
     },
     criadoEm: c.criadoEm.toISOString(),
+    // Sinal para a tela: esta conta compra fora do horário (conta de teste).
+    podeTestarFechado: podeComprarComLojaFechada(c.email),
   };
   // A senha (hash) nunca sai daqui.
   return NextResponse.json(cliente);

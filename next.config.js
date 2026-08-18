@@ -63,14 +63,26 @@ const nextConfig = {
              */
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              /*
+               * O SDK do Mercado Pago é carregado do domínio deles — é ele que
+               * desenha os campos do cartão e tokeniza o número SEM que o
+               * número passe por aqui. `http2.mlstatic.com` é o CDN de onde o
+               * SDK puxa os próprios pedaços.
+               */
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.mercadopago.com https://http2.mlstatic.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               // As fotos vêm do Vercel Blob; `https:` cobre o domínio dele.
               "img-src 'self' data: blob: https:",
               // O site conversa com as próprias rotas, com o Nominatim (mapa),
               // o ViaCEP e o Mercado Pago.
-              "connect-src 'self' https://nominatim.openstreetmap.org https://viacep.com.br https://api.mercadopago.com",
+              "connect-src 'self' https://nominatim.openstreetmap.org https://viacep.com.br https://api.mercadopago.com https://api.mercadolibre.com https://events.mercadopago.com",
+              /*
+               * Os campos do cartão são iframes do Mercado Pago: é assim que o
+               * número da cliente nunca encosta no nosso código. Sem esta
+               * linha eles caem no `default-src 'self'` e nada aparece.
+               */
+              "frame-src 'self' https://*.mercadopago.com https://*.mercadolibre.com",
               "form-action 'self' https://www.mercadopago.com.br",
               "frame-ancestors 'none'",
               "base-uri 'self'",

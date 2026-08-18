@@ -190,6 +190,11 @@ export type NovoPedido = Pick<
   bilhete?: string;
   /** Código do cupom; o desconto quem calcula é o servidor. */
   cupom?: string;
+  /**
+   * Pagar sem sair do site: grava o pedido e devolve o id, sem criar a
+   * preferência do Checkout Pro. Quem cobra depois é `/api/pagamento/processar`.
+   */
+  pagarNoSite?: boolean;
 };
 
 /**
@@ -224,7 +229,14 @@ export async function validarCupom(
  */
 export async function iniciarPagamento(
   pedido: NovoPedido
-): Promise<{ pedidoId: string; url: string | null; semCobranca?: boolean }> {
+): Promise<{
+  pedidoId: string;
+  url: string | null;
+  semCobranca?: boolean;
+  /** Veio com `pagarNoSite`: o total já calculado pelo servidor. */
+  pagarNoSite?: boolean;
+  total?: number;
+}> {
   const res = await fetch("/api/pagamento", POST_JSON(pedido));
   if (!res.ok) {
     // O servidor manda uma mensagem amigável em `error` (ex: endereço fora

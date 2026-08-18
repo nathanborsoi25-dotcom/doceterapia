@@ -76,6 +76,12 @@ export interface Cliente {
     lng?: number;
   };
   telefone: string;
+  /**
+   * Esta conta pode fechar pedido com a loja fechada (ver `lib/testadores.ts`).
+   * Quem decide é o SERVIDOR — o navegador só recebe o sinal já pronto, pra
+   * tela não esconder os botões de quem está testando o pagamento.
+   */
+  podeTestarFechado?: boolean;
   criadoEm: string;
 }
 

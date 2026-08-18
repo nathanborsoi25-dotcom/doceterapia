@@ -19,6 +19,7 @@ import { faltaDocePago, nadaACobrar, PREFIXO_RESGATE } from "@/lib/resgate";
 import { avisarMudancaDeStatus } from "@/lib/avisar-cliente";
 import { avisarLojaDeVendaPaga } from "@/lib/avisar-loja";
 import { getClienteLogado } from "@/lib/cliente-logado";
+import { podeComprarComLojaFechada } from "@/lib/testadores";
 import { getMpClient } from "@/lib/mercadopago";
 import { calcularFretePorEndereco, configuracaoFretePadrao } from "@/lib/shipping";
 import { checarAreaEntrega } from "@/lib/area-entrega";
@@ -54,6 +55,11 @@ type Corpo = Pick<
   entregarEmOutroEndereco?: boolean;
   /** Código do ponto onde ela vai buscar (só na retirada). */
   pontoRetirada?: string;
+  /**
+   * Pagar sem sair do site (Payment Brick). Grava o pedido e devolve o id,
+   * sem criar a preferência do Checkout Pro.
+   */
+  pagarNoSite?: boolean;
 };
 
 /** Limite de segurança: ninguém pede 500 brigadeiros por engano. */
@@ -88,10 +94,19 @@ export async function POST(req: Request) {
    */
   const configLoja = await getConfigLoja();
   if (!lojaAberta(configLoja.funcionamento)) {
-    return NextResponse.json(
-      { error: avisoDeFechada(configLoja.funcionamento) },
-      { status: 409 }
-    );
+    /*
+     * Uma exceção nominal: as contas de teste (ver `lib/testadores.ts`) passam
+     * com a loja fechada. Pagamento só se prova pagando, e isso quase sempre
+     * acontece de madrugada — a regra de horário recusaria o teste antes de
+     * ele chegar ao Mercado Pago. Para toda cliente a recusa continua valendo.
+     */
+    const quemEstaComprando = await getClienteLogado();
+    if (!podeComprarComLojaFechada(quemEstaComprando?.email)) {
+      return NextResponse.json(
+        { error: avisoDeFechada(configLoja.funcionamento) },
+        { status: 409 }
+      );
+    }
   }
 
   /*
@@ -645,6 +660,24 @@ export async function POST(req: Request) {
     await avisarLojaDeVendaPaga(id);
 
     return NextResponse.json({ pedidoId: id, url: null, semCobranca: true });
+  }
+
+  /*
+   * 7c) Pagamento DENTRO do site: o pedido está gravado, e é só isso que esta
+   * rota precisa fazer.
+   *
+   * Quem cobra é `/api/pagamento/processar`, com o cartão tokenizado pelo
+   * Mercado Pago no próprio navegador da cliente. A preferência do Checkout
+   * Pro (o caminho que redireciona) nem chega a ser criada — mas continua
+   * inteira logo abaixo, porque ela é o caminho que está vendendo hoje.
+   */
+  if (body.pagarNoSite) {
+    return NextResponse.json({
+      pedidoId: id,
+      url: null,
+      pagarNoSite: true,
+      total: Number((totalACobrar).toFixed(2)),
+    });
   }
 
   // 8) Cria a preferência de pagamento no Mercado Pago. A montagem fica em
