@@ -65,7 +65,15 @@ const TIPOS_DO_MERCADO_PAGO = [
   "atm",
   "account_money", // saldo na conta do Mercado Pago
   "digital_currency",
-  "digital_wallet", // é por aqui que o Apple Pay aparece
+  /*
+   * Carteira digital do próprio Mercado Pago.
+   *
+   * ⚠️ Já esteve escrito aqui que "é por onde o Apple Pay aparece". **Não é**:
+   * o Mercado Pago não tem integração com Apple Pay no Brasil (conferido em
+   * 18/08/2026). O que o iPhone faz é o Safari preencher o cartão salvo com
+   * Face ID — recurso do navegador, que funciona em qualquer formulário.
+   */
+  "digital_wallet",
   "voucher_card",
   "crypto_transfer",
 ];
@@ -91,8 +99,8 @@ const NAO_DA_PRA_EXCLUIR = ["account_money"];
  *
  * - **Pix**: fica o Pix — e o saldo em conta junto, porque o Mercado Pago não
  *   deixa tirá-lo. Sem Mercado Crédito e sem cartão.
- * - **Crédito**: cartão de crédito, saldo em conta e carteira digital (o
- *   Apple Pay). Fora o Mercado Crédito, que é parcelamento — e a loja não
+ * - **Crédito**: cartão de crédito, saldo em conta e a carteira digital do
+ *   Mercado Pago. Fora o Mercado Crédito, que é parcelamento — e a loja não
  *   trabalha com parcelamento.
  *
  * Boleto fica sempre de fora, por decisão da loja.

@@ -8,11 +8,7 @@ import RodapeLinks from "@/components/RodapeLinks";
 import IconeWhatsApp from "@/components/IconeWhatsApp";
 import IconeInstagram from "@/components/IconeInstagram";
 import { INSTAGRAM_DA_LOJA, linkInstagram } from "@/lib/contato";
-import {
-  IconeApplePay,
-  IconeCartao,
-  IconePix,
-} from "@/components/IconesPagamento";
+import { IconeCartao, IconePix } from "@/components/IconesPagamento";
 import { percentualDoPix, percentualEscrito } from "@/lib/desconto-pix";
 import {
   FUNCIONAMENTO_PADRAO,
@@ -60,11 +56,6 @@ const FORMAS = [
     Icone: IconeCartao,
     nome: "Cartão de crédito",
     detalhe: "À vista, sem parcelamento.",
-  },
-  {
-    Icone: IconeApplePay,
-    nome: "Apple Pay",
-    detalhe: "No iPhone, escolhendo cartão, com Face ID ou Touch ID.",
   },
 ];
 
