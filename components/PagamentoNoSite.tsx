@@ -78,9 +78,18 @@ export default function PagamentoNoSite({
           },
           customization: {
             paymentMethods: {
-              // À vista: a loja não parcela, nem aqui nem no Checkout Pro.
+              /*
+               * À vista, e só. A loja nunca parcelou — nem aqui nem no
+               * Checkout Pro — e os dois limites vão juntos de propósito: o
+               * `min` impede o Brick de abrir em "2x" quando o valor permite.
+               *
+               * A trava que vale mesmo é a do servidor, que manda
+               * `installments: 1` na cobrança. Esta aqui existe pra tela não
+               * PROMETER um parcelamento que a cobrança não vai cumprir.
+               */
               creditCard: "all",
               bankTransfer: "all",
+              minInstallments: 1,
               maxInstallments: 1,
             },
           },
