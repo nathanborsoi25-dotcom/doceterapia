@@ -25,10 +25,15 @@ export default function Header() {
       <Link
         href="/catalogo"
         aria-label="Doceterapia — ir para o cardápio"
-        className="font-display text-3xl sm:text-4xl md:text-5xl tracking-tight py-1"
+        className="natal-logotipo font-display text-3xl sm:text-4xl md:text-5xl tracking-tight py-1"
       >
-        <span className="text-cherryDark font-bold">doce</span>
+        {temaNatalino && <span aria-hidden="true" className="natal-marca-enfeite">✦</span>}
+        <span className="text-cherryDark font-bold">
+          doce
+          {temaNatalino && <span className="natal-gorro" aria-hidden="true" />}
+        </span>
         <span className="text-cherryLight natal-marca">terapia</span>
+        {temaNatalino && <span aria-hidden="true" className="natal-marca-enfeite">✦</span>}
       </Link>
     </header>
   );
