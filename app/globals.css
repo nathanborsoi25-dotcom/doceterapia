@@ -172,12 +172,6 @@ body:has(.natal-cabecalho) .barra-inferior a:is(:hover, [aria-current="page"]) {
   font-size: 1.1rem;
 }
 
-.natal-ornamento-direito {
-  top: 0.85rem;
-  right: 0.8rem;
-  font-size: clamp(0.8rem, 2.4vw, 2rem);
-}
-
 .natal-cena {
   position: relative;
   padding-block: clamp(0.3rem, 2vw, 1.15rem);
@@ -204,7 +198,8 @@ body:has(.natal-cabecalho) .barra-inferior a:is(:hover, [aria-current="page"]) {
   pointer-events: none;
 }
 
-.natal-neve {
+.natal-neve,
+.natal-controle-neve {
   display: none;
 }
 
@@ -236,31 +231,69 @@ body:has(.natal-cabecalho) .barra-inferior a:is(:hover, [aria-current="page"]) {
   }
 
   .natal-neve {
-    position: absolute;
+    position: fixed;
     inset: 0;
-    z-index: 1;
+    z-index: 45;
     display: block;
     overflow: hidden;
-    border-radius: inherit;
     pointer-events: none;
   }
 
-  .natal-neve span {
+  .natal-floco {
     position: absolute;
-    top: 0;
+    top: -1rem;
     left: var(--floco-posicao);
     width: var(--floco-tamanho);
-    height: 100%;
-    animation: neve-descendo var(--floco-duracao) linear var(--floco-atraso) both;
+    animation: neve-descendo var(--floco-duracao) linear var(--floco-atraso) infinite;
   }
 
-  .natal-neve span::before {
+  .natal-floco > span {
     display: block;
     aspect-ratio: 1;
+    animation: neve-ao-vento calc(var(--floco-duracao) * 0.45) ease-in-out var(--floco-atraso) infinite alternate;
+  }
+
+  .natal-floco-ponto {
     border-radius: 50%;
-    background: var(--natal-creme);
+    background: #fffdf7;
+    box-shadow: 0 0 0 1px #605d5654, 0 1px 4px #33232154;
+  }
+
+  .natal-floco-cristal {
+    color: #fffdf7;
+    font-size: var(--floco-tamanho);
+    line-height: 1;
+    text-shadow: 0 0 2px #4f554c, 0 1px 3px #4f554c;
+  }
+
+  .natal-controle-neve {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    z-index: 3;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border-radius: 50%;
+    background: #571522e6;
+    color: var(--natal-creme);
+    font-size: 1.25rem;
+  }
+
+  .natal-controle-neve:focus-visible {
+    outline: 2px solid var(--natal-creme);
+    outline-offset: 2px;
+  }
+
+  .natal-controle-neve[aria-pressed="false"]::after {
+    position: absolute;
+    width: 1.15rem;
+    height: 2px;
+    transform: rotate(-48deg);
+    border-radius: 2px;
+    background: currentColor;
     content: "";
-    animation: neve-ao-vento var(--floco-duracao) ease-in-out var(--floco-atraso) both;
   }
 }
 
@@ -281,13 +314,16 @@ body:has(.natal-cabecalho) .barra-inferior a:is(:hover, [aria-current="page"]) {
 
 @keyframes neve-descendo {
   0% { transform: translateY(0); opacity: 0; }
-  16% { opacity: 0.72; }
-  76% { opacity: 0.56; }
-  100% { transform: translateY(100%); opacity: 0; visibility: hidden; }
+  10%, 90% { opacity: 0.82; }
+  100% {
+    transform: translateY(calc(100vh + 2rem));
+    transform: translateY(calc(100dvh + 2rem));
+    opacity: 0;
+  }
 }
 
 @keyframes neve-ao-vento {
-  50% { transform: translateX(var(--floco-desvio)); }
+  to { transform: translateX(var(--floco-desvio)); }
 }
 
 /*
