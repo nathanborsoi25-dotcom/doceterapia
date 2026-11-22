@@ -150,26 +150,8 @@ body.tema-natal .catalogo-loja .busca-sem-resultados {
 }
 
 .retrato-camily-natal {
-  padding-top: 2.35rem;
-}
-
-.retrato-camily-natal .retrato-camily-foto {
   outline: 2px solid var(--natal-dourado);
   outline-offset: 4px;
-}
-
-.natal-gorro-retrato {
-  top: -0.4em;
-  left: 24%;
-  width: 0.94em;
-  height: 0.57em;
-  transform: rotate(22deg);
-  font-size: 4.5rem;
-  pointer-events: none;
-}
-
-.natal-gorro-retrato::before {
-  height: 0.16em;
 }
 
 body.tema-natal :is(.rodape-camily, .perfil-camily) {
