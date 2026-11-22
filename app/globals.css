@@ -159,11 +159,11 @@ body.tema-natal .catalogo-loja .busca-sem-resultados {
 }
 
 .natal-gorro-retrato {
-  top: -0.46em;
-  left: 22%;
+  top: -0.4em;
+  left: 24%;
   width: 0.94em;
   height: 0.57em;
-  transform: rotate(-14deg);
+  transform: rotate(22deg);
   font-size: 4.5rem;
   pointer-events: none;
 }
