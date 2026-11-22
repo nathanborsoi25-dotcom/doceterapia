@@ -5,6 +5,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import CherryDivider from "@/components/CherryDivider";
 import RodapeLinks from "@/components/RodapeLinks";
+import RetratoCamily from "@/components/RetratoCamily";
 import IconeWhatsApp from "@/components/IconeWhatsApp";
 import IconeInstagram from "@/components/IconeInstagram";
 import { INSTAGRAM_DA_LOJA, linkInstagram } from "@/lib/contato";
@@ -24,7 +25,6 @@ import {
 } from "@/lib/entrega-horario";
 import { getConfiguracaoFrete } from "@/lib/api";
 import { reais } from "@/lib/formato";
-import { fotoOtimizada, TAMANHO } from "@/lib/foto-otimizada";
 import { minimoFreteGratis } from "@/lib/shipping";
 import { pontosDaLoja, type PontoRetirada } from "@/lib/retirada";
 import type { ConfiguracaoFrete } from "@/lib/types";
@@ -96,21 +96,8 @@ export default function LojaPage() {
       <Header />
       <main className="px-4 sm:px-6 md:px-12 pb-16 max-w-2xl mx-auto">
         {/* ---------- Quem faz ---------- */}
-        <section className="text-center">
-          <div className="w-28 h-28 rounded-full mx-auto bg-cherryLight/40 overflow-hidden flex items-center justify-center text-4xl">
-            {foto ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-              src={fotoOtimizada(foto, TAMANHO.rodape)}
-              alt="Camily Vilasboa"
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover"
-            />
-            ) : (
-              "🍒"
-            )}
-          </div>
+        <section className="perfil-camily text-center">
+          <RetratoCamily foto={foto} />
           <h1 className="font-display text-2xl sm:text-3xl text-cherryDark mt-3">
             Camily Vilasboa
           </h1>

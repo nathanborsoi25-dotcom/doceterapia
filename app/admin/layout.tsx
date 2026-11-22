@@ -23,5 +23,10 @@ export const metadata: Metadata = {
 };
 
 export default function LayoutDoPainel({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      <span hidden data-painel-interno />
+      {children}
+    </>
+  );
 }

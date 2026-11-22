@@ -155,7 +155,7 @@ export default function ProductCard({ produto }: { produto: Produto }) {
      * O arco de cima é a assinatura do card. O `overflow-hidden` fica SÓ na
      * foto: no card inteiro ele recortava o preço e o botão na base.
      */
-    <div className="bg-white/70 rounded-t-[999px] rounded-br-3xl rounded-bl-md shadow-sm border border-cherryLight/30 flex flex-col transition-shadow hover:shadow-md">
+    <div className="cartao-doce bg-white/70 rounded-t-[999px] rounded-br-3xl rounded-bl-md shadow-sm border border-cherryLight/30 flex flex-col transition-shadow hover:shadow-md">
       {/*
        * As fotos ficam num trilho que rola de lado: no celular e no tablet a
        * cliente arrasta com o dedo e o navegador encaixa a próxima (scroll-snap),

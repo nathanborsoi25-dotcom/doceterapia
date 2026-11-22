@@ -12,19 +12,67 @@ body {
   color: #3b1a1f;
 }
 
-body:has(.natal-cabecalho) {
+body.tema-natal:where(:not(:has([data-painel-interno]))) {
   --natal-creme: #fff5e4;
-  --natal-vermelho: #9e1c28;
+  --natal-vermelho: #9b2230;
   --natal-verde: #214735;
   --natal-dourado: #e8c788;
   --natal-borda: #dcc5a6;
-  background-color: var(--natal-creme);
+  min-height: 100vh;
+  background-color: #861f2c;
   background-image:
-    radial-gradient(circle, #94311d1c 1px, transparent 1.5px),
-    radial-gradient(circle, #34513a23 1.5px, transparent 2px),
-    linear-gradient(110deg, #ead6b64d, transparent 35%, #fffcf44d 65%, #edd9b850);
-  background-size: 22px 22px, 44px 44px, auto;
-  background-position: 0 0, 11px 11px, 0 0;
+    radial-gradient(circle, #f9d4a64d 1px, transparent 1.5px),
+    radial-gradient(circle, #f9d4a62e 1.5px, transparent 2px),
+    linear-gradient(108deg, #611724, #9e2532 49%, #671824);
+  background-size: 25px 25px, 50px 50px, auto;
+  background-position: 0 0, 12px 12px, 0 0;
+}
+
+/* As telas de leitura e formulários compartilham a moldura creme da loja. */
+body.tema-natal:where(:not(:has([data-painel-interno]))) > main:not(.catalogo-loja) {
+  width: calc(100% - 2rem);
+  margin-block-start: 1rem;
+  border: 1px solid var(--natal-borda);
+  border-radius: 1.25rem;
+  background: var(--natal-creme);
+  box-shadow: 0 12px 32px #4d0d1a52;
+}
+
+body.tema-natal .natal-cabecalho + main:not(.catalogo-loja) {
+  margin-block-start: 0;
+  padding-block-start: 1.5rem;
+}
+
+body.tema-natal:where(:not(:has([data-painel-interno]))) .divisor-cereja {
+  display: none;
+}
+
+body.tema-natal:where(:not(:has([data-painel-interno]))) .divisor-estrela {
+  display: inline;
+  color: #8a5424;
+}
+
+body.tema-natal .catalogo-loja :is(.estado-do-catalogo, .titulo-categoria > span) {
+  color: var(--natal-creme);
+}
+
+body.tema-natal .catalogo-loja .titulo-categoria {
+  color: var(--natal-dourado);
+}
+
+body.tema-natal .catalogo-loja :is(.cartao-doce, .busca-sem-resultados) {
+  background: #fff8ed;
+  border-color: var(--natal-borda);
+}
+
+body.tema-natal .catalogo-loja .cartao-doce {
+  box-shadow: 0 12px 24px #4d0d1a54;
+}
+
+body.tema-natal .catalogo-loja .busca-sem-resultados {
+  padding-inline: 1rem;
+  border: 1px solid var(--natal-borda);
+  border-radius: 1rem;
 }
 
 .natal-cabecalho {
@@ -45,6 +93,11 @@ body:has(.natal-cabecalho) {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+  padding: 0.28em 0.18em;
+  border: 1px solid var(--natal-dourado);
+  border-radius: 999px;
+  background: var(--natal-creme);
+  box-shadow: inset 0 0 0 3px #efe0c6, 0 5px 14px #4d0d1a59;
   color: var(--natal-vermelho);
 }
 
@@ -96,20 +149,104 @@ body:has(.natal-cabecalho) {
   border-radius: 50%;
 }
 
-body:has(.natal-cabecalho) :is(.barra-inferior, .filtros-catalogo) {
-  background-color: var(--natal-creme);
+.retrato-camily-natal {
+  padding-top: 2.35rem;
 }
 
-body:has(.natal-cabecalho) .barra-inferior {
-  border-top: 1px solid var(--natal-borda);
+.retrato-camily-natal .retrato-camily-foto {
+  outline: 2px solid var(--natal-dourado);
+  outline-offset: 4px;
 }
 
-body:has(.natal-cabecalho) .barra-inferior a {
+.natal-gorro-retrato {
+  top: -0.46em;
+  left: 22%;
+  width: 0.94em;
+  height: 0.57em;
+  transform: rotate(-14deg);
+  font-size: 4.5rem;
+  pointer-events: none;
+}
+
+.natal-gorro-retrato::before {
+  height: 0.16em;
+}
+
+body.tema-natal :is(.rodape-camily, .perfil-camily) {
+  position: relative;
+  background:
+    radial-gradient(circle, #f3cea047 1px, transparent 1.6px) 0 0 / 24px 24px,
+    radial-gradient(ellipse at 50% 15%, #a72c3a, #791b2a 72%, #601625);
+  color: var(--natal-creme);
+}
+
+body.tema-natal :is(.rodape-camily, .perfil-camily)::before {
+  position: absolute;
+  inset: 0.75rem;
+  border: 3px double #e8c788ad;
+  border-radius: 1rem;
+  pointer-events: none;
+  content: "";
+}
+
+body.tema-natal .perfil-camily {
+  padding: 1.5rem 1.25rem;
+  border: 1px solid #7a1b2a;
+  border-radius: 1.25rem;
+}
+
+body.tema-natal .rodape-camily {
+  margin-block-start: 1rem;
+}
+
+body.tema-natal .rodape-camily :is(h3, .divisor-estrela),
+body.tema-natal .perfil-camily h1 {
+  color: var(--natal-dourado);
+}
+
+body.tema-natal .rodape-camily .cherry-divider {
+  margin-block: 0 1rem;
+}
+
+body.tema-natal .rodape-camily .cherry-divider .linha {
+  background-color: #e8c788ad;
+}
+
+body.tema-natal .rodape-camily :is(p, nav, nav a:hover),
+body.tema-natal .perfil-camily p,
+body.tema-natal > .rodape-links,
+body.tema-natal > .rodape-links a:hover {
+  color: var(--natal-creme);
+}
+
+body.tema-natal :is(.rodape-camily-contatos, .perfil-camily) a {
+  border-color: var(--natal-dourado);
+  background: var(--natal-creme);
   color: var(--natal-verde);
 }
 
-body:has(.natal-cabecalho) .barra-inferior a:is(:hover, [aria-current="page"]) {
+body.tema-natal :is(.rodape-camily-contatos, .perfil-camily) a:hover {
+  background-color: #f5e3c7;
+}
+
+body.tema-natal :is(.barra-inferior, .filtros-catalogo) {
+  background-color: var(--natal-creme);
+}
+
+body.tema-natal .barra-inferior {
+  border-top: 1px solid var(--natal-borda);
+}
+
+body.tema-natal .barra-inferior a {
+  color: var(--natal-verde);
+}
+
+body.tema-natal .barra-inferior a:is(:hover, [aria-current="page"]) {
   color: var(--natal-vermelho);
+}
+
+body.tema-natal .barra-inferior a[aria-current="page"] {
+  box-shadow: inset 0 2px var(--natal-vermelho);
 }
 
 .natal-vitrine {

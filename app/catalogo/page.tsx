@@ -177,7 +177,7 @@ export default function CatalogoPage() {
   return (
     <>
       <Header />
-      <main className="px-4 sm:px-6 md:px-12 pb-16">
+      <main className="catalogo-loja px-4 sm:px-6 md:px-12 pb-16">
         {temaNatalino ? (
           <NatalNoCatalogo />
         ) : (
@@ -275,9 +275,9 @@ export default function CatalogoPage() {
         </div>
 
         {carregando ? (
-          <p className="text-center font-body text-ink/60">Carregando cardápio...</p>
+          <p className="estado-do-catalogo text-center font-body text-ink/60">Carregando cardápio...</p>
         ) : produtos.length === 0 ? (
-          <p className="text-center font-body text-ink/60">
+          <p className="estado-do-catalogo text-center font-body text-ink/60">
             Nenhum doce no cardápio ainda.
           </p>
         ) : resultados ? (
@@ -285,7 +285,7 @@ export default function CatalogoPage() {
              procurou pelo nome quer ver o doce, não em que seção ele mora. */
           <div className="max-w-5xl mx-auto">
             {resultados.length === 0 ? (
-              <div className="text-center py-10">
+              <div className="busca-sem-resultados text-center py-10">
                 <p className="text-5xl" aria-hidden>
                   🔍
                 </p>
@@ -305,7 +305,7 @@ export default function CatalogoPage() {
               </div>
             ) : (
               <>
-                <p className="font-body text-sm text-ink/60 mb-4">
+                <p className="estado-do-catalogo font-body text-sm text-ink/60 mb-4">
                   {resultados.length}{" "}
                   {resultados.length === 1 ? "doce encontrado" : "doces encontrados"}{" "}
                   para “{termo}”
@@ -332,7 +332,7 @@ export default function CatalogoPage() {
                 {/* Com uma categoria só, o título vira repetição do botão que
                     já está marcado ali em cima. */}
                 {categorias.length > 1 && (
-                  <h2 className="font-display text-xl sm:text-2xl text-cherryDark mb-4">
+                  <h2 className="titulo-categoria font-display text-xl sm:text-2xl text-cherryDark mb-4">
                     {nome}
                     <span className="font-body text-sm text-ink/45 ml-2">
                       {doces.length} {doces.length === 1 ? "doce" : "doces"}

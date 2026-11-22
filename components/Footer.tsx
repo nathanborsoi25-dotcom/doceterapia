@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import CherryDivider from "./CherryDivider";
+import RetratoCamily from "./RetratoCamily";
 import IconeWhatsApp from "./IconeWhatsApp";
 import IconeInstagram from "./IconeInstagram";
 import { INSTAGRAM_DA_LOJA, linkInstagram } from "@/lib/contato";
 import { useSobre } from "@/lib/usar-sobre";
-import { fotoOtimizada, TAMANHO } from "@/lib/foto-otimizada";
 
 /**
  * O "quem faz" do site: a foto da Camily, o recado dela e o telefone.
@@ -20,23 +20,10 @@ export default function Footer() {
   const { foto, texto, telefone, linkWhatsApp } = useSobre();
 
   return (
-    <footer className="mt-20 px-6 md:px-12 py-12 bg-blush/60">
+    <footer className="rodape-camily mt-20 px-6 md:px-12 py-12 bg-blush/60">
       <CherryDivider />
       <div className="max-w-2xl mx-auto text-center">
-        <div className="w-28 h-28 rounded-full mx-auto bg-cherryLight/40 overflow-hidden flex items-center justify-center text-4xl">
-          {foto ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={fotoOtimizada(foto, TAMANHO.rodape)}
-              alt="Camily Vilasboa"
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            "🍒"
-          )}
-        </div>
+        <RetratoCamily foto={foto} />
         <h3 className="font-display text-xl mt-4 text-cherryDark">Camily Vilasboa</h3>
         <p className="font-body text-sm text-ink/70 mt-2 max-w-md mx-auto whitespace-pre-line">
           {texto}
@@ -44,7 +31,7 @@ export default function Footer() {
 
         {/* Os dois caminhos de falar com a loja, lado a lado. Quebram linha no
             celular estreito em vez de espremer o telefone. */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+        <div className="rodape-camily-contatos flex flex-wrap items-center justify-center gap-2 mt-4">
           <a
             href={linkWhatsApp("Oi, Camily! Vi o site da Doceterapia e queria falar com você.")}
             target="_blank"

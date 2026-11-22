@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import BarraInferior from "@/components/BarraInferior";
 import RegistrarServiceWorker from "@/components/RegistrarServiceWorker";
 import { IMAGEM_PREVIA, SITE } from "@/lib/site";
+import { temaNatalino } from "@/lib/tema-da-loja";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -92,7 +93,7 @@ export default function RootLayout({
         a barra cobre o último botão de cada tela — e o último botão costuma
         ser justamente o de finalizar alguma coisa.
       */}
-      <body className="font-body pb-[calc(64px+env(safe-area-inset-bottom))]">
+      <body className={`font-body pb-[calc(64px+env(safe-area-inset-bottom))]${temaNatalino ? " tema-natal" : ""}`}>
         {children}
         {gaveta}
         <BarraInferior />
