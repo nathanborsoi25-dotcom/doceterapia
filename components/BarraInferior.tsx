@@ -113,7 +113,7 @@ export default function BarraInferior() {
      */
     <nav
       aria-label="Navegação principal"
-      className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur shadow-[0_-15px_45px_rgba(10,10,10,0.10)] pb-[env(safe-area-inset-bottom)]"
+      className="barra-inferior fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur shadow-[0_-15px_45px_rgba(10,10,10,0.10)] pb-[env(safe-area-inset-bottom)]"
     >
       <ul className="flex items-stretch justify-center max-w-lg mx-auto">
         {lista.map((item) => {

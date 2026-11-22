@@ -12,6 +12,118 @@ body {
   color: #3b1a1f;
 }
 
+body:has(.natal-cabecalho) {
+  --natal-creme: #fff7eb;
+  --natal-vermelho: #aa131b;
+  --natal-verde: #254c36;
+  --natal-borda: #d4b59e;
+  background-color: var(--natal-creme);
+}
+
+.natal-cabecalho .natal-marca {
+  color: var(--natal-verde);
+}
+
+body:has(.natal-cabecalho) :is(.barra-inferior, .filtros-catalogo) {
+  background-color: var(--natal-creme);
+}
+
+body:has(.natal-cabecalho) .barra-inferior {
+  border-top: 1px solid var(--natal-borda);
+}
+
+body:has(.natal-cabecalho) .barra-inferior a {
+  color: var(--natal-verde);
+}
+
+body:has(.natal-cabecalho) .barra-inferior a:is(:hover, [aria-current="page"]) {
+  color: var(--natal-vermelho);
+}
+
+.natal-vitrine {
+  position: relative;
+  isolation: isolate;
+  border-radius: 1rem;
+  border: 1px solid var(--natal-vermelho);
+  color: var(--natal-creme);
+  background:
+    radial-gradient(ellipse at 84% 20%, #c8232a, transparent 60%),
+    var(--natal-vermelho);
+}
+
+.natal-vitrine::before {
+  position: absolute;
+  inset: 5px;
+  border: 3px double #fff7eb95;
+  border-radius: 0.75rem;
+  pointer-events: none;
+  content: "";
+}
+
+.natal-perfil {
+  color: var(--natal-verde);
+  background: var(--natal-creme);
+}
+
+.natal-perfil:hover {
+  background: #f6e4cf;
+}
+
+.natal-perfil:focus-visible {
+  outline: 2px solid var(--natal-creme);
+  outline-offset: 3px;
+}
+
+.natal-arte {
+  border: 1px solid #fff7eb95;
+  border-radius: 0.25rem;
+  box-shadow: 0 8px 20px #46080f59;
+}
+
+.natal-neve {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .natal-neve {
+    position: absolute;
+    inset: 0;
+    display: block;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .natal-neve span {
+    position: absolute;
+    top: 0;
+    left: var(--floco-posicao);
+    width: var(--floco-tamanho);
+    height: 100%;
+    animation: neve-descendo var(--floco-duracao) linear var(--floco-atraso) both;
+  }
+
+  .natal-neve span::before {
+    display: block;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--natal-creme);
+    content: "";
+    animation: neve-ao-vento var(--floco-duracao) ease-in-out var(--floco-atraso) both;
+  }
+}
+
+@keyframes neve-descendo {
+  0% { transform: translateY(0); opacity: 0; }
+  16% { opacity: 0.72; }
+  76% { opacity: 0.56; }
+  100% { transform: translateY(100%); opacity: 0; visibility: hidden; }
+}
+
+@keyframes neve-ao-vento {
+  50% { transform: translateX(var(--floco-desvio)); }
+}
+
 /*
  * Regras de celular. O site é divulgado no Instagram, então quase todo
  * acesso vem do telefone — estas regras valem para todas as telas de uma

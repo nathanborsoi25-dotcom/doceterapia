@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { temaNatalino } from "@/lib/tema-da-loja";
 
 /**
  * Cabeçalho do site: só a marca.
@@ -20,14 +21,14 @@ export default function Header() {
      * desceram pro rodapé, o topo é só a assinatura da loja — e é a primeira
      * coisa que quem chega pelo Instagram vê.
      */
-    <header className="w-full py-4 sm:py-6 px-4 sm:px-6 md:px-12 flex justify-center">
+    <header className={`w-full py-4 sm:py-6 px-4 sm:px-6 md:px-12 flex justify-center${temaNatalino ? " natal-cabecalho" : ""}`}>
       <Link
         href="/catalogo"
         aria-label="Doceterapia — ir para o cardápio"
         className="font-display text-3xl sm:text-4xl md:text-5xl tracking-tight py-1"
       >
         <span className="text-cherryDark font-bold">doce</span>
-        <span className="text-cherryLight">terapia</span>
+        <span className="text-cherryLight natal-marca">terapia</span>
       </Link>
     </header>
   );

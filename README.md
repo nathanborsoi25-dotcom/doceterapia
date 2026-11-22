@@ -235,6 +235,10 @@ O repositório está ligado à Vercel: **todo push na `main` vira deploy de
 produção**, servido em doceterapia.net.br. Ao mudar o esquema, rode a migração
 apontando para o banco de produção **antes** de subir o código que depende dela.
 
+O tema natalino da vitrine está ativo por padrão. Para voltar ao visual
+clássico, defina `NEXT_PUBLIC_TEMA_DA_LOJA=classico` na Vercel e faça um novo
+deploy. A tag `layout-antes-do-natal-2026` guarda o código anterior à campanha.
+
 ---
 
 ## Mapa das pastas

@@ -8,6 +8,8 @@ import ProductCard from "@/components/ProductCard";
 import BannerPromocao from "@/components/BannerPromocao";
 import ConviteInstalar from "@/components/ConviteInstalar";
 import CherryDivider from "@/components/CherryDivider";
+import NatalNoCatalogo from "@/components/NatalNoCatalogo";
+import { temaNatalino } from "@/lib/tema-da-loja";
 import { getCategorias, getProdutos } from "@/lib/api";
 import {
   agruparPorCategoria,
@@ -176,20 +178,23 @@ export default function CatalogoPage() {
     <>
       <Header />
       <main className="px-4 sm:px-6 md:px-12 pb-16">
-        <h1 className="font-display text-2xl sm:text-3xl text-center text-cherryDark">
-          Nosso cardápio de hoje
-        </h1>
-        {/* Onde buscar, como pagar e quem faz — as três perguntas que chegavam
-            no WhatsApp antes de qualquer pedido, agora a um toque daqui. */}
-        <Link
-          href="/loja"
-          className="mx-auto mt-2 flex w-fit items-center gap-2 rounded-full bg-white/70 border border-cherryLight/40 px-5 py-2.5 font-body text-sm text-ink/70 hover:border-cherryDark transition-colors"
-        >
-          <span aria-hidden="true">🍒</span>
-          Perfil da loja
-        </Link>
-
-        <CherryDivider />
+        {temaNatalino ? (
+          <NatalNoCatalogo />
+        ) : (
+          <>
+            <h1 className="font-display text-2xl sm:text-3xl text-center text-cherryDark">
+              Nosso cardápio de hoje
+            </h1>
+            <Link
+              href="/loja"
+              className="mx-auto mt-2 flex w-fit items-center gap-2 rounded-full bg-white/70 border border-cherryLight/40 px-5 py-2.5 font-body text-sm text-ink/70 hover:border-cherryDark transition-colors"
+            >
+              <span aria-hidden="true">🍒</span>
+              Perfil da loja
+            </Link>
+            <CherryDivider />
+          </>
+        )}
         <BannerPromocao />
         <ConviteInstalar />
 
@@ -202,7 +207,7 @@ export default function CatalogoPage() {
          * As margens negativas levam a fileira até a beirada da tela, pra
          * rolagem lateral começar onde o dedo já está.
          */}
-        <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 md:-mx-12 px-4 sm:px-6 md:px-12 bg-cream/95 backdrop-blur border-b border-cherryLight/25 mb-5">
+        <div className="filtros-catalogo sticky top-0 z-30 -mx-4 sm:-mx-6 md:-mx-12 px-4 sm:px-6 md:px-12 bg-cream/95 backdrop-blur border-b border-cherryLight/25 mb-5">
           <div className="max-w-5xl mx-auto flex items-center gap-2 py-2.5">
             {campoAberto ? (
               <>
